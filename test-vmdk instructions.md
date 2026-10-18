@@ -292,7 +292,33 @@ curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.frag
 
 به دلیل اینکه این Clone، نسخهٔ کامل همان VM است، Panel و Wings config موجود با هم کپی شده‌اند. چون VM اصلی خاموش است، برای همین دورهٔ تست نیازی به ساخت Node مستقل یا تولید config تازهٔ Wings نیست. **هیچ‌وقت هر دو VM را هم‌زمان روشن نکن.**
 
-## 10. پایان تست و بازگشت به VM اصلی
+## 10. بررسی جامع سلامت قبل از افزودن VMDK
+
+اسکریپت جمع‌بندی فقط‌خواندنی به ریپوی اصلی اضافه شده است:
+
+[clone-health-check.sh](https://github.com/larnzs/linux-node/blob/main/clone-health-check.sh)
+
+این اسکریپت hostname و IP، مسیر پیش‌فرض، سرویس‌های systemd، تست تنظیمات Nginx، پاسخ HTTPS محلی Panel، تاریخ انقضای گواهی‌ها، پورت‌های TCP در حال Listen، پینگ پایهٔ MariaDB و Redis، وضعیت Docker، فضای دیسک، وضعیت UFW و **تعداد** خطاهای سطح بالا در 15 دقیقهٔ اخیر را بررسی می‌کند. لاگ خام یا credentialها را چاپ/ذخیره نمی‌کند و هیچ سرویس یا تنظیمی را تغییر نمی‌دهد.
+
+در SSH متصل به Clone، این دستورات را اجرا کن:
+
+    curl -fsSLo /tmp/clone-health-check.sh \
+      https://raw.githubusercontent.com/larnzs/linux-node/main/clone-health-check.sh
+
+    bash -n /tmp/clone-health-check.sh
+
+اگر bash -n بدون خطا تمام شد، محتوای اسکریپت را می‌توان در لینک GitHub بالا مرور کرد. سپس آن را اجرا کن:
+
+    sudo bash /tmp/clone-health-check.sh
+
+**محدودیت‌ها و تفسیر نتیجه:**
+
+- اسکریپت فقط بررسی می‌کند که سرویس‌ها و پورت‌ها روی خود Debian آماده‌اند؛ مقصد Port Forward روتر را نمی‌تواند از داخل VM اثبات کند. آن‌ها را در رابط روتر به‌صورت دستی با IP 192.168.1.9 تطبیق بده.
+- وضعیت آنلاین Node باید جداگانه از داخل Panel تأیید شود.
+- هشدار دربارهٔ pteroq.service لزوماً به معنی خرابی Panel نیست؛ اسکریپت نام‌های مرتبط با Queue/Worker را فهرست می‌کند تا سرویس واقعی شناسایی شود. فعلاً به خاطر این هشدار چیزی نصب یا تغییر نده.
+- این اسکریپت read-only است: اگر WARN/FAIL نشان داد، خودش تعمیر انجام نمی‌دهد. خروجی خلاصه را بررسی کن و قبل از هر تغییر، مشکل مشخص را جداگانه عیب‌یابی کن.
+
+## 11. پایان تست و بازگشت به VM اصلی
 
 وقتی تست تمام شد:
 
@@ -303,7 +329,7 @@ curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.frag
 
 هرگز دو VM را هم‌زمان روشن نکن. اگر در آینده نیاز به اجرای هم‌زمان دو Node باشد، باید یک Node آزمایشی مستقل با هویت، دامنه و config اختصاصی طراحی شود.
 
-## 11. افزودن VMDK دادهٔ دوم — فقط به Clone
+## 12. افزودن VMDK دادهٔ دوم — فقط به Clone
 
 پس از آماده‌شدن Clone و شناسایی درست آن:
 
@@ -320,7 +346,7 @@ curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.frag
 5. دیسک تازه را با تطبیق اندازه، type، filesystem و mountpoint شناسایی کن. نام دستگاه را حدس نزن؛ ممکن است /dev/sdb باشد اما تضمینی نیست.
 6. تا وقتی دیسک جدید با اطمینان از دیسک root جدا تشخیص داده و تأیید نشده، هیچ mkfs، partitioning، mount یا ویرایش /etc/fstab اجرا نکن. دستورات formatting عمداً در این سند نیامده‌اند؛ بعد از ارائهٔ خروجی lsblk و blkid دربارهٔ دستگاه واقعی تصمیم می‌گیریم.
 
-## 12. محدودهٔ PoC مربوط به CS2 Shared Base
+## 13. محدودهٔ PoC مربوط به CS2 Shared Base
 
 این Clone صرفاً محل آزمایش است. هیچ اسکریپت KUS یا Egg نصب بازی را اجرا نکن تا Layout ذخیره‌سازی مشخص شود.
 
@@ -340,7 +366,7 @@ curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.frag
 - مستند Mountهای سفارشی Pterodactyl: https://docs.pterodactyl.io/v1/guides/configuration/mounts
 - مستند Linux OverlayFS: https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html
 
-## 13. چک‌لیست مرحلهٔ جاری
+## 14. چک‌لیست مرحلهٔ جاری
 
 - [x] فضای آزاد Windows host بررسی شد؛ D در زمان بررسی حدود 301.8 GB آزاد داشت.
 - [x] مسیر VMX روی C و فایل VMDK روی D پیدا شد.
