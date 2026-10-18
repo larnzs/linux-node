@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی:** پنل `v1.15.1` روی `https://panel.fragcity.ir` نصب است؛ Docker Engine و Wings فعال‌اند، `config.yml` از Auto-Deploy ساخته شده و گواهی‌های TLS پنل و Node آماده‌اند. مشکل ارتباط Node به‌علت Port Forward حل شده و مرحلهٔ 6.8 تکمیل است. **مرحلهٔ جاری 7.1:** بررسی فقط‌خواندنی Storage پیش از ساخت اولین Instance. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
+> **وضعیت فعلی:** پنل Pterodactyl، Docker و Wings راه‌اندازی شده‌اند؛ ارتباط Node با Port Forward پورت‌های Wings برقرار است. بازبینی فقط‌خواندنی نشان داد هنوز Base Game یا Instance بازی روی Node ساخته نشده است. مستندات Shared Base بررسی شده، اما روش فنی باید ابتدا روی یک کپی آزمایشگاهی و VMDK جداگانه اثبات شود. **مرحلهٔ جاری 7.3:** آماده‌سازی امن کپی آزمایشگاهی؛ هیچ تغییری روی Node اصلی انجام نده. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -1816,7 +1816,7 @@ Wings و سرویس systemd راه‌اندازی شده‌اند. **فعلاً 
 
 سبک‌بودن Debian Console-only ممکن است سربار سیستم‌عامل را نسبت به Desktop کاهش دهد، اما به‌تنهایی تضمین نمی‌کند مشکل slow frame در CS2 برطرف شود. بعداً باید baseline سرور را با بار کنترل‌شده بسنجیم و مشخص کنیم slow frame به server timing اشاره دارد یا FPS/frametime کلاینت.
 
-### 7.1 بررسی فضای ذخیره‌سازی — گام جاری
+### 7.1 بررسی فضای ذخیره‌سازی — تکمیل‌شده
 
 این مرحله فقط اطلاعات دیسک و مسیرهای موجود را می‌خواند؛ چیزی نصب، دانلود، پاک یا جابه‌جا نمی‌کند. در SSH دبیان اجرا کن:
 
@@ -1876,7 +1876,68 @@ fi
 - `docker system df` و `docker ps -a --size` کمک می‌کنند بفهمیم Docker از قبل فضایی مصرف کرده یا Container/Volume موجودی دارد.
 - خروجی ترمینال را در README نگذار؛ فقط اگر لازم شد برای تحلیل در همین گفت‌وگو بفرست و هر مقدار حساس را حذف کن.
 
-### 7.2 تصمیم Storage — پس از بررسی 7.1
+**نتیجهٔ بررسی فقط‌خواندنی:** روی Node فعلی هنوز `/home/steam`، مسیرهای Volume/Archive/Backup مربوط به سرورهای Pterodactyl و هیچ Container یا Docker Volume مربوط به سرور بازی وجود ندارد. این VM فعلاً Base Game را نصب نکرده است؛ از این وضعیت پاک به‌عنوان مبنای آزمایش استفاده کن. خروجی خام ترمینال یا لاگ به README اضافه نشود.
+
+### 7.2 ممیزی اسکریپت‌های KUS و معماری Shared Base — تکمیل‌شده
+
+مستند معماری FragCity: [CS2-MULTI-INSTANCE.md](https://github.com/larnzs/FragCity-RawPHPbackend/blob/main/docs/CS2-MULTI-INSTANCE.md).
+
+**نتیجهٔ بررسی ریپوها:**
+
+- [Dockerfile خود FragCity/KUS](https://github.com/larnzs/cs2-kus-addons/blob/integration/kus-monorepo/docker/Dockerfile)، [Compose](https://github.com/larnzs/cs2-kus-addons/blob/integration/kus-monorepo/docker/docker-compose.yml)، [install_docker.sh](https://github.com/larnzs/cs2-kus-addons/blob/integration/kus-monorepo/docker/install_docker.sh) و [update.sh](https://github.com/larnzs/cs2-kus-addons/blob/integration/kus-monorepo/docker/update.sh) برای مسیر فعلی تک‌سرورند. Compose یک container name ثابت و یک named volume به نام `cs2-volume` دارد. Volume باعث می‌شود نصب بازی بین اجرای مجدد همان deployment باقی بماند؛ ولی اگر هر Instance یک Volume مستقل بگیرد، نصب بازی در آن Volume تکرار می‌شود. اگر چند سرور یک Volume نوشتنی را با هم شریک شوند، تغییرات فایل و تنظیمات با هم تداخل می‌کنند.
+- `install_docker.sh` بازی را با SteamCMD در مسیر پایدار `/home/steam/cs2` نصب/Update می‌کند و سپس payload ردیابی‌شده را روی درخت بازی overlay می‌کند. این اسکریپت یک provisioner برای Shared Base چندمشتری‌ای نیست و مستقیماً نباید به‌عنوان Egg هر Instance استفاده شود.
+- [Compose اصلی KUS](https://github.com/kus/cs2-modded-server/blob/master/docker-compose.yml) نیز یک سرویس و یک Volume پایدار تعریف می‌کند؛ یادداشت Docker اصلی KUS می‌گوید Volume نصب بازی را بین اجراها حفظ می‌کند. این الگو جلوی دانلود دوباره در هر restart همان deployment را می‌گیرد، اما به‌تنهایی برای چند Instance مستقل با Base خواندنی مشترک کافی نیست.
+- [Linux instance template](https://github.com/larnzs/cs2-kus-addons/tree/integration/kus-monorepo/linux/instances/instance-template) از `/home/steam/cs2` مشترک استفاده می‌کند و فایل‌های `CUSTOM_FOLDER/cfg` و `CUSTOM_FOLDER/addons` را پیش از Start به همان runtime کپی می‌کند. README خودش هشدار می‌دهد که این overlay فایل‌ها را بین دو سرور فعال ایزوله نمی‌کند؛ بنابراین برای چند مشتری هم‌زمان بدون اصلاح معماری استفاده نشود.
+- Shared Base برای PoC در سند FragCity انتخاب شده، ولی مکانیزم اتصال Base و Volume خصوصی (mount، OverlayFS یا روش دیگر) هنوز پیاده‌سازی منتخب یا آزمایش‌شده نیست. این بخش هیچ‌یک از دو ریپوی KUS یا FragCity را تغییر نمی‌دهد.
+
+**نامزدهای فنی برای PoC، نه تصمیم نهایی:**
+
+- [Pterodactyl custom mounts](https://docs.pterodactyl.io/v1/guides/configuration/mounts) اجازه می‌دهد مسیر میزبان به Container mount شود؛ منبع باید در `allowed_mounts` مربوط به Wings مجاز شده و Mount نیز در Panel تنظیم شود. محدودیت مهم: Mountهای سفارشی در File Manager و SFTP نمایش داده نمی‌شوند. پس به‌تنهایی ممکن است نیاز File Manager مشتری به فایل‌های خصوصی را برآورده نکنند.
+- [Linux OverlayFS](https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html) امکان ترکیب lower/upper را دارد، اما upper و work باید روی یک filesystem باشند و رفتار copy-up/delete/whiteout باید در آزمون واقعی سنجیده شود. این فقط نامزد آزمایش است، نه روش انتخاب‌شده.
+
+**ممنوعیت تا پایان PoC:** اسکریپت‌های `docker/update.sh`، `docker/install_docker.sh`، `linux/install.sh` یا هر Egg مربوط به نصب CS2 را روی Node اصلی اجرا نکن. هیچ payloadی از `game/csgo` را روی Base مرکزی copy/merge نکن و از runtime مشترک نوشتنی برای دو Instance استفاده نکن.
+
+### 7.3 آماده‌سازی کپی آزمایشگاهی و VMDK دوم — گام جاری
+
+**هدف:** روی VM کپی‌شده و یک دیسک دادهٔ جداگانه، Base مرکزی و جداسازی Instanceها را آزمایش کنیم؛ Node اصلی تا پایان آزمون بدون تغییر بماند.
+
+#### 7.3.1 ایجاد کپی امن از VM
+
+1. وقتی آماده شدی، از SSH روی VM اصلی `sudo systemctl poweroff` اجرا کن و در VMware صبر کن وضعیت VM کاملاً **Powered Off** شود؛ VM را Suspend نکن و در حال اجرا از فایل‌های VMDK کپی زنده نگیر.
+2. از کل پوشهٔ VM، شامل فایل پیکربندی `.vmx` و تمام فایل‌های دیسک، یک کپی مستقل بگیر یا Full Clone بساز. کپی‌کردن فقط یک فایل extent از VMDK به‌تنهایی کافی نیست. کپی اصلی را تغییر نده.
+3. هنگام اولین روشن‌کردن کپی، اگر VMware پرسید، **I Copied It** را انتخاب کن تا UUID/MAC مجازی جدید تولید شود. راهنمای Broadcom: https://knowledge.broadcom.com/external/article/310359/copy-workstation-virtual-machine-from-on.html
+4. در اولین بوت، Network Adapter کپی را Disconnect/Isolate نگه دار. کپی شامل hostname، `machine-id`، کلیدهای SSH، گواهی‌ها و هویت Node موجود است؛ تا قبل از جداکردن هویت آزمایشگاهی، آن را به شبکهٔ اصلی وصل نکن. همچنین روی **کپی آزمایشگاهی** سرویس Wings را پیش از هر اتصال شبکه متوقف کن تا با همان Node ID به Panel اصلی مراجعه نکند. به سرویس Wings روی VM اصلی دست نزن.
+5. پس از جداکردن هویت شبکه‌ای و نام میزبان در خود کپی و تأیید اینکه دیگر به Node اصلی وصل نمی‌شود، اتصال شبکهٔ مناسب برای دریافت بسته‌ها/SteamCMD را جداگانه طراحی می‌کنیم. اگر قصد تست end-to-end با Panel/Wings را داشته باشیم، برای محیط آزمایش باید Node هویت مستقل داشته باشد؛ صرفاً کپی‌کردن config فعلی کافی نیست.
+
+#### 7.3.2 افزودن VMDK داده فقط به VM آزمایشگاهی
+
+1. در تنظیمات VMware، یک virtual hard disk جدید به **کپی آزمایشگاهی** اضافه کن؛ VMDK اصلی و فایل‌های دیسک VM اصلی را تغییر نده.
+2. پیش از انتخاب ظرفیت، فضای آزاد واقعی روی درایو Windows میزبان را بررسی کن. دیسک جدید می‌تواند thin/growable باشد، اما ظرفیت مجازی را بدون دانستن فضای میزبان انتخاب نکن.
+3. پس از بوت کپی، فقط با `lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS` و `sudo blkid` دستگاه تازه را شناسایی کن. در این مرحله **فرمت یا Mount نکن** تا نام دیسک، اندازه و جدابودنش از دیسک سیستم با تأیید دوطرفه مشخص شود.
+4. پس از تأیید دیسک جدید، برایش filesystem و mount دائمی مخصوص Base/دادهٔ بازی طراحی می‌کنیم. فعلاً مسیر نهایی و فرمان‌های `mkfs` یا `/etc/fstab` تا شناسایی دقیق دستگاه نوشته/اجرا نمی‌شوند.
+
+#### 7.3.3 محدودهٔ اولین آزمون
+
+اولین آزمون فقط Base مرکزی و دسترسی خواندنی از یک Instance خواهد بود؛ هنوز دومین Instance هم‌زمان، Update خودکار Base، یا نصب کامل Production اجرا نمی‌شود. بعد از تأیید دسترسی و مالکیت فایل‌ها، یک Instance خصوصی می‌سازیم و سپس یک Instance دوم را برای آزمون جداسازی اضافه می‌کنیم. معیارها بر اساس بخش‌های 5 و 6 مستند Multi-Instance بررسی می‌شوند.
+
+**قدم فعلی:** قبل از خاموش‌کردن VM، باید کپی کامل و فضای آزاد میزبان Windows را آماده کنیم؛ فرمان‌های Disk formatting را اجرا نکن.
+
+### 7.4 تصمیم Storage — پس از بررسی 7.3
+
+پس از آماده‌شدن VM آزمایشگاهی و VMDK، قبل از نصب Base این موارد را مشخص می‌کنیم:
+1. مسیر و filesystem نهایی Base مرکزی و SteamCMD.
+2. روش read-only اشتراک Base و پوشه‌های خصوصی هر Instance.
+3. سازگاری Egg/Startup با CS2 واقعی، نه صرفاً Egg قدیمی CS:GO.
+4. Backup/Restore و رفتار حذف/Reinstall یک Instance.
+5. فضای لازم برای Base، نقشه‌ها/Workshop، addons، logها و backup.
+
+### 7.5 اولین سرور آزمایشی — پس از قبولی طراحی Storage
+
+فقط پس از تأیید Storage، سازگاری Egg، CPU/RAM/disk و طراحی Allocation/Firewall یک Instance آزمایشی کم‌بار می‌سازیم. سپس Start/Stop/Console/Files/SFTP، جدایی داده‌ها و baseline عملکرد را بررسی می‌کنیم. افزونه‌ها و نقشه‌ها باید مرحله‌ای اضافه شوند تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
+
+تا تکمیل مراحل قبل، هیچ Instance جدیدی روی Node اصلی نساز و به `/home/steam` دست نزن.
+
+
 
 پس از دیدن وضعیت واقعی، قبل از ایجاد Instance این موارد را مشخص می‌کنیم:
 1. آیا `/home/steam` واقعاً وجود دارد و حاوی فایل‌های بازی موردنیاز KUS است؟
@@ -1911,7 +1972,7 @@ fi
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Wings پایدار اجرا می‌شود و سرویس systemd فعال/enable است. مشکل اتصال Node با Port Forward کردن TCP 8080 و 2022 به IP رزروشدهٔ Node و قوانین UFW حل شده؛ مرحلهٔ 6.8 تکمیل است. گام جاری 7.1: بررسی فقط‌خواندنی Storage، `/home/steam` و مسیرهای Docker/Pterodactyl؛ قبل از بررسی Storage و سازگاری Egg، Instance بازی نساز. |
+| مرحلهٔ جاری | اتصال Node با Port Forward پورت‌های TCP 8080/2022 برقرار شده؛ لاگ فعلی Wings و Docker خطای فعال نشان نمی‌دهد. بازرسی Storage و ممیزی اسکریپت‌های KUS انجام شده است، اما هیچ Base Game/Instance نصب نشده. گام جاری 7.3: تهیهٔ کپی خاموش و ایزولهٔ VM، سپس افزودن VMDK فقط به کپی؛ روی Node اصلی هیچ تغییری انجام نشود. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1920,7 +1981,7 @@ fi
 | DNS / public IP | پیش از صدور/تمدید گواهی و پس از هر تغییر WAN، رکوردهای عمومی را طبق مرحلهٔ 3.7.2 با IPv4 فعلی تطبیق بده |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS تنظیم شده؛ Docker فعال است؛ `config.yml` از Auto-Deploy تولید شده؛ Wings از آزمون foreground عبور کرده و سرویس systemd فعال/enable است. اتصال Node با Port Forward و قوانین UFW برقرار شده است. SMTP باید پیش از Production تنظیم شود. |
+| Panel / Docker / Wings | Panel روی HTTPS تنظیم شده؛ Docker فعال است؛ `config.yml` از Auto-Deploy تولید شده؛ Wings از آزمون foreground عبور کرده و سرویس systemd فعال/enable است. اتصال Node با Port Forward و قوانین UFW برقرار شده است. لاگ systemd اخیر Wings و Docker هشدار/خطای جدید نشان نداد؛ پیام‌های قدیمی TLS مربوط به قبل از آماده‌شدن گواهی‌اند. SMTP باید پیش از Production تنظیم شود. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
