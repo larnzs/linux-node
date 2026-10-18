@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** فقط دستورها، توضیحات، پیش‌نیازها و checkpointهای مرحله‌ای در این سند قرار می‌گیرند. خروجی ترمینال، لاگ واقعی و نتیجهٔ اجرای فرمان‌ها عمداً در README ثبت نمی‌شود؛ خروجی لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. برای اجرای پروژه از صفر، از این سند شروع کن.
 >
-> **وضعیت فعلی: نصب Console-only انجام شده و ماشین به صفحهٔ متنی ورود `fc-node-01 tty1` رسیده است.** مرحلهٔ جاری: آماده‌سازی پایه پس از نصب؛ بررسی سیستم، به‌روزرسانی بسته‌ها، نصب ابزارهای مدیریتی، تثبیت hostname/FQDN، تنظیم ساعت و فعال‌سازی SSH. هیچ instance یا بازی CS2 در این فاز نصب نمی‌شود.
+> **وضعیت فعلی: نصب Console-only و مراحل پایهٔ 1.9 تا 1.14 تکمیل شده‌اند.** مرحلهٔ جاری: مراحل 1.15 تا 1.19 برای بررسی hostname، رزرو DHCP، بررسی IPv4 عمومی/CGNAT، DNS عمومی، کلید و سخت‌سازی SSH و Firewall. Panel، Docker، Wings و instance بازی CS2 هنوز روی این Debian تازه نصب نشده‌اند.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -282,15 +282,202 @@ lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 
 این بلوک آخر وضعیت فعلی شبکه، دسترسی HTTPS و ساعت را بررسی می‌کند. اگر `getent`، `curl` یا `chronyc` خطا داد، بلوک را دوباره و پشت‌سرهم اجرا نکن؛ خروجی را همین‌جا بفرست تا اول علت را مشخص کنیم.
 
-### 1.15 بعد از این شش مرحله چه می‌کنیم؟
+### 1.15 مرحلهٔ هفتم — بررسی نهایی hostname، شبکه و وضعیت سرویس‌ها
 
-پس از بررسی خروجی‌ها، به ترتیب سراغ این موارد می‌رویم:
+این بلوک فقط‌خواندنی است و مطمئن می‌شود هشدار قبلی مربوط به تغییر hostname تکرار نمی‌شود. مقدار MAC برای رزرو DHCP در مرحلهٔ بعد استفاده خواهد شد.
 
-1. رزرو DHCP برای IP داخلی ثابت.
-2. بررسی IP عمومی و اینکه اتصال ورودی از اینترنت واقعاً ممکن است.
-3. بررسی DNS برای `panel.fragcity.ir` و `fc-node-01.fragcity.ir`.
-4. فایروال و SSH با روش امن، قبل از انتشار سرویس‌ها.
-5. نصب پیش‌نیازهای Panel و سپس خود Panel.
+~~~bash
+set -eu
+
+echo "=== Host identity and local resolution ==="
+hostname -s
+hostname -f
+getent hosts fc-node-01
+getent hosts fc-node-01.fragcity.ir
+
+echo
+echo "=== LAN identity ==="
+ip -4 -o address show dev ens33
+ip route
+printf 'MAC: '
+cat /sys/class/net/ens33/address
+
+echo
+echo "=== Services and time ==="
+sudo -v
+systemctl is-active ssh chrony
+timedatectl show -p Timezone -p NTPSynchronized -p NTP
+~~~
+
+اگر hostname به‌درستی resolve نشد یا هشدار `sudo: unable to resolve host` همچنان تکرار شد، قبل از مراحل شبکه خروجی را بفرست؛ پیکربندی‌های بیشتری را حدس‌زنان تغییر نده.
+
+### 1.16 مرحلهٔ هشتم — رزرو DHCP برای IP داخلی ثابت
+
+هدف این است که MAC کارت شبکهٔ `ens33` همیشه همان IP داخلی را دریافت کند. فعلاً روی Debian آدرس استاتیک دستی تعریف نکن؛ رزرو DHCP و تنظیم IP استاتیک داخل سیستم را هم‌زمان انجام نده.
+
+1. از مرحلهٔ 1.15، MAC کارت شبکه را یادداشت کن.
+2. وارد دستگاهی شو که DHCP شبکهٔ فعلی `192.168.1.0/24` را مدیریت می‌کند. Gateway فعلی `192.168.1.1` است، اما فرض نکن که حتماً خودش DHCP Server است.
+3. اگر از MikroTik/Winbox استفاده می‌کنی: به **IP → DHCP Server → Leases** برو، Lease مربوط به IP `192.168.1.7` را با MAC مرحلهٔ قبل تطبیق بده و **Make Static** را بزن. اگر DHCP را دستگاه دیگری مدیریت می‌کند، همان‌جا رزرو مشابه بساز.
+4. مطمئن شو رزرو از همان IP `192.168.1.7` برای همان MAC استفاده می‌کند؛ آدرس متعلق به دستگاه دیگری را رزرو یا جابه‌جا نکن.
+5. بعد از ذخیرهٔ رزرو، VM را از SSH با فرمان زیر reboot کن. این فرمان اتصال SSH را قطع می‌کند؛ طبیعی است.
+
+~~~bash
+sudo reboot
+~~~
+
+پس از بالا آمدن VM، از PowerShell دوباره وصل شو:
+
+~~~powershell
+ssh sv1@192.168.1.7
+~~~
+
+و IP/route را بررسی کن:
+
+~~~bash
+ip -4 -o address show dev ens33
+ip route
+cat /sys/class/net/ens33/address
+~~~
+
+ادامه فقط وقتی انجام شود که IP و MAC با رزرو DHCP مطابق باشند. اگر IP تغییر کرد، آدرس تازه را از کنسول VMware پیدا کن و قبل از ادامهٔ راهنما آن را تأیید کن.
+
+### 1.17 مرحلهٔ نهم — بررسی IPv4 عمومی، NAT و CGNAT
+
+این بلوک فقط IPv4 خروجی‌ای را که سرویس بیرونی می‌بیند نمایش می‌دهد؛ به‌تنهایی ثابت نمی‌کند اتصال ورودی از اینترنت قابل‌دسترسی است.
+
+~~~bash
+set -eu
+echo "=== External IPv4 seen by an HTTPS service ==="
+curl -4fsS --max-time 15 https://api.ipify.org
+printf '\n'
+
+echo
+echo "=== Local default route ==="
+ip -4 route
+~~~
+
+در پنل روتر یا مودم، **WAN IPv4** را با آدرسی که فرمان بالا نشان می‌دهد مقایسه کن:
+
+- اگر یکسان‌اند و WAN IPv4 عمومی است، احتمالاً روتر IP عمومی را مستقیم دریافت کرده است؛ همچنان باید قوانین ورودی و ISP بررسی شوند.
+- اگر WAN IPv4 در بازه‌های خصوصی `10.0.0.0/8`، `172.16.0.0/12`، `192.168.0.0/16` یا بازهٔ CGNAT یعنی `100.64.0.0/10` است، یا با آدرس بیرونی تفاوت دارد، احتمال NAT بالادستی، Double NAT یا CGNAT وجود دارد. قبل از هر Port Forwarding باید مسیر واقعی مشخص شود.
+- فعلاً هیچ پورتی را برای WAN باز نکن. اگر IP عمومی ورودی از ISP در دسترس نیست، قبل از انتشار سرویس باید راه‌حل اتصال مناسب انتخاب شود.
+
+آدرس IP و نتیجهٔ بررسی را در README ننویس؛ README فقط دستورها و مراحل تکرارپذیر را نگه می‌دارد.
+
+### 1.18 مرحلهٔ دهم — بررسی و آماده‌سازی DNS عمومی
+
+ابتدا Nameserverهای دامنه و رکوردهای واقعی را بررسی کن. فرمان `dig` از DNS استفاده می‌کند و ورودی محلی `/etc/hosts` را دور می‌زند.
+
+~~~bash
+set -eu
+echo "=== Authoritative DNS servers ==="
+dig +short NS fragcity.ir
+
+echo
+echo "=== Public A records ==="
+dig +short A panel.fragcity.ir
+dig +short A fc-node-01.fragcity.ir
+
+echo
+echo "=== Existing IPv6 records ==="
+dig +short AAAA panel.fragcity.ir
+dig +short AAAA fc-node-01.fragcity.ir
+~~~
+
+1. از روی NS مشخص کن مدیریت DNS واقعاً در کدام سرویس انجام می‌شود و فقط در همان پنل Zone را ویرایش کن.
+2. پس از تأیید داشتن IPv4 عمومی قابل‌استفاده در مرحلهٔ 1.17، رکوردهای **A** برای `panel.fragcity.ir` و `fc-node-01.fragcity.ir` را به همان IPv4 عمومی تنظیم کن؛ هرگز IP داخلی `192.168.1.7` را به‌عنوان رکورد عمومی قرار نده.
+3. اگر Cloudflare داری، برای راه‌اندازی اولیهٔ Wings رکورد Node را **DNS only** نگه دار؛ پراکسی عادی Cloudflare نباید بدون طراحی و پشتیبانی از پورت‌ها فرض گرفته شود.
+4. رکورد **AAAA** نساز یا نگه ندار مگر IPv6 عمومی، مسیر ورودی، سرویس و Firewall همگی واقعاً تنظیم و آزمایش شده باشند.
+5. برای تأیید نهایی، فرمان‌های `dig` بالا را دوباره اجرا کن. خروجی A باید با IPv4 عمومی تأییدشده مطابقت داشته باشد. اگر رکوردها هنوز به‌روز نشده‌اند یا مقدار نامناسب دارند، قبل از ادامه علت را مشخص کن.
+
+ساخت رکورد DNS به‌تنهایی Port Forwarding، TLS یا قابلیت دسترسی ورودی را فعال نمی‌کند.
+
+### 1.19 مرحلهٔ یازدهم — کلید SSH، سخت‌سازی ورود و Firewall میزبان
+
+**این مرحله را به زیربخش‌های زیر تقسیم کن؛ همهٔ آن‌ها را بدون توقف و بررسی پشت سر هم اجرا نکن.** پیش از غیرفعال‌کردن ورود با رمز، اتصال کلیدی را در یک پنجرهٔ جدید PowerShell آزمایش کن و نشست فعلی SSH را باز نگه دار.
+
+#### 1.19.1 ساخت کلید SSH در Windows
+
+در PowerShell ویندوز، مسیر اختصاصی کلید FragCity را بررسی و سپس در صورت نبودن فایل‌ها بساز:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+
+if ((Test-Path $keyPath) -or (Test-Path "$keyPath.pub")) {
+    throw "Key path already exists. Do not overwrite it; use the existing key or choose a new unique filename."
+}
+
+ssh-keygen -t ed25519 -a 64 -f $keyPath -C "fragcity-windows"
+~~~
+
+اگر برای کلید passphrase انتخاب کردی، آن را در جای امن نگه دار و در چت یا README ننویس. فایل خصوصی `id_ed25519_fragcity` را هیچ‌وقت ارسال نکن؛ فقط فایل `.pub` کلید عمومی است.
+
+#### 1.19.2 نصب کلید عمومی برای حساب sv1
+
+در همان PowerShell ویندوز اجرا کن:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$pubKey = (Get-Content -Raw "$keyPath.pub").Trim()
+
+ssh sv1@192.168.1.7 "umask 077; mkdir -p ~/.ssh; printf '%s\\n' '$pubKey' >> ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys"
+~~~
+
+حالا **یک پنجرهٔ تازهٔ PowerShell** باز کن و ورود صرفاً با کلید را آزمایش کن:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath sv1@192.168.1.7
+~~~
+
+اگر این اتصال موفق نشد، هنوز تنظیمات احراز هویت SSH را تغییر نده. نشست قبلی را نبند و خطا را بررسی کن.
+
+#### 1.19.3 سخت‌سازی SSH؛ فقط پس از موفقیت ورود کلیدی
+
+پس از تأیید اتصال کلیدی از پنجرهٔ جدید، در نشست SSH اجرا کن:
+
+~~~bash
+set -eu
+sudo tee /etc/ssh/sshd_config.d/00-fragcity-hardening.conf >/dev/null <<'EOF'
+PubkeyAuthentication yes
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+EOF
+
+sudo sshd -t
+sudo sshd -T | grep -Ei '^(port|permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication) '
+sudo systemctl reload ssh
+~~~
+
+سپس از یک پنجرهٔ تازهٔ PowerShell دوباره ورود با کلید را آزمایش کن. تا موفقیت آزمایش دوم نشست قبلی را نبند. اگر `sshd -t` خطا داد، reload نکن و متن خطا را بررسی کن.
+
+#### 1.19.4 Firewall میزبان با UFW
+
+فقط بعد از تأیید ورود کلیدی، قواعد Firewall را تنظیم کن. این قواعد برای شبکهٔ فعلی هستند؛ اگر subnet یا روش مدیریت عوض شد، قاعدهٔ SSH باید پیش از فعال‌کردن Firewall با شبکهٔ واقعی تطبیق داده شود.
+
+~~~bash
+set -eu
+sudo apt install -y ufw
+
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+sudo ufw --force enable
+sudo ufw status verbose
+~~~
+
+این تنظیم، SSH ورودی را به subnet فعلی LAN محدود می‌کند و پورت‌های وب را در Firewall خود Debian مجاز می‌سازد. **این کار به‌تنهایی سرویس را روی اینترنت منتشر نمی‌کند**؛ Port Forwarding روتر هنوز جداگانه و در زمان مناسب انجام می‌شود. تا زمانی که Wings نصب و TLS آن پیکربندی نشده است، پورت‌های `8080` و `2022` را باز نکن و پورت `22` را به WAN فوروارد نکن.
+
+راهنماهای رسمی: https://manpages.debian.org/trixie/openssh-server/sshd_config.5.en.html و https://wiki.debian.org/Uncomplicated%20Firewall%20%28ufw%29
+
+### پس از تکمیل این پنج مرحله
+
+بعد از بررسی نتیجهٔ مراحل 1.15 تا 1.19، مرحلهٔ بعدی نصب پیش‌نیازهای Panel و سپس خود Panel خواهد بود. اگر IPv4 عمومی ورودی یا DNS هنوز آماده نیست، این موارد را به‌عنوان تکمیل‌شده علامت نزن و سرویس را روی WAN منتشر نکن.
 
 **در این فاز هیچ instance بازی ساخته نمی‌شود و هیچ فایل بازی CS2 دانلود نمی‌شود.** طراحی و آزمایش CS2/Egg/Storage در مرحلهٔ جداگانه و روی محیط آزمایشگاهی انجام خواهد شد.
 
@@ -817,12 +1004,14 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | مراحل 1.9 تا 1.14: ممیزی، آپدیت، ابزارهای پایه، FQDN، ساعت، SSH و تست شبکه |
+| مرحلهٔ جاری | مراحل 1.15 تا 1.19: hostname، رزرو DHCP، بررسی IPv4 عمومی/CGNAT، DNS و سخت‌سازی SSH/Firewall |
+| مراحل 1.9 تا 1.14 | تکمیل شده؛ Debian به‌روز است و DNS/HTTPS خروجی و NTP کار می‌کنند |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
+| IP داخلی فعلی | `192.168.1.7`؛ رزرو DHCP باید در مرحلهٔ 1.16 تأیید شود |
 | Panel FQDN هدف | `panel.fragcity.ir` |
-| DNS / public IP / TLS | بعد از بررسی واقعی شبکه تنظیم می‌شوند؛ هنوز آماده فرض نشوند |
-| SSH hardening / firewall | بعد از تأیید دسترسی LAN و بررسی اتصال کلید عمومی |
+| DNS / public IP / TLS | هنوز به‌عنوان آماده فرض نشوند؛ مراحل 1.17 تا 1.18 و مراحل بعدی لازم‌اند |
+| SSH hardening / firewall | هنوز تکمیل نشده؛ طبق مرحلهٔ 1.19 فقط پس از آزمایش کلید SSH انجام شود |
 | Panel / Docker / Wings | نصب روی Debian تازه هنوز آغاز نشده |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
