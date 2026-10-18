@@ -1361,7 +1361,7 @@ sudo systemctl status pteroq.service --no-pager -l
 sudo journalctl -u pteroq.service -n 40 --no-pager
 ~~~
 
-اگر این مرحله روی Clone موفق شد، قبل از پایان تست وضعیت Queue Worker را بررسی کن. این تغییرات به‌صورت خودکار به VMDK اصلی منتقل نمی‌شوند؛ هنگام بازگشت به آن نیز همین مرحله را جداگانه اجرا کن.
+نتیجهٔ ثبت‌شده در 2026-10-18: این مرحله روی Clone با IP `192.168.1.9` با موفقیت اجرا شد؛ `pteroq.service` هم `enabled` و هم `active (running)` بود و خط Scheduler در crontab ریشه تأیید شد. این تغییرات به‌صورت خودکار به VMDK اصلی منتقل نمی‌شوند؛ هنگام بازگشت به آن نیز همین مرحله را جداگانه اجرا کن. هنگام `systemd-analyze verify` یک هشدار جداگانه دربارهٔ مسیر قدیمی `PIDFile` در `wings.service` زیر `/var/run/` دیده شد؛ این هشدار Queue Worker را متوقف نکرده است و باید جداگانه و پس از بررسی فایل سرویس پیگیری شود.
 
 **پورت `29001/udp` که برای سرور CS2 رزرو کرده‌ای در این مرحله دست‌نخورده می‌ماند.**
 
@@ -2087,7 +2087,7 @@ fi
 6. هنوز Base Game، Instance بازی یا پورت CS2 نصب/باز نشده است. هیچ اسکریپت نصب KUS یا Egg را اجرا نکن تا VMDK دادهٔ دوم شناسایی شود و طراحی Shared Base تأیید گردد.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
-**آخرین health check (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN هستند. پیش‌بررسی بعدی تأیید کرد PHP CLI 8.3.35، Laravel 12.64.0، QUEUE_CONNECTION=redis، Artisan commands و Cron سالم‌اند؛ اما Queue Worker و Scheduler cron در نصب اولیه جا افتاده بودند. راه‌حل معیار اکنون در مرحلهٔ 3.4.1 همین README ثبت شده؛ روی Clone و هنگام بازگشت، جداگانه روی VMDK اصلی اجرا شود. UFW قانون 29001/udp را بنا به تصمیم کاربر برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
+**آخرین health check کاملِ اولیه (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN بودند. در ادامه، مرحلهٔ 3.4.1 برای Queue Worker و Scheduler روی Clone با IP `192.168.1.9` با موفقیت اجرا و تأیید شد: `pteroq.service` برابر `enabled` و `active (running)` است و ورودی `schedule:run` در crontab ریشه وجود دارد. این تغییر هنوز باید جداگانه روی VMDK اصلی اعمال شود. UFW قانون `29001/udp` را بنا به تصمیم کاربر برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
 
 #### 7.3.2 افزودن VMDK داده فقط به Clone
 
@@ -2159,7 +2159,7 @@ sudo blkid
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Clone با IP 192.168.1.9 و hostname fc-node-01 health check برابر 24 PASS / 1 WARN / 0 FAIL گرفت. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ HTTPS محلی Panel=200 است. پیش‌بررسی PHP CLI/Artisan موفق؛ QUEUE_CONNECTION=redis و Cron فعال‌اند، ولی Queue Worker و Scheduler در نصب اولیه جا افتاده‌اند؛ راه‌اندازی استاندارد آن‌ها اکنون در مرحلهٔ 3.4.1 همین README ثبت شده و باید روی Clone فعال و هنگام بازگشت جداگانه روی VMDK اصلی اجرا شود. UFW پورت 29001/udp را برای CS2 آینده باز نگه می‌دارد؛ تغییر نده. مقصد Port Forwardها و Online بودن Node در UI هنوز دستی تأیید شوند؛ پس از تکمیل این مرحله VMDK جدید را فقط به Clone اضافه کن. |
+| مرحلهٔ جاری | Clone با IP `192.168.1.9` و hostname `fc-node-01` health check اولیهٔ 24 PASS / 1 WARN / 0 FAIL گرفت. Queue Worker و Scheduler بعداً طبق مرحلهٔ 3.4.1 نصب و با موفقیت روی Clone تأیید شدند (`pteroq.service` فعال/enabled؛ ورودی `schedule:run` در crontab ریشه وجود دارد). این اصلاح هنوز باید جداگانه روی VMDK اصلی اجرا شود. UFW پورت `29001/udp` را برای CS2 آینده باز نگه می‌دارد؛ تغییر نده. مقصد Port Forwardها و Online بودن Node در UI هنوز دستی تأیید شوند؛ سپس VMDK جدید را فقط به Clone اضافه کن. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
