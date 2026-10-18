@@ -748,8 +748,10 @@ sudo cp .env.example .env
 sudo chown www-data:www-data .env
 sudo chmod 640 .env
 
-# Give www-data a dedicated writable Composer home instead of relying on /var/www permissions.
-sudo install -d -o www-data -g www-data -m 0750 /var/www/.composer
+# ساخت مسیر قابل‌نوشتن اختصاصی Composer برای کاربر www-data
+sudo install -d -m 0750 /var/www/.composer
+sudo chown www-data:www-data /var/www/.composer
+sudo chmod 0750 /var/www/.composer
 
 cd /var/www/pterodactyl
 sudo -u www-data env HOME=/var/www COMPOSER_HOME=/var/www/.composer \
