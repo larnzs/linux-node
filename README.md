@@ -1986,7 +1986,7 @@ sudo blkid
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Health check روی Clone با IP 192.168.1.9 و hostname fc-node-01 نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد. سرویس‌های اصلی و Wings فعال، HTTPS محلی Panel پاسخ HTTP 200 و پورت‌های TCP 80/443/8080/2022 در حالت LISTEN هستند. بررسی بعدی هیچ Queue Worker یا Scheduler cron پیدا نکرد؛ مسیر واقعی Panel و QUEUE_CONNECTION پیش از پیکربندی باید تأیید شود. روی 29001/udp Listener نیست ولی UFW قانون ورودی دارد؛ کاربردش نامشخص است. مقصد Port Forwardها و Online بودن Node در UI باید دستی تأیید شوند. سپس افزودن VMDK فقط به Clone. |
+| مرحلهٔ جاری | Health check روی Clone با IP 192.168.1.9 و hostname fc-node-01 نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد. سرویس‌های اصلی و Wings فعال، HTTPS محلی Panel پاسخ HTTP 200 و پورت‌های TCP 80/443/8080/2022 در حالت LISTEN هستند. بررسی بعدی هیچ Queue Worker یا Scheduler cron پیدا نکرد؛ مسیر Panel مشخص است و QUEUE_CONNECTION=redis است. گام بعد پیش‌بررسی PHP CLI و Artisan، سپس تنظیم pteroq.service و cron است. روی 29001/udp Listener نیست ولی UFW قانون ورودی دارد؛ کاربردش نامشخص است. مقصد Port Forwardها و Online بودن Node در UI باید دستی تأیید شوند. سپس افزودن VMDK فقط به Clone. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
