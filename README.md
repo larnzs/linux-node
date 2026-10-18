@@ -51,7 +51,7 @@
 
 ### 1.2 Partitioning method — مرحلهٔ جاری
 
-Debian به‌صورت خودکار پارتیشن‌بندی می‌کند؛ انتخاب دیسک اشتباه می‌تواند کل دیسک را پاک کند. راهنمای رسمی Debian: https://www.debian.org/releases/trixie/amd64/install.en.pdf (بخش 6.3.4). 【turn823768search12】
+Debian به‌صورت خودکار پارتیشن‌بندی می‌کند؛ انتخاب دیسک اشتباه می‌تواند کل دیسک را پاک کند. راهنمای رسمی Debian: https://www.debian.org/releases/trixie/amd64/install.en.pdf (بخش 6.3.4).
 
 **پیش از انتخاب روش، ظرفیت Virtual Disk مقصد را بررسی کن.** برای یک Node که قرار است CS2 اجرا کند، پیشنهاد شروع من حداقل **250 GB** فضای مجازی برای دیسک Node است؛ این ظرفیت برای تعداد زیادی instance تضمین‌شده نیست و با تعداد سرورها باید دوباره سنجیده شود. نصب قبلی روی دیسکی حدود 112 GiB فضای ریشه داشت و فایل‌های CS2/KUS هم فضای زیادی می‌گرفتند، بنابراین اگر دیسک فعلی حدود 120 GB است، نصب را ادامه نده: ماشین مجازی را خاموش کن، در VMware ظرفیت دیسک مقصد را افزایش بده یا یک طرح Storage جداگانه تعیین کن، سپس نصاب را از سر بگیر. VMDK پشتیبان Debian قبلی را انتخاب یا ویرایش نکن.
 
@@ -100,7 +100,7 @@ ip route
 systemd-detect-virt || true
 uname -m
 uname -r
-lscpu | grep -E '^(Architecture|CPU\\(s\\)|Model name|Thread|Core|Socket)'
+lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket)'
 free -h
 df -hT /
 df -ih /
@@ -407,13 +407,13 @@ sudo journalctl -u php8.3-fpm -n 80 --no-pager
 از PowerShell:
 
 ~~~powershell
-ssh fragcityadmin@192.168.1.5
+ssh <debian-user>@<node-lan-ip>
 ~~~
 
 برای تونل موقت به MariaDB، پنجره PowerShell را باز نگه دار:
 
 ~~~powershell
-ssh -N -L 3307:127.0.0.1:3306 fragcityadmin@192.168.1.5
+ssh -N -L 3307:127.0.0.1:3306 <debian-user>@<node-lan-ip>
 ~~~
 
 در کلاینت دیتابیس ویندوز، host برابر 127.0.0.1 و port برابر 3307 است؛ user/password همان حساب دیتابیس. پورت 3306 را در روتر باز نکن.
