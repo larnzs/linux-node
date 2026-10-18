@@ -241,6 +241,49 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 
 اگر Start شکست خورد، اول Console/Activity و وضعیت سرویس را بررسی کن؛ Panel را reinstall نکن و سرور را عجولانه حذف نکن.
 
+### 7.1 مرحلهٔ ضروری FragCity — نصب CounterStrikeSharp و پلاگین‌های Fun Mode
+
+**سرور Vanilla تنها Baseline فنی است؛ تحویل آزمایشی FragCity بدون پلاگین‌های موردنیاز و Fun Modeها کامل نیست.** این مرحله بعد از آن انجام می‌شود که بازی پایه بدون افزونه به‌درستی Boot، Map، Console و Stop/Start را پاس کرده باشد.
+
+#### A. فعال‌کردن Framework
+
+1. سرور را از پنل Stop کن و منتظر بمان وضعیت آن کاملاً متوقف شود.
+2. در **Startup** مقدار `INSTALL_CSS` را به `1` تغییر بده.
+3. `INSTALL_METAMOD` را همان مقدار پیش‌فرض نگه دار؛ طبق مستند K4ryuu، وقتی CounterStrikeSharp انتخاب شود MetaMod به‌صورت خودکار فعال می‌شود.
+4. `INSTALL_SWIFTLY` و `INSTALL_MODSHARP` را برای این تست روی `0` نگه دار. فعلاً چند Framework را در یک Instance مخلوط نمی‌کنیم.
+5. سرور را Start کن و بگذار Egg، Framework را دریافت/به‌روزرسانی کند. طبق مستند Egg، تا وقتی متغیر فعال است، updater مربوط به Framework هنگام راه‌اندازی اجرا می‌شود.
+
+#### B. استقرار پلاگین‌های FragCity
+
+پلاگین‌های Fun Mode و سایر افزونه‌های منتخب بخشی از نیاز اصلی محصول هستند. پس از فعال‌شدن CSS، فایل‌های **کامپایل‌شده و سازگار با CS2/نسخهٔ CSS** را به Volume همان سرور آزمایشی منتقل کن؛ از File Manager پنل یا SFTP همان Instance استفاده کن.
+
+| محتوا | مسیر داخل Container |
+|---|---|
+| پلاگین‌های CounterStrikeSharp | `/home/container/game/csgo/addons/counterstrikesharp/plugins/` |
+| تنظیمات CSS/Pluginها | `/home/container/game/csgo/addons/counterstrikesharp/configs/` |
+| فایل‌های cfg بازی/Mode | `/home/container/game/csgo/cfg/` |
+
+نکات استقرار:
+
+- ساختار پوشهٔ هر Plugin را مطابق بستهٔ رسمی‌اش حفظ کن؛ DLL، dependency، gamedata و فایل‌های جانبی را کورکورانه در یک پوشه نریز.
+- فایل‌های cfg و configs خصوصی هر Instance را مستقل نگه دار. **پلاگین مشترک به معنی تنظیمات یا پوشهٔ writable مشترک نیست.**
+- از کپی کامل Repo/پوشهٔ build یا اجرای اسکریپت نصب Windows/KUS داخل Container خودداری کن. فقط فهرست تأییدشدهٔ پلاگین‌ها و artifactهای موردنیازشان را مستقر کن.
+- محتوای VIP که قبلاً تصمیم گرفته شد از مجموعه حذف شود نباید به Manifest یا Deployment برگردد.
+- افزونه‌ها را یک یا دو مورد در هر نوبت اضافه کن؛ پس از هر دسته، سرور را Restart و Console، بارگذاری Plugin، cfg، وابستگی‌ها و عملکرد Mode را بررسی کن. در صورت خطا همان دستهٔ آخر را بررسی/برگردان؛ کل پوشه‌ها را پاک نکن.
+- اگر Plugin خطای dependency یا gamedata داد، پیش از کپی فایل بیشتر، نسخهٔ دقیق Plugin، پیش‌نیازهای رسمی و پیام Console را تطبیق بده.
+
+#### C. معیار قبولی برای نسخهٔ Fun Mode
+
+- [ ] CounterStrikeSharp و MetaMod بدون خطای startup بارگذاری شوند.
+- [ ] فهرست Pluginها، نسخه‌ها و dependencyهای لازم ثبت شود.
+- [ ] هر Fun Mode منتخب به‌صورت جداگانه بارگذاری شود و cfg خودش را بخواند.
+- [ ] تغییر Map/Mode و بازگشت به حالت پیش‌فرض تست شود.
+- [ ] Restart و Stop/Start پنل، فایل‌های Plugin و configs همان Instance را حفظ کنند.
+- [ ] مصرف RAM/CPU در حالت Vanilla و در حالت Pluginها جداگانه مقایسه شود.
+- [ ] هیچ فایل VIP ناخواسته‌ای در Manifest یا Instance وجود نداشته باشد.
+
+**این نسخه زمانی برای آزمایش FragCity قبول می‌شود که هم Baseline بازی و هم Plugin/Fun Modeهای منتخب پاس شوند.** تا زمان آماده‌شدن VMDK داده، پلاگین‌ها و configs داخل Volume مستقل همان Instance باقی می‌مانند؛ Shared Base برای فایل‌های بازی طراحی می‌شود، نه برای اشتراک‌گذاری writable پلاگین‌ها یا configs بین مشتریان.
+
 ## 8. Node daemon و Shared Base — مرحلهٔ بعد، نه الان
 
 پس از موفقیت اولین سرور مستقل، مرحلهٔ بعد از راهنمای [Install the node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md) پیروی می‌کند. تا آماده‌شدن Storage مستقل، `cs2node install` را اجرا نکن:
