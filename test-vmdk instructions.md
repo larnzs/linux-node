@@ -591,6 +591,50 @@ SCRIPT
 
 ### تفسیر نتیجه
 
+### نتیجهٔ آخرین اجرای health check — 2026-10-18
+
+- نتیجهٔ اسکریپت: **24 PASS / 1 WARN / 0 FAIL**.
+- Hostname برابر `fc-node-01` و IP برابر `192.168.1.9` است؛ `/etc/hosts` نام میزبان را resolve می‌کند.
+- Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال بودند. تست Nginx موفق بود، HTTPS محلی `panel.fragcity.ir` پاسخ HTTP 200 داد، و گواهی‌های Panel/Node بیش از 14 روز تا انقضا داشتند.
+- پورت‌های TCP 80، 443، 8080 و 2022 در حالت LISTEN بودند. MariaDB socket ping و Redis PING موفق بودند. Root filesystem تقریباً 1% مصرف و حدود 253 GB آزاد داشت. خطای سطح بالا در سرویس‌های پایش‌شده طی 15 دقیقهٔ اخیر دیده نشد.
+- تنها WARN اسکریپت این بود که واحد systemd به نام `pteroq.service` پیدا نشد. مستندات رسمی Pterodactyl برای نصب عادی Panel، queue worker و scheduler را به‌عنوان اجزای لازم برای پردازش کارهای پس‌زمینه مستند می‌کند؛ پس قبل از Production باید مشخص کنیم worker یا scheduler جایگزینی فعال است یا واقعاً راه‌اندازی نشده است. citeturn136603search1
+- UFW یک قانون ورودی `29001/udp` از Anywhere دارد. چون هنوز سرور CS2 یا Container بازی ساخته نشده، فعلاً آن را حذف نکن؛ ابتدا بررسی کن برنامه‌ای واقعاً روی این پورت UDP گوش می‌دهد و این قانون برای چه منظوری اضافه شده است.
+- اسکریپت نتوانسته مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند. این دو مورد هنوز باید دستی تأیید شوند. خروجی خام ترمینال در این سند ذخیره نشده است.
+
+### گام بعدی — بررسی فقط‌خواندنی Queue/Scheduler و UDP
+
+قبل از نصب سرویس جدید، این بلوک فقط‌خواندنی را اجرا کن؛ هیچ فایلی تغییر نمی‌کند و credentialها چاپ نمی‌شوند:
+
+~~~bash
+echo "=== Queue/worker service units ==="
+systemctl list-unit-files --type=service --no-legend 2>/dev/null |
+  grep -Ei 'pteroq|queue|horizon|supervisor' || true
+
+echo
+echo "=== Running Panel queue processes ==="
+ps -eo pid,user,args |
+  grep -E '[a]rtisan queue:work|[a]rtisan horizon' || true
+
+echo
+echo "=== Scheduler entries ==="
+sudo crontab -l 2>/dev/null |
+  grep -F 'artisan schedule:run' || true
+sudo -u www-data crontab -l 2>/dev/null |
+  grep -F 'artisan schedule:run' || true
+sudo grep -R -H 'artisan schedule:run' /etc/cron.d /etc/crontab 2>/dev/null || true
+
+echo
+echo "=== UDP listener on port 29001 ==="
+sudo ss -lunp |
+  grep -E '(:29001[[:space:]]|:29001$)' || echo "No UDP listener found on port 29001"
+
+echo
+echo "=== UFW rules with numbers ==="
+sudo ufw status numbered
+~~~
+
+خروجی را برای تحلیل بفرست؛ در این مرحله هنوز `pteroq.service` نساز و قانون UDP را هم حذف نکن.
+
 - `[PASS]` یعنی همان بررسی موفق بوده است.
 - `[WARN]` یعنی موردی نیازمند بررسی است، نه لزوماً خرابی. برای مثال، نبودن `pteroq.service` باید جداگانه بررسی شود؛ صرفاً به‌خاطر این هشدار چیزی نصب نکن.
 - `[FAIL]` یعنی بررسی مهمی ناموفق بوده و علت باید پیش از ادامه مشخص شود.
@@ -649,19 +693,19 @@ SCRIPT
 
 - [x] فضای آزاد Windows host بررسی شد؛ D در زمان بررسی حدود 301.8 GB آزاد داشت.
 - [x] مسیر VMX روی C و فایل VMDK روی D پیدا شد.
-- [x] Full Clone ساخته شد.
-- [x] در بوت اول Clone گزینهٔ I Copied It انتخاب شد.
-- [x] MAC کپی مستقل است و DHCP فعلاً IP برابر 192.168.1.9 داده است.
-- [x] hostname داخل Clone به fc-node-01 برگردانده شد؛ mapping محلی /etc/hosts نیز به نام اصلی اشاره می‌کند.
-- [x] Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند.
-- [x] Wings روی Clone دوباره enable و start شد و از بارگذاری config و درخواست فهرست سرورها شروع کرده است.
-- [ ] در اجرای قبلی sudo ابتدا هشدار unable to resolve host fc-node-01-test دیده شد؛ پس از تغییر hostname و /etc/hosts، با getent hosts fc-node-01 و sudo -v بررسی نهایی شود.
-- [ ] وضعیت pteroq بررسی شود؛ خروجی فعلی نشان می‌دهد pteroq.service به‌صورت واحد systemd قابل یافتن نیست. فعلاً سرویس دیگری را نصب/تغییر نده.
-- [ ] تأیید کن Port Forwardهای موجود TCP 80/443/8080/2022 اکنون به 192.168.1.9 اشاره می‌کنند؛ این تغییر هنوز در گفت‌وگو صریحاً تأیید نشده است.
-- [ ] در صورت تأیید مقصد Port Forward، دسترسی https://panel.fragcity.ir و وضعیت Node داخل Panel بررسی شود.
+- [x] Full Clone ساخته شد؛ VMware گزینهٔ I Copied It را در اولین بوت انتخاب کرد.
+- [x] MAC کلون جدید است و DHCP فعلاً IP برابر 192.168.1.9 داده است.
+- [x] hostname داخل Clone به fc-node-01 برگردانده شد؛ /etc/hosts نام میزبان را resolve می‌کند.
+- [x] Health check فقط‌خواندنی نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد.
+- [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx config test و HTTPS محلی Panel موفق بودند.
+- [x] گواهی‌های Panel و Node بیش از 14 روز تا انقضا داشتند؛ پورت‌های TCP 80/443/8080/2022 در حالت LISTEN بودند؛ MariaDB و Redis پاسخ دادند.
+- [ ] بررسی فقط‌خواندنی Queue/Scheduler انجام شود، چون pteroq.service پیدا نشده است.
+- [ ] مشخص شود قانون UFW ورودی 29001/udp برای چه منظوری ایجاد شده و آیا listener واقعی روی آن وجود دارد؛ تا پیش از مشخص‌شدن هدف، قانون را حذف نکن.
+- [ ] در مودم مقصد Port Forwardهای موجود TCP 80/443/8080/2022 به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
+- [ ] دسترسی خارجی به Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
 - [ ] دیسک تازه با lsblk و blkid شناسایی شود؛ تا قبل از تأیید فرمت نشود.
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
-- [ ] در بازگشت، ابتدا Clone خاموش، بعد Port Forwardها به 192.168.1.7 برگردانده شوند و سپس VM اصلی روشن شود.
+- [ ] برای بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود.
 
-**آخرین checkpoint:** Clone با IP داخلی 192.168.1.9 روشن است. hostname به fc-node-01 برگشته است. Nginx، PHP-FPM، MariaDB و Redis فعال گزارش شده‌اند؛ Wings نیز فعال/enable شده است. pteroq.service در خروجی به‌صورت واحد موجود شناخته نشده و باید جداگانه بررسی شود. وضعیت مقصد Port Forwardها هنوز تأیید نشده است. Clone موقتاً جای VM اصلی را می‌گیرد؛ VM اصلی باید تا پایان تست خاموش بماند. machine-id و SSH host keys عمداً تغییر داده نشده‌اند و باید همین‌طور باقی بمانند. تا قبل از شناسایی دیسک تازه، هیچ فرمان formatting اجرا نشود.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). هشدار باقی‌مانده نبودن pteroq.service است؛ مقصد Port Forward و وضعیت Online از UI پنل نیز مستقل از این تست باید تأیید شوند. یک قانون UFW ورودی 29001/udp هم دیده شده که هدف آن هنوز مشخص نیست. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند.
