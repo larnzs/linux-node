@@ -1715,17 +1715,18 @@ sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem
 sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem -noout -checkend 0
 ~~~
 
-### 6.6 اجرای foreground — گام بعدی
+### 6.6 اجرای آزمایشی Wings در foreground — تکمیل‌شده
 
-Node ساخته شده، /etc/pterodactyl/config.yml از Auto-Deploy تولید شده و گواهی TLS مخصوص fc-node-01.fragcity.ir در مسیر مورد انتظار ایجاد و تأیید شده است. در SSH دبیان اجرا کن:
+این آزمون باید پیش از ساخت سرویس systemd انجام شود. پس از ساخته‌شدن Node، تولید `/etc/pterodactyl/config.yml` از Auto-Deploy و آماده‌شدن گواهی TLS، فرمان زیر را در SSH اجرا کن:
 
 ~~~bash
 sudo wings --debug
 ~~~
 
-انتظار داریم خطای قبلی missing fullchain.pem دیگر تکرار نشود. اگر Wings بدون خطای FATAL بالا آمد و در حالت foreground ماند، با Ctrl+C متوقفش کن و نتیجه را بفرست؛ پس از تأیید به ساخت systemd می‌رویم. اگر خطای دیگری دیدی، فرمان را پی‌درپی تکرار نکن؛ متن خطا را بفرست و token/secret را حذف کن. تا debug موفق نشده، systemd service نساز و پورت‌های Wings/SFTP را در روتر باز نکن.
+اگر Wings بدون خطای `FATAL` اجرا شد و پایدار ماند، با `Ctrl+C` آن را به‌شکل کنترل‌شده متوقف کن و سپس به مرحلهٔ ساخت سرویس برو. در اجرای فعلی این آزمون پایدار ماند و با `Ctrl+C` متوقف شد.
+### 6.7 سرویس دائمی systemd برای Wings — تکمیل‌شده
 
-### 6.7 systemd (پس از debug موفق)
+پس از موفقیت آزمون foreground، سرویس systemd را بساز تا Wings پس از reboot هم خودکار اجرا شود. بلوک نصب برای میزبان تازه مستند شده است؛ روی VM فعلی این مرحله اجرا شده و سرویس `wings` فعال و enable شده است. آن را بی‌دلیل دوباره اجرا نکن.
 
 ~~~bash
 sudo tee /etc/systemd/system/wings.service >/dev/null <<'EOF'
@@ -1752,35 +1753,103 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now wings
-sudo systemctl status wings --no-pager
 sudo systemctl is-active wings
+sudo systemctl is-enabled wings
 ~~~
 
-تأیید: سرویس active و Node در Panel برابر Online شود. اگر خطا داشت:
+اگر سرویس بالا نمی‌آید، این فرمان‌های تشخیصی را فقط در همان زمان اجرا کن؛ خروجی آن‌ها را به README اضافه نکن:
 
 ~~~bash
-sudo journalctl -u wings -n 100 --no-pager
 sudo systemctl status wings --no-pager
+sudo journalctl -u wings -n 100 --no-pager
 sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 ~~~
 
-پیش از استفادهٔ عمومی، دامنه، TLS مخصوص Panel و Wings، firewall و Router/VMware NAT را جداگانه طراحی کن.
+پیش از انتشار عمومیِ پورت‌های Wings/SFTP، طراحی Firewall و Router/VMware NAT را جداگانه بررسی کن.
 
 ---
 
-## 7. Storage و CS2/KUS — بعد از Online شدن Node
+## 7. Storage و CS2/KUS — preflight پیش از اولین Instance
 
-این فصل هنوز فرمان اجرایی ندارد. **سبک‌بودن Debian Console-only احتمالاً سربار سیستم‌عامل را نسبت به محیط دسکتاپ کاهش می‌دهد، اما به‌تنهایی تضمین نمی‌کند مشکل slow frame در CS2 صددرصد برطرف شود.** علت واقعی باید با آزمون کنترل‌شده سنجیده شود؛ از جمله تخصیص CPU/RAM ماشین مجازی، زمان‌بندی CPU و رقابت با workload میزبان، بار سرور/نقشه/افزونه‌ها، و اینکه slow frame به هشدار سمت سرور اشاره دارد یا frametime/FPS کلاینت.
+Wings و سرویس systemd راه‌اندازی شده‌اند. **فعلاً هیچ سرور CS2 نساز، هیچ Egg/Installer را اجرا نکن، فایل‌های `/home/steam` را جابه‌جا یا حذف نکن و پورت بازی را روی روتر باز نکن.** ابتدا باید وضعیت دیسک‌ها، فایل‌های موجود و محل ذخیره‌سازی Docker/Pterodactyl را فقط‌خواندنی بررسی کنیم.
 
-پیش از اولین سرور:
-1. فضای دیسک و حجم دانلود واقعی را بسنجیم.
-2. مشخص کنیم Egg فعلی CS:GO قدیمی است یا CS2 را درست نصب می‌کند.
-3. روش استفاده از بازی موجود زیر /home/steam در مدل Container/Volume را طراحی کنیم.
-4. CPU/RAM/disk و portهای instance آزمایشی را تعیین کنیم.
-5. ابتدا baseline یک سرور آزمایشی کم‌بار ثبت شود؛ سپس افزونه‌ها/نقشه‌ها مرحله‌ای اضافه و slow-frame/server timing با شرایط قابل‌مقایسه سنجیده شود.
-6. Start/Stop/Console/Files/SFTP و جدایی داده‌ها را آزمایش کنیم.
+سبک‌بودن Debian Console-only ممکن است سربار سیستم‌عامل را نسبت به Desktop کاهش دهد، اما به‌تنهایی تضمین نمی‌کند مشکل slow frame در CS2 برطرف شود. بعداً باید baseline سرور را با بار کنترل‌شده بسنجیم و مشخص کنیم slow frame به server timing اشاره دارد یا FPS/frametime کلاینت.
 
-تا آن زمان instance جدید نساز و به /home/steam دست نزن.
+### 7.1 بررسی فضای ذخیره‌سازی — گام جاری
+
+این مرحله فقط اطلاعات دیسک و مسیرهای موجود را می‌خواند؛ چیزی نصب، دانلود، پاک یا جابه‌جا نمی‌کند. در SSH دبیان اجرا کن:
+
+~~~bash
+set -u
+
+echo "=== Root filesystem capacity and inode usage ==="
+df -hT /
+df -ih /
+
+echo
+echo "=== Important storage paths ==="
+for path in \
+  /home \
+  /home/steam \
+  /var/lib/docker \
+  /var/lib/pterodactyl \
+  /var/lib/pterodactyl/volumes \
+  /var/lib/pterodactyl/archives \
+  /var/lib/pterodactyl/backups
+do
+  echo
+  echo "--- $path"
+  if [ -e "$path" ]; then
+    findmnt -T "$path" || true
+    df -hT "$path" || true
+    sudo du -sh "$path" 2>/dev/null || true
+  else
+    echo "Path does not exist yet."
+  fi
+done
+
+echo
+echo "=== Existing /home/steam directory layout (if present) ==="
+if [ -d /home/steam ]; then
+  sudo find /home/steam -maxdepth 2 -type d -print | head -n 60
+else
+  echo "/home/steam is not present on this installation."
+fi
+
+echo
+echo "=== Docker storage location and usage ==="
+sudo docker info --format 'DockerRootDir={{.DockerRootDir}}'
+sudo docker system df
+sudo docker ps -a --size
+
+echo
+echo "=== Pterodactyl volume directory names (if present) ==="
+if [ -d /var/lib/pterodactyl/volumes ]; then
+  sudo find /var/lib/pterodactyl/volumes -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+fi
+~~~
+
+**تفسیر نتایج:**
+- `df -hT` ظرفیت کل/آزاد و نوع filesystem را نشان می‌دهد؛ `du -sh` میزان مصرف خود مسیر را نشان می‌دهد. این دو عدد مفهوم متفاوتی دارند.
+- `findmnt -T /home/steam` روشن می‌کند فایل‌های احتمالی بازی روی کدام filesystem قرار گرفته‌اند.
+- `docker system df` و `docker ps -a --size` کمک می‌کنند بفهمیم Docker از قبل فضایی مصرف کرده یا Container/Volume موجودی دارد.
+- خروجی ترمینال را در README نگذار؛ فقط اگر لازم شد برای تحلیل در همین گفت‌وگو بفرست و هر مقدار حساس را حذف کن.
+
+### 7.2 تصمیم Storage — پس از بررسی 7.1
+
+پس از دیدن وضعیت واقعی، قبل از ایجاد Instance این موارد را مشخص می‌کنیم:
+1. آیا `/home/steam` واقعاً وجود دارد و حاوی فایل‌های بازی موردنیاز KUS است؟
+2. آیا فایل‌های آن متعلق به همین نصب Debian هستند یا در دیسک/پشتیبان جدا قرار دارند؟
+3. Egg انتخابی واقعاً CS2 نصب می‌کند یا Egg قدیمی CS:GO است؟
+4. آیا می‌توان محتوای موجود را ایمن استفاده کرد، یا هر Container به نصب مستقل نیاز دارد؟ فایل‌های host را به مسیر Volume نسبت ندهیم مگر مدل mount و مالکیت آن دقیقاً مشخص شده باشد.
+5. ظرفیت لازم برای فایل بازی، هر Instance، نقشه‌ها، افزونه‌ها، لاگ‌ها و backup چقدر است؟
+
+### 7.3 اولین سرور آزمایشی — هنوز مجاز به اجرا نیست
+
+فقط پس از تأیید Storage، سازگاری Egg با CS2، محدودیت CPU/RAM/disk و طراحی Allocation/Firewall یک Instance آزمایشی کم‌بار می‌سازیم. سپس Start/Stop/Console/Files/SFTP، جدایی داده‌ها و baseline عملکرد را بررسی می‌کنیم. افزونه‌ها و نقشه‌ها باید مرحله‌ای اضافه شوند تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
+
+تا تکمیل مراحل قبل، هیچ Instance جدید نساز و به `/home/steam` دست نزن.
+
 
 ## 8. سایت FragCity، Wallet و فروش مدت‌دار — فازهای بعد
 
@@ -1801,7 +1870,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel و Docker نصب‌اند؛ باینری Wings نصب و `config.yml` از Auto-Deploy ساخته شده است. برای Panel و Node راهنمای صدور/اعتبارسنجی TLS در مرحلهٔ 3.7.1–3.7.2 ثبت شده است. مرحلهٔ جاری 6.6: اجرای `sudo wings --debug`؛ تا تأیید اجرا، systemd و سرور CS2 نساز. |
+| مرحلهٔ جاری | آزمون foreground Wings موفق بوده و سرویس systemd با enable و active پیکربندی شده است. گام جاری 7.1: بررسی فقط‌خواندنی filesystem، `/home/steam`، Docker و مسیرهای Storage Pterodactyl؛ تا تصمیم Storage و تأیید سازگاری Egg، Instance بازی نساز. وضعیت Online را در صفحه Node پنل کنترل کن. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1810,7 +1879,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | پیش از صدور/تمدید گواهی و پس از هر تغییر WAN، رکوردهای عمومی را طبق مرحلهٔ 3.7.2 با IPv4 فعلی تطبیق بده |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS تنظیم شده؛ Docker و باینری Wings نصب‌اند؛ `config.yml` از Auto-Deploy تولید شده است. گام بعد آزمون foreground است؛ systemd و Node Online هنوز تأیید نشده‌اند. SMTP باید پیش از Production تنظیم شود. |
+| Panel / Docker / Wings | Panel روی HTTPS تنظیم شده؛ Docker فعال است؛ `config.yml` از Auto-Deploy تولید شده؛ آزمون foreground Wings موفق و سرویس systemd فعال/enable است. اگر وضعیت Node در Panel هنوز Online نیست، قبل از Storage به بررسی سرویس و اتصال برگرد. SMTP باید پیش از Production تنظیم شود. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
