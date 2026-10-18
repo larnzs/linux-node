@@ -1415,7 +1415,7 @@ sudo du -sh /var/log /var/lib/docker /var/lib/containerd 2>/dev/null || true
 
 ### 4.2 لاگ‌ها و سرویس‌ها
 
-این بلوک وضعیت سرویس‌های فصل‌های 2–3 را بررسی می‌کند؛ آن‌ها باید فعال باشند:
+این بلوک وضعیت سرویس‌های لایهٔ وب/دیتابیس را بررسی می‌کند:
 
 ~~~bash
 (
@@ -1433,9 +1433,7 @@ sudo journalctl -u php8.3-fpm -n 80 --no-pager
 )
 ~~~
 
-**وضعیت پیش از Chapter 5:** بررسی انجام شد و Docker هنوز نصب نیست؛ بسته‌های Docker بررسی‌شده وجود ندارند، فرمان `docker` پیدا نشد و `docker.service` هنوز ایجاد نشده است. این وضعیت در این نقطه کاملاً مورد انتظار است و **نیازی به تعمیر یا نصب تکراری ندارد**. اکنون برای نخستین نصب Docker به Chapter 5 برو.
-
-پس از اجرای Chapter 5، اگر سرویس فعال نبود، این بررسی را برای عیب‌یابی اجرا کن:
+**وضعیت Docker:** نصب Chapter 5 در همین VM انجام و تأیید شده است؛ سرویس فعال است و `docker run --rm hello-world` با موفقیت پایان یافته. اگر در بررسی بعدی Docker در دسترس نبود، این بلوک فقط‌خواندنی را اجرا کن:
 
 ~~~bash
 (
@@ -1495,11 +1493,11 @@ Test-NetConnection 127.0.0.1 -Port 3307
 
 ## 5. Docker Engine — نصب روی Debian Console-only
 
-این مرحله اکنون مرحلهٔ جاری است. بررسی Chapter 4 تأیید کرد که Docker هنوز نصب نشده؛ این نصب تازه است و نیازی به حذف یا تعمیر Docker موجود نیست.
+**وضعیت:** نصب Docker Engine روی این Debian تکمیل و تأیید شده است. بلوک زیر به‌عنوان دستور تکرارپذیر برای نصب تازه حفظ می‌شود؛ در همین VM آن را دوباره اجرا نکن مگر پس از بررسی علت و نیاز واقعی.
 
-**نکتهٔ امنیت شبکه:** مستندات رسمی Docker هشدار می‌دهند که پورت‌های container که Docker منتشر می‌کند، ممکن است قواعد معمول UFW را دور بزنند. نصب Docker را می‌توان اکنون انجام داد؛ اما پیش از انتشار پورت‌های container، Wings یا هر سرور بازی، طراحی Firewall/NAT را بازبینی می‌کنیم. فعلاً هیچ Container/instance بازی ایجاد نکن و پورت‌های بازی را در روتر باز نکن. مرجع رسمی: https://docs.docker.com/engine/install/debian/#firewall-limitations
+**نکتهٔ امنیت شبکه:** مستندات رسمی Docker هشدار می‌دهند که پورت‌های container که Docker منتشر می‌کند، ممکن است قواعد معمول UFW را دور بزنند. پیش از انتشار پورت‌های Wings یا هر سرور بازی، طراحی Firewall/NAT را بازبینی می‌کنیم. فعلاً هیچ Container/instance بازی ایجاد نکن و پورت‌های بازی را در روتر باز نکن. مرجع رسمی: https://docs.docker.com/engine/install/debian/#firewall-limitations
 
-این بلوک نصب را روی همین Debian تازه و پس از تکمیل مراحل 1 تا 4 اجرا کن. روی سیستم قدیمی پیش از نصب مجدد اجرا نکن.
+این بلوک برای نصب تکرارپذیر روی Debian تازه است؛ روی همین VM نصب‌شده دوباره اجرا نکن.
 
 ~~~bash
 set -eu
@@ -1538,18 +1536,24 @@ df -h /
 
 این فقط Docker را تأیید می‌کند، نه Wings یا اجرای CS2.
 
+**Checkpoint تأییدشده در VM فعلی:** نسخهٔ Docker برابر 29.9.1 گزارش شد، سرویس `docker` فعال بود، `docker info` بدون خطا پاسخ داد و `docker run --rm hello-world` موفق شد. فضای ریشه پس از آزمون حدود 253 GB آزاد داشت. لاگ کامل این آزمون در README ذخیره نمی‌شود.
+
 ---
 
-## 6. Wings و Node — مرحلهٔ جاری
+## 6. Wings و Node — باینری نصب شده؛ اتصال هنوز انجام نشده
 
 ### 6.1 بررسی نسخهٔ Panel
 
-پس از تکمیل نصب Panel و ورود به آن، می‌توانی از این فرمان برای بررسی نسخه استفاده کنی. خروجی را در README قرار نده.
+پس از نصب Panel و ورود به آن، از این فرمان برای بررسی نسخه و پیکربندی عمومی استفاده کن. خروجی را در README قرار نده؛ ایمیل/شناسهٔ کاربر و هر مقدار حساس را نیز به چت نفرست.
 
 ~~~bash
 cd /var/www/pterodactyl
 sudo -u www-data php8.3 artisan p:info
 ~~~
+
+**Checkpoint تأییدشده:** Panel برابر `1.15.1` و `Up-to-Date: Yes` گزارش شده، URL نصب `https://panel.fragcity.ir` است، Debug Mode خاموش است، و Driverهای cache/queue/session روی Redis و دیتابیس روی MariaDB تنظیم شده‌اند.
+
+**کار با ایمیل نیاز به تکمیل دارد:** خروجی فعلی `p:info` هنوز `smtp.example.com` و `no-reply@example.com` را نشان می‌داد؛ این‌ها مقادیر نمونه‌اند. تا قبل از استفاده از ایمیل برای reset password، اعلان‌ها یا تأیید حساب، SMTP واقعی را به‌صورت جداگانه تنظیم و تست کن. رمز SMTP را در README یا چت ننویس. این مورد مانع آزمایش محلی Node نیست، اما برای production کامل نشده است.
 
 برای راه‌اندازی Wings در شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده کن و پیش از نصب، Release سازگار را در https://github.com/pterodactyl/wings/releases بررسی کن.
 
@@ -1586,7 +1590,9 @@ sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /usr/local/bin/wings
 
 این فرمان‌ها فقط باینری محلی را بررسی می‌کنند و به‌معنی پیکربندی یا اتصال Wings به Panel نیستند.
 
-### 6.3 ساخت Node از مرورگر Windows — گام بعدی
+**Checkpoint تأییدشده در VM فعلی:** باینری Wings نسخهٔ `1.13.4` نصب شده، executable لینوکسی x86-64 است و مالک/مجوز آن `root:root` با mode برابر `755` است. این فقط نصب باینری را تأیید می‌کند؛ فایل محرمانهٔ `/etc/pterodactyl/config.yml` هنوز از Panel تولید نشده، سرویس systemd مربوط به Wings هنوز ساخته/راه‌اندازی نشده و Node آنلاین نیست. بلوک نصب باینری را دوباره اجرا نکن.
+
+### 6.3 پیش‌بررسی DNS/TLS و ساخت Node از مرورگر Windows — گام بعدی
 
 این مرحله از مرورگر Windows انجام می‌شود؛ داخل Debian فرمانی برای ساخت Node لازم نیست.
 
@@ -1602,7 +1608,31 @@ df -hT /
 
 قبل از تنظیم Node، فضای آزاد فعلی را ملاک بگیر.
 
-در مرورگر Windows:
+**پیش‌شرط مهم FQDN/TLS:** گواهی HTTPS فعلیِ `panel.fragcity.ir` به‌تنهایی گواهی معتبر برای `fc-node-01.fragcity.ir` نیست. پیش از ساخت Node با SSL فعال، DNS نام Node و گواهی اختصاصی همان نام را بررسی/آماده کن. روی Debian این بلوک فقط‌خواندنی را اجرا کن:
+
+~~~bash
+(
+echo "=== DNS resolution for the Node FQDN ==="
+getent ahostsv4 fc-node-01.fragcity.ir || true
+
+echo
+echo "=== Certbot certificate inventory ==="
+if command -v certbot >/dev/null 2>&1; then
+  sudo certbot certificates
+else
+  echo "certbot command not found"
+fi
+
+echo
+echo "=== Certificate currently served for Node SNI on local NGINX ==="
+sudo timeout 10 openssl s_client -connect 127.0.0.1:443 -servername fc-node-01.fragcity.ir </dev/null 2>/dev/null |
+  openssl x509 -noout -subject -issuer -dates -ext subjectAltName || true
+)
+~~~
+
+این بلوک چیزی را تغییر نمی‌دهد. خروجی DNS را با IPv4 عمومی فعلی و لیست نام‌های گواهی مقایسه کن. اگر گواهی فقط `panel.fragcity.ir` را پوشش می‌دهد، برای `fc-node-01.fragcity.ir` باید گواهی معتبر جداگانه صادر شود؛ SSL را در Node فعال نکن تا گواهی معتبر و مسیر فایل‌هایش آماده نشده باشد. پورت‌های Wings را تا بررسی Firewall/NAT روی WAN باز نکن.
+
+در مرورگر Windows، پس از آماده‌شدن DNS و گواهی معتبر Node:
 1. وارد `https://panel.fragcity.ir` شو و مطمئن شو با حساب Administrator وارد شده‌ای. این مرحله فقط بعد از تنظیم DNS و گواهی TLS انجام می‌شود.
 2. از **Admin → Locations** یک Location بساز یا Location موجود را انتخاب کن؛ مثلاً Short Code برابر `lan` و Description برابر `FragCity LAN`.
 3. به **Admin → Nodes → Create New** برو.
@@ -1682,12 +1712,15 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 
 ## 7. Storage و CS2/KUS — بعد از Online شدن Node
 
-این فصل هنوز فرمان اجرایی ندارد. پیش از ساخت اولین سرور:
+این فصل هنوز فرمان اجرایی ندارد. **سبک‌بودن Debian Console-only احتمالاً سربار سیستم‌عامل را نسبت به محیط دسکتاپ کاهش می‌دهد، اما به‌تنهایی تضمین نمی‌کند مشکل slow frame در CS2 صددرصد برطرف شود.** علت واقعی باید با آزمون کنترل‌شده سنجیده شود؛ از جمله تخصیص CPU/RAM ماشین مجازی، زمان‌بندی CPU و رقابت با workload میزبان، بار سرور/نقشه/افزونه‌ها، و اینکه slow frame به هشدار سمت سرور اشاره دارد یا frametime/FPS کلاینت.
+
+پیش از اولین سرور:
 1. فضای دیسک و حجم دانلود واقعی را بسنجیم.
 2. مشخص کنیم Egg فعلی CS:GO قدیمی است یا CS2 را درست نصب می‌کند.
 3. روش استفاده از بازی موجود زیر /home/steam در مدل Container/Volume را طراحی کنیم.
 4. CPU/RAM/disk و portهای instance آزمایشی را تعیین کنیم.
-5. Start/Stop/Console/Files/SFTP و جدایی داده‌ها را آزمایش کنیم.
+5. ابتدا baseline یک سرور آزمایشی کم‌بار ثبت شود؛ سپس افزونه‌ها/نقشه‌ها مرحله‌ای اضافه و slow-frame/server timing با شرایط قابل‌مقایسه سنجیده شود.
+6. Start/Stop/Console/Files/SFTP و جدایی داده‌ها را آزمایش کنیم.
 
 تا آن زمان instance جدید نساز و به /home/steam دست نزن.
 
@@ -1710,7 +1743,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel `v1.15.1` روی `https://panel.fragcity.ir` صفحهٔ ورود را نمایش می‌دهد و پیکربندی NGINX/TLS در استفادهٔ فعلی کار می‌کند. Chapter 4 بازبینی شد؛ تونل SSH دیتابیس در 4.3 با کلید FragCity مستند شده. بررسی تأیید کرد Docker پیش از این نصب نشده بود؛ اکنون Chapter 5، نصب رسمی Docker Engine از مخزن رسمی روی Debian 13 است. Wings/instance بازی هنوز ساخته نشده‌اند. |
+| مرحلهٔ جاری | Panel `v1.15.1` روی `https://panel.fragcity.ir` باز می‌شود؛ Docker Engine `29.9.1` نصب/active است و آزمون `hello-world` موفق شد. باینری Wings `1.13.4` نصب و نسخه/مجوز آن بررسی شده است. مرحلهٔ جاری 6.3: پیش‌بررسی DNS و گواهی اختصاصی `fc-node-01.fragcity.ir`، سپس ساخت Node در Panel. هنوز `config.yml`، سرویس Wings و Node Online تأیید نشده‌اند؛ هیچ سرور CS2 ساخته نشده است. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1719,7 +1752,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS به صفحهٔ ورود پاسخ می‌دهد؛ Docker و Wings هنوز نصب/پیکربندی نشده‌اند. |
+| Panel / Docker / Wings | Panel روی HTTPS به صفحهٔ ورود پاسخ می‌دهد؛ Docker `29.9.1` و باینری Wings `1.13.4` نصب شده‌اند. تنظیم Node، Wings config و سرویس Wings هنوز انجام/تأیید نشده‌اند. SMTP هنوز مقادیر نمونه دارد و باید پیش از اتکا به ایمیل‌ها تکمیل شود. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
