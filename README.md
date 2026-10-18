@@ -1914,6 +1914,8 @@ fi
 6. هنوز Base Game، Instance بازی یا پورت CS2 نصب/باز نشده است. هیچ اسکریپت نصب KUS یا Egg را اجرا نکن تا VMDK دادهٔ دوم شناسایی شود و طراحی Shared Base تأیید گردد.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
+**آخرین health check (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN هستند. WARN مربوط به نبودن `pteroq.service` است. همچنین UFW قانون ورودی `29001/udp` دارد که هنوز هدفش مشخص نیست. قبل از Production، Queue/Scheduler را فقط‌خواندنی بررسی کن و listener این UDP را شناسایی کن؛ هنوز چیزی نصب یا حذف نکن. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
+
 #### 7.3.2 افزودن VMDK داده فقط به Clone
 
 1. پیش از انتخاب ظرفیت، فضای آزاد واقعی روی درایو Windows میزبان را بررسی کن. آخرین بررسی حدود 301.8 GB فضای آزاد روی D نشان داد؛ قبل از عملیات سنگین دوباره بررسی کن.
@@ -1984,7 +1986,7 @@ sudo blkid
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Clone به‌عنوان جایگزین موقت روشن است؛ IP آن 192.168.1.9 و hostname آن fc-node-01 است. Nginx، PHP 8.3-FPM، MariaDB، Redis و Wings فعال گزارش شده‌اند؛ واحد pteroq.service پیدا نشده و Port Forwardهای Clone هنوز صریحاً تأیید نشده‌اند. گام جاری: بررسی نام میزبان، تأیید مقصد پورت‌های TCP 80/443/8080/2022 به 192.168.1.9 و سپس بررسی Panel/Node؛ بعد افزودن VMDK فقط به Clone. |
+| مرحلهٔ جاری | Health check روی Clone با IP 192.168.1.9 و hostname fc-node-01 نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد. سرویس‌های اصلی و Wings فعال، HTTPS محلی Panel پاسخ HTTP 200 و پورت‌های TCP 80/443/8080/2022 در حالت LISTEN هستند. پیگیری‌ها: pteroq.service پیدا نشد؛ قانون UFW ورودی 29001/udp نیازمند شناسایی است؛ مقصد Port Forwardها و Online بودن Node در UI باید دستی تأیید شوند. سپس افزودن VMDK فقط به Clone. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
