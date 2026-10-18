@@ -118,7 +118,7 @@ set -Eeuo pipefail
 TARGET_IP="192.168.1.9"
 TARGET_HOST="fc-node-01"
 
-if ! ip -o -4 address show | awk '$4 ~ /^192[.]168[.]1[.]9\\// {found=1} END {exit !found}'; then
+if ! ip -o -4 address show | grep -q '192\.168\.1\.9/'; then
     echo "ERROR: This machine does not currently have 192.168.1.9."
     echo "Nothing changed. Verify that this is the Clone."
     exit 1
