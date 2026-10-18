@@ -436,13 +436,13 @@ SSH (Secure Shell) یک اتصال مدیریتی رمزنگاری‌شده بی
 در این مرحله اول کلید را آزمایش می‌کنیم؛ بعد ورود با رمز SSH را غیرفعال می‌کنیم. این تنظیم با رمز کاربر برای ورود محلی یا `sudo` یکی نیست. ورود مستقیم root از SSH نیز غیرفعال می‌شود. **پورت 22 را از روتر به اینترنت فوروارد نکن.**
 
 **قانون بسیار مهم تشخیص پنجره:**
-- اگر خط فرمان `PS C:\\...>` می‌بینی، در Windows PowerShell هستی.
+- اگر خط فرمان `PS C:\...>` می‌بینی، در Windows PowerShell هستی.
 - اگر `sv1@fc-node-01:~$` می‌بینی، داخل Debian از طریق SSH هستی.
 - فرمان‌هایی که با `$env:USERPROFILE` و `Test-Path` شروع می‌شوند فقط برای PowerShell هستند. اگر آن‌ها را در Bash اجرا کنی، ممکن است خطای `keyPath: unbound variable` بگیری؛ این خطا به‌خودی‌خود به معنی خرابی SSH یا Debian نیست. یک پنجرهٔ PowerShell جدید باز کن و کد را همان‌جا اجرا کن.
 
 #### 1.19.1 ساخت کلید SSH در Windows
 
-**محل اجرا: Windows PowerShell، نه داخل نشست SSH.** یک پنجرهٔ جدید PowerShell باز کن تا prompt آن `PS C:\\...>` باشد. مسیر اختصاصی کلید FragCity را بررسی و در صورت نبودن فایل‌ها بساز:
+**محل اجرا: Windows PowerShell، نه داخل نشست SSH.** یک پنجرهٔ جدید PowerShell باز کن تا prompt آن `PS C:\...>` باشد. مسیر اختصاصی کلید FragCity را بررسی و در صورت نبودن فایل‌ها بساز:
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
@@ -670,7 +670,7 @@ php8.3 /usr/local/bin/composer --version
 ~~~bash
 set -eu
 php8.3 -v
-composer --version
+php8.3 /usr/local/bin/composer --version
 for module in bcmath curl dom gd intl json mbstring mysqli openssl PDO pdo_mysql posix tokenizer xml zip; do
   php8.3 -m | grep -Eixq "$module" || { echo "MISSING: $module"; exit 1; }
   echo "OK: $module"
