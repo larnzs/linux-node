@@ -597,25 +597,25 @@ SCRIPT
 - Hostname برابر `fc-node-01` و IP برابر `192.168.1.9` است؛ `/etc/hosts` نام میزبان را resolve می‌کند.
 - Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال بودند. تست Nginx موفق بود، HTTPS محلی `panel.fragcity.ir` پاسخ HTTP 200 داد، و گواهی‌های Panel/Node بیش از 14 روز تا انقضا داشتند.
 - پورت‌های TCP 80، 443، 8080 و 2022 در حالت LISTEN بودند. MariaDB socket ping و Redis PING موفق بودند. Root filesystem تقریباً 1% مصرف و حدود 253 GB آزاد داشت. خطای سطح بالا در سرویس‌های پایش‌شده طی 15 دقیقهٔ اخیر دیده نشد.
-- تنها WARN اسکریپت این بود که واحد systemd به نام pteroq.service پیدا نشد. بررسی بعدی نیز هیچ Queue Worker در حال اجرا، هیچ systemd unit مرتبط و هیچ cron entry برای artisan schedule:run پیدا نکرد. این یعنی Queue/Scheduler به‌احتمال زیاد هنوز پیکربندی نشده‌اند؛ قبل از ساخت سرویس جدید، مسیر واقعی Panel و مقدار غیرمحرمانه QUEUE_CONNECTION را تأیید می‌کنیم. طبق راهنمای رسمی Pterodactyl v1، نصب استاندارد به queue worker و cron برای اجرای schedule:run نیاز دارد: https://docs.pterodactyl.io/v1/panel/getting-started
+- تنها WARN health check اولیه این بود که واحد `pteroq.service` پیدا نشد. این نقص بعداً روی Clone اصلاح شد: بلوک README بخش 3.4.1 اجرا شد، سپس `pteroq.service` با وضعیت‌های `enabled` و `active (running)` تأیید شد و خط `artisan schedule:run` نیز در crontab ریشه ثبت و بررسی شد. راهنمای رسمی Pterodactyl v1، Queue Worker و cron مربوط به Scheduler را جزو نصب استاندارد می‌داند: https://docs.pterodactyl.io/v1/panel/getting-started
 - قانون ورودی `29001/udp` در UFW عمداً برای سرور CS2 آینده باز نگه داشته شده است؛ بنا به تصمیم کاربر، آن را حذف، تغییر یا دوباره عیب‌یابی نکن.
 - اسکریپت نتوانسته مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند. این دو مورد هنوز باید دستی تأیید شوند. خروجی خام ترمینال در این سند ذخیره نشده است.
 
 ### راه‌اندازی Queue Worker و Scheduler — منبع واحد در README
 
-پیش‌بررسی 2026-10-18 تأیید کرد PHP CLI برابر 8.3.35 است، Artisan با کاربر www-data اجرا می‌شود، نسخهٔ Laravel برابر 12.64.0 است، QUEUE_CONNECTION=redis تنظیم شده و Redis/Cron فعال‌اند؛ اما pteroq.service و cron entry مربوط به schedule:run پیدا نشدند.
+پیش‌بررسی اولیهٔ 2026-10-18 تأیید کرد PHP CLI برابر 8.3.35 است، Artisan با کاربر `www-data` اجرا می‌شود، نسخهٔ Laravel برابر 12.64.0 است، `QUEUE_CONNECTION=redis` تنظیم شده و Redis/Cron فعال‌اند؛ در همان بررسی اولیه `pteroq.service` و ورودی cron مربوط به `schedule:run` پیدا نشدند. این نقص اکنون روی Clone رفع شده است؛ برای VM اصلی همچنان باید همین مرحله جداگانه اجرا شود.
 
 راه‌حل استاندارد نصب اکنون به‌عنوان مرحلهٔ ضروری **3.4.1** در README اصلی قرار دارد، بر اساس راهنمای رسمی Pterodactyl 1.x:
 
 [README.md — مرحلهٔ 3.4.1: راه‌اندازی اجباری Queue Worker و Scheduler](https://github.com/larnzs/linux-node/blob/main/README.md)
 
-**این دستورها را اکنون روی Clone فعال با IP 192.168.1.9 اجرا کن.** اسکریپت قبل از تغییر، hostname، IP مجاز، مسیر Panel، QUEUE_CONNECTION=redis، Redis، Cron و فرمان‌های Artisan را بررسی می‌کند؛ اگر Unit متفاوتی از قبل وجود داشته باشد بازنویسی نمی‌کند؛ از crontab root نسخهٔ پشتیبان می‌گیرد؛ سپس pteroq.service و scheduler cron را آماده و وضعیتشان را بررسی می‌کند.
+**نتیجهٔ اجرای Clone در 2026-10-18:** بلوک README بخش 3.4.1 روی VM فعال با IP `192.168.1.9` اجرا شد. پیش‌بررسی‌های hostname، IP، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis، Cron و Artisan عبور کردند؛ `pteroq.service` ساخته شد و crontab ریشه با نسخهٔ پشتیبان قبلی به‌روزرسانی شد. سپس وضعیت سرویس و وجود خط Scheduler جداگانه بررسی و تأیید شد.
 
-این اصلاح در نصب اولیه جا افتاده بود؛ این مرحله حالا در ترتیب نصب اصلی، پیش از پیکربندی NGINX، ثبت شده است. چون هر VM دیسک جدا دارد، هنگام بازگشت از Clone به VMDK اصلی همین مرحلهٔ README را جداگانه روی VM اصلی نیز اجرا کن. هرگز دو VM را هم‌زمان روشن نکن.
+این اصلاح در نصب اولیه جا افتاده بود و اکنون در ترتیب نصب اصلی، پیش از پیکربندی NGINX، ثبت شده است. **روی Clone انجام شد؛ روی VMDK اصلی هنوز انجام نشده است.** این دو VMDK مستقل‌اند؛ هنگام بازگشت به VM اصلی، ابتدا Clone را کاملاً خاموش کن، Port Forwardها را به `192.168.1.7` برگردان و فقط VM اصلی را روشن کن؛ سپس همان مرحلهٔ README را روی آن اجرا و تأیید کن. هرگز دو VM را هم‌زمان روشن نکن.
 
 **پورت 29001/udp** برای CS2 آینده عمداً باز است و در مراحل Queue/Scheduler نباید تغییر کند.
 
-پس از اجرای موفق، معیار قبولی این است که pteroq.service هم active و هم enabled باشد و خط /var/www/pterodactyl/artisan schedule:run در crontab ریشه وجود داشته باشد. خروجی نهایی را برای تأیید بفرست.
+**نتیجهٔ آزمون روی Clone:** هر دو معیار پاس شدند؛ `pteroq.service` برابر `enabled` و `active (running)` بود و خط `/var/www/pterodactyl/artisan schedule:run` در crontab ریشه وجود داشت. `journalctl` برای `pteroq.service` خطای شروع نشان نداد. این تأیید، اجرای موفق Scheduler در هر دقیقه را به‌تنهایی ثابت نمی‌کند؛ اما cron فعال بود و ورودی لازم حاضر است.
 
 ## 11. پایان تست و بازگشت به VM اصلی
 
@@ -676,10 +676,10 @@ SCRIPT
 - [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx test و HTTPS محلی Panel موفق بودند.
 - [x] مسیر Panel برابر /var/www/pterodactyl، نسخه Laravel برابر 12.64.0، QUEUE_CONNECTION برابر redis و Cron فعال است.
 - [x] PHP CLI در /usr/bin/php نسخه 8.3.35 است؛ www-data می‌تواند Artisan را اجرا کند و queue:work و schedule:run موجودند.
-- [x] هیچ Queue Worker در حال اجرا و هیچ Scheduler cron entry برای artisan schedule:run پیدا نشد.
+- [x] در پیش‌بررسی اولیه هیچ Queue Worker در حال اجرا و هیچ Scheduler cron entry برای `artisan schedule:run` پیدا نشد؛ این نقص روی Clone با مرحلهٔ 3.4.1 اصلاح شد.
 - [x] قانون UFW ورودی 29001/udp عمداً برای سرور CS2 آینده باز است؛ طبق تصمیم کاربر آن را تغییر نده.
-- [ ] بلوک استاندارد README بخش 3.4.1 روی Clone اجرا شود تا pteroq.service و Scheduler cron ایجاد و تأیید شوند.
-- [ ] تأیید شود pteroq.service فعال/enabled است و خط schedule:run در crontab root وجود دارد.
+- [x] بلوک استاندارد README بخش 3.4.1 روی Clone اجرا شد؛ `pteroq.service` ایجاد و راه‌اندازی شد.
+- [x] تأیید شد `pteroq.service` هم `active` و هم `enabled` است و خط `schedule:run` در crontab ریشه وجود دارد.
 - [ ] مقصد Port Forwardهای موجود TCP 80/443/8080/2022 در روتر به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
 - [ ] دسترسی بیرونی Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
@@ -687,4 +687,4 @@ SCRIPT
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). PHP CLI/Artisan پیش‌بررسی شدند؛ مسیر Panel و QUEUE_CONNECTION=redis مشخص است، Redis و Cron فعال‌اند، اما Queue Worker و Scheduler cron هنوز باید با بلوک استاندارد مرحلهٔ 3.4.1 README روی Clone راه‌اندازی و تأیید شوند. پورت 29001/udp بنا به تصمیم کاربر برای CS2 آینده باز می‌ماند و نباید تغییر کند. مقصد Port Forward و Online بودن Node در UI پنل باید دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. هر تغییری که روی Clone اعمال می‌شود، قبل از بازگشت باید جداگانه روی VM اصلی نیز اعمال شود، چون این دو دیسک مستقل‌اند.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را گرفته، IP برابر `192.168.1.9` و hostname برابر `fc-node-01` دارد. Health check اولیهٔ محلی 24 PASS / 1 WARN / 0 FAIL بود. PHP CLI/Artisan، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis و Cron تأیید شده‌اند. Queue Worker و Scheduler اکنون روی Clone راه‌اندازی و تأیید شده‌اند: `pteroq.service` برابر `active` و `enabled` است و خط Scheduler در crontab ریشه وجود دارد. هنگام اجرای `systemd-analyze verify` هشدار جداگانه‌ای دربارهٔ مسیر قدیمی `PIDFile` در `/etc/systemd/system/wings.service` زیر `/var/run/` دیده شد؛ این هشدار مانع فعال‌شدن `pteroq.service` نشد و فایل Wings باید جداگانه بررسی شود، نه اینکه کورکورانه تغییر کند. پورت `29001/udp` برای CS2 آینده باز می‌ماند و نباید تغییر کند. مقصد Port Forward و Online بودن Node در UI پنل هنوز دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با `lsblk`/`blkid` فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. چون دو دیسک مستقل‌اند، Queue Worker/Scheduler و هر تغییر دیگر باید قبل از بازگشت جداگانه روی VMDK اصلی اعمال شود.
