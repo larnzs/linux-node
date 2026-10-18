@@ -1433,18 +1433,13 @@ sudo journalctl -u php8.3-fpm -n 80 --no-pager
 )
 ~~~
 
-**Docker را جداگانه بررسی کن، فقط بعد از اجرای مرحلهٔ نصب Docker در Chapter 5:**
+**وضعیت پیش از Chapter 5:** بررسی انجام شد و Docker هنوز نصب نیست؛ بسته‌های Docker بررسی‌شده وجود ندارند، فرمان `docker` پیدا نشد و `docker.service` هنوز ایجاد نشده است. این وضعیت در این نقطه کاملاً مورد انتظار است و **نیازی به تعمیر یا نصب تکراری ندارد**. اکنون برای نخستین نصب Docker به Chapter 5 برو.
 
-~~~bash
-sudo systemctl is-active docker
-sudo docker info --format 'Server={{.ServerVersion}} Containers={{.Containers}} Images={{.Images}}'
-~~~
-
-پیش از Chapter 5، Docker ممکن است هنوز نصب/راه‌اندازی نشده باشد. خروجی `inactive` یعنی سرویس در حال اجرا نیست، اما به‌تنهایی ثابت نمی‌کند بسته نصب است یا نیست. چون وضعیت فعلی این Node باید پیش از نصب مشخص باشد، اگر `inactive` دیدی این بررسی فقط‌خواندنی را اجرا کن و خروجی را بازبینی کن؛ تا آن زمان نصب Docker را تکرار نکن:
+پس از اجرای Chapter 5، اگر سرویس فعال نبود، این بررسی را برای عیب‌یابی اجرا کن:
 
 ~~~bash
 (
-echo "=== Docker-related packages ==="
+echo "=== Docker packages ==="
 dpkg-query -W -f='${binary:Package} ${Status}\\n' docker-ce docker-ce-cli containerd.io docker.io 2>/dev/null || true
 echo
 echo "=== Docker command ==="
@@ -1500,7 +1495,11 @@ Test-NetConnection 127.0.0.1 -Port 3307
 
 ## 5. Docker Engine — نصب روی Debian Console-only
 
-این بلوک را فقط روی Debian تازه و پس از تکمیل مراحل 1 تا 4 اجرا کن. روی سیستم قدیمی پیش از نصب مجدد اجرا نکن.
+این مرحله اکنون مرحلهٔ جاری است. بررسی Chapter 4 تأیید کرد که Docker هنوز نصب نشده؛ این نصب تازه است و نیازی به حذف یا تعمیر Docker موجود نیست.
+
+**نکتهٔ امنیت شبکه:** مستندات رسمی Docker هشدار می‌دهند که پورت‌های container که Docker منتشر می‌کند، ممکن است قواعد معمول UFW را دور بزنند. نصب Docker را می‌توان اکنون انجام داد؛ اما پیش از انتشار پورت‌های container، Wings یا هر سرور بازی، طراحی Firewall/NAT را بازبینی می‌کنیم. فعلاً هیچ Container/instance بازی ایجاد نکن و پورت‌های بازی را در روتر باز نکن. مرجع رسمی: https://docs.docker.com/engine/install/debian/#firewall-limitations
+
+این بلوک نصب را روی همین Debian تازه و پس از تکمیل مراحل 1 تا 4 اجرا کن. روی سیستم قدیمی پیش از نصب مجدد اجرا نکن.
 
 ~~~bash
 set -eu
@@ -1711,7 +1710,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel `v1.15.1` روی `https://panel.fragcity.ir` صفحهٔ ورود را نمایش می‌دهد و پیکربندی NGINX/TLS در استفادهٔ فعلی کار می‌کند. Chapter 4 بررسی دیسک، سرویس‌ها و تونل را پوشش می‌دهد؛ بخش 4.3 اکنون از کلید SSH اختصاصی FragCity و IP LAN فعلی استفاده می‌کند. Docker/Wings هنوز نصب نشده‌اند؛ پس از بازبینی این فصل مرحلهٔ بعد Chapter 5 است. |
+| مرحلهٔ جاری | Panel `v1.15.1` روی `https://panel.fragcity.ir` صفحهٔ ورود را نمایش می‌دهد و پیکربندی NGINX/TLS در استفادهٔ فعلی کار می‌کند. Chapter 4 بازبینی شد؛ تونل SSH دیتابیس در 4.3 با کلید FragCity مستند شده. بررسی تأیید کرد Docker پیش از این نصب نشده بود؛ اکنون Chapter 5، نصب رسمی Docker Engine از مخزن رسمی روی Debian 13 است. Wings/instance بازی هنوز ساخته نشده‌اند. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
