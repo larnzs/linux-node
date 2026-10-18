@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** فقط دستورها، توضیحات، پیش‌نیازها و checkpointهای مرحله‌ای در این سند قرار می‌گیرند. خروجی ترمینال، لاگ واقعی و نتیجهٔ اجرای فرمان‌ها عمداً در README ثبت نمی‌شود؛ خروجی لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. برای اجرای پروژه از صفر، از این سند شروع کن.
 >
-> **وضعیت فعلی: نصاب Debian 13 در مرحلهٔ Partitioning method است.** سیستم برای استفادهٔ واقعی FragCity به‌عنوان Node نصب می‌شود؛ محیط Desktop انتخاب نشود. Hostname برابر `fc-node-01` و فیلد Domain name برابر `fragcity.ir` وارد شده‌اند. گام بعدی: انتخاب امن دیسک و روش پارتیشن‌بندی.
+> **وضعیت فعلی: نصاب Debian 13 روی صفحهٔ `Disk partitioning scheme` است.** مسیر نصب: LVM غیررمزشده، تمام فایل‌های سیستم در یک پارتیشن اصلی؛ سپس تأیید کنترل‌شدهٔ تغییرات، mirror شبکه، انتخاب بسته‌های بدون Desktop و نصب GRUB. Hostname = `fc-node-01` و Domain name = `fragcity.ir`.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -49,66 +49,127 @@
 
 تنظیم DNS، HTTPS و دسترسی عمومی بعد از نصب و بررسی اتصال شبکه انجام می‌شود؛ فیلد Domain name جایگزین آن‌ها نیست.
 
-### 1.2 Partitioning method — مرحلهٔ جاری
+### 1.2 Disk partitioning scheme — صفحهٔ فعلی
 
-Debian به‌صورت خودکار پارتیشن‌بندی می‌کند؛ انتخاب دیسک اشتباه می‌تواند کل دیسک را پاک کند. راهنمای رسمی Debian: https://www.debian.org/releases/trixie/amd64/install.en.pdf (بخش 6.3.4).
+در این صفحه، گزینهٔ **All files in one partition (recommended for new users)** را انتخاب کن. این باعث می‌شود فضای فایل‌های سیستم، Docker و مسیر پیش‌فرض volumeهای Pterodactyl زیر `/var/lib/pterodactyl/volumes` از ابتدا به چند پارتیشن جدا با اندازه‌های ثابت تقسیم نشود. با LVM می‌توان بعداً Volumeها را مدیریت کرد، اما LVM خودش فضای فیزیکی اضافه نمی‌کند.
 
-**پیش از انتخاب روش، ظرفیت Virtual Disk مقصد را بررسی کن.** برای یک Node که قرار است CS2 اجرا کند، پیشنهاد شروع من حداقل **250 GB** فضای مجازی برای دیسک Node است؛ این ظرفیت برای تعداد زیادی instance تضمین‌شده نیست و با تعداد سرورها باید دوباره سنجیده شود. نصب قبلی روی دیسکی حدود 112 GiB فضای ریشه داشت و فایل‌های CS2/KUS هم فضای زیادی می‌گرفتند، بنابراین اگر دیسک فعلی حدود 120 GB است، نصب را ادامه نده: ماشین مجازی را خاموش کن، در VMware ظرفیت دیسک مقصد را افزایش بده یا یک طرح Storage جداگانه تعیین کن، سپس نصاب را از سر بگیر. VMDK پشتیبان Debian قبلی را انتخاب یا ویرایش نکن.
+اگر هنوز انتخاب نکرده‌ای، **Encrypted LVM را انتخاب نکن**؛ ماشین باید پس از reboot بدون واردکردن passphrase در کنسول بالا بیاید.
 
-اگر دیسک مقصد حداقل 250 GB دارد، این انتخاب‌ها را انجام بده:
+### 1.3 بازبینی جدول پارتیشن‌ها و تأیید نوشتن
 
-1. انتخاب کن: **Guided - use entire disk and set up LVM**.
-2. در صفحهٔ انتخاب دیسک، دیسک سیستم‌عامل را با **نام و ظرفیت** آن شناسایی کن. اگر چند دیسک دیده می‌شوند و مطمئن نیستی کدام VMDK جدید است، جلو نرو و از صفحه عکس/توضیح بفرست.
-3. روش **All files in one partition** را انتخاب کن تا فضای `/` بین `/var`، Docker و داده‌های بازی با پارتیشن‌های جدا و کم‌ظرفیت محدود نشود.
-4. **Encrypted LVM را انتخاب نکن**؛ سروری که باید پس از reboot بدون حضور اپراتور بالا بیاید نباید در هر بوت منتظر واردکردن دستی passphrase بماند.
-5. در صفحهٔ خلاصهٔ تغییرات، مطمئن شو فقط دیسک مقصد نصب Debian فرمت می‌شود. تا وقتی این مورد روشن نیست، گزینهٔ `Finish partitioning and write changes to disk` را تأیید نکن.
+1. پس از انتخاب scheme، گزینهٔ Continue را بزن تا جدول پارتیشن‌های پیشنهادی نمایش داده شود.
+2. پیش از تأیید، دوباره کنترل کن که دیسک مقصد همان VMDK جدید برای این نصب است و ظرفیت آن با برنامه مطابقت دارد. پیشنهاد شروع برای Node میزبان CS2 حداقل **250 GB** است؛ برای چندین نصب بازی/instance ممکن است فضای بیشتری لازم شود.
+3. در جدول LVM، وجود پارتیشن بوت و Logical Volume مربوط به ریشه `/` و swap طبیعی است. چون LVM انتخاب شده، وجود پارتیشن جداگانهٔ `/boot` نیز طبیعی است.
+4. فقط وقتی مطمئن شدی دیسک درست انتخاب شده، **Finish partitioning and write changes to disk** را انتخاب کن، Continue را بزن و در تأیید نهاییِ نوشتن تغییرات روی دیسک گزینهٔ **Yes** را انتخاب کن.
+5. اگر ظرفیت یا نام دیسک اشتباه است، گزینهٔ **No / Go Back** را بزن. دیسک قبلی/پشتیبان را فرمت نکن.
 
-LVM امکان مدیریت انعطاف‌پذیرتر حجم‌ها را فراهم می‌کند، اما به‌تنهایی ظرفیت فیزیکی اضافه نمی‌کند. پیش از رشد تعداد instanceها، Storage را بر اساس اندازهٔ واقعی نصب‌های CS2 طراحی می‌کنیم.
+### 1.4 نصب Base System
 
-### 1.3 اولین بوت و ابزارهای پایه
+پس از تأیید پارتیشن‌بندی، Debian پارتیشن‌ها را فرمت می‌کند و سیستم پایه را نصب می‌کند. این مرحله را تا بازگشت صفحهٔ نصاب صبر کن؛ دکمهٔ Cancel یا خاموش‌کردن VM را نزن.
 
-پس از پایان نصب، بلوک زیر را در کنسول Debian اجرا کن:
+### 1.5 پیکربندی APT و Network Mirror
+
+در صورت نمایش این سؤال‌ها:
+
+1. **Scan additional installation media?** — اگر فقط همان ISO نصب را داری، **No**.
+2. **Use a network mirror?** — **Yes**؛ سرور به بسته‌ها و به‌روزرسانی‌های امنیتی از اینترنت نیاز دارد.
+3. **Mirror country** — کشور نزدیک و قابل‌دسترسی را انتخاب کن؛ سپس mirror پیش‌فرض پیشنهادی نصاب، معمولاً `deb.debian.org`، را نگه دار.
+4. **HTTP proxy information** — اگر Proxy سازمانی تعریف نکرده‌ای، خالی بگذار و Continue کن.
+5. اگر دریافت mirror شکست خورد، انتخاب mirror را یادداشت کن و خطای نصاب را بفرست؛ قبل از تکمیل نصب، به تنظیمات تصادفی DNS یا proxy تغییر نده.
+
+Debian عموماً استفاده از network mirror را پیشنهاد می‌کند، و آدرس `deb.debian.org` گزینهٔ پیش‌فرض مناسبی است. راهنمای رسمی: https://www.debian.org/releases/trixie/amd64/install.en.pdf (بخش‌های 6.3.6.1 و 6.3.6.2).
+
+### 1.6 Software selection — نصب Console-only
+
+وقتی صفحهٔ **Software selection** یا **Software selection and install** را دیدی، فقط این گزینه‌ها باید تیک داشته باشند:
+
+- [x] **SSH server**
+- [x] **standard system utilities**
+
+و این گزینه باید **تیک نداشته باشد**:
+
+- [ ] **Debian desktop environment**
+
+هر گزینهٔ Desktop مانند GNOME/Xfce/KDE، و نیز Web server یا Print server را برای این مرحله انتخاب نکن. وب‌سرور Panel را بعداً به‌صورت کنترل‌شده با NGINX نصب می‌کنیم؛ Apache پیش‌فرض لازم نیست. سپس Continue را بزن و تا پایان نصب بسته‌ها صبر کن.
+
+### 1.7 نصب GRUB Boot Loader
+
+وقتی نصاب پرسید **Install the GRUB boot loader to your primary drive?** گزینهٔ **Yes** را انتخاب کن.
+
+اگر فهرست دستگاه‌ها نمایش داده شد، دیسک کامل سیستم‌عامل را انتخاب کن، مثل `/dev/sda`، نه پارتیشن خاصی مثل `/dev/sda1`. نام دستگاه را بر اساس ظرفیت/ترتیب همان VM انتخاب کن؛ اگر چند دیسک هم‌اندازه نمایش داده می‌شوند و مطمئن نیستی کدام دیسک نصب است، انتخاب نکن و قبل از ادامه راهنمایی بگیر.
+
+### 1.8 پایان نصب و اولین reboot
+
+1. وقتی پیام **Installation complete** یا **Finish the installation** نمایش داده شد، Continue را بزن.
+2. اگر VM دوباره به نصاب برگشت، در VMware از تنظیمات CD/DVD فایل ISO را Disconnect کن یا اتصال ISO هنگام بوت را خاموش کن؛ باید از دیسک مجازی Debian بوت شود.
+3. در صفحهٔ Console باید به صفحهٔ login متنی برسد. ورود کاربر را خودت انجام بده؛ نام کاربری و رمز را در README ثبت نکن.
+
+### 1.9 اولین به‌روزرسانی و ابزارهای پایه
+
+بعد از ورود به Debian تازه، این بلوک را یک‌بار اجرا کن. اگر `sudo` دسترسی ندارد یا فرمان شکست خورد، خروجی خطا را بفرست و ادامه نده.
 
 ~~~bash
+set -eu
+
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install -y sudo git curl ca-certificates gnupg2 lsb-release nano htop tmux jq rsync unzip tar xz-utils dnsutils netcat-openbsd openssh-server
+sudo apt install -y \
+  sudo git curl ca-certificates gnupg2 lsb-release nano htop tmux jq \
+  rsync unzip tar xz-utils dnsutils netcat-openbsd openssh-server
+
 sudo systemctl enable --now ssh
 sudo reboot
 ~~~
 
-### 1.4 اتصال SSH از Windows
+### 1.10 بررسی اولیهٔ سیستم تازه
 
-پس از reboot، IP فعلی ماشین را از VMware/روتر یا کنسول مشخص کن. از PowerShell ویندوز به‌شکل زیر وصل شو؛ مقدارهای نمونه را با اطلاعات محلی خودت جایگزین کن:
-
-~~~powershell
-ssh <debian-user>@<node-lan-ip>
-~~~
-
-حساب کاربری و رمز در این README ثبت نمی‌شوند؛ آن‌ها را در خود نصب‌کننده تنظیم کرده‌ای.
-
-### 1.5 بررسی اولیهٔ سیستم تازه
+پس از reboot وارد کنسول یا SSH شو و این بلوک فقط‌خواندنی را اجرا کن:
 
 ~~~bash
 set -eu
+
+echo "=== OS and hostname ==="
 cat /etc/os-release
 hostname
-hostname -f
+hostname -f || true
+
+echo
+echo "=== Network ==="
 hostname -I
 ip -br address
 ip route
+
+echo
+echo "=== Virtualization and CPU ==="
 systemd-detect-virt || true
 uname -m
 uname -r
-lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket)'
+lscpu | grep -E '^(Architecture|CPU\\(s\\)|Model name|Thread|Core|Socket)'
+
+echo
+echo "=== Memory and storage ==="
 free -h
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 df -hT /
 df -ih /
 nproc
+
+echo
+echo "=== SSH and Internet ==="
 sudo systemctl is-active ssh
+getent hosts deb.debian.org
+curl -fsSI --max-time 15 https://deb.debian.org/ | head -n 1
 ~~~
 
-**شرط پایان مرحله:** Debian 13 بالا آمده باشد، SSH فعال باشد و دیسک نصب‌شده مطابق طرح انتخاب‌شده دیده شود. خروجی این بلوک را در README نگذار؛ فقط اگر چیزی خطا داشت، خروجی را در گفت‌وگو بفرست.
+**معیار پایان مرحلهٔ Debian:** سیستم به متن login بوت شود؛ معماری `x86_64`، IP شبکه و default route معتبر باشد، SSH فعال باشد و دسترسی HTTPS به Debian mirror کار کند. اگر `hostname -f` هنوز FQDN را درست نشان نداد، نگران نشو؛ بعداً DNS و resolver را بررسی می‌کنیم. خروجی این بلوک را به README اضافه نکن؛ فقط خروجی لازم برای عیب‌یابی را در گفت‌وگو بفرست.
+
+### 1.11 IP ثابت در LAN و DNS عمومی — بعد از بوت، نه داخل نصاب
+
+1. در روتر، برای MAC آداپتور VM یک **DHCP reservation** تعریف کن تا LAN IP ثابت بماند؛ مقدار IP واقعی را بعد از نصب مشخص می‌کنیم.
+2. در DNS authoritative دامنه، رکوردهای A زیر باید به IP عمومی قابل‌دسترسی میزبان اشاره کنند:
+   - `panel.fragcity.ir`
+   - `fc-node-01.fragcity.ir`
+3. هنوز DNS record، TLS، port forwarding یا دسترسی اینترنتی را ساخته‌شده فرض نکن. هر کدام را جداگانه بررسی و سپس پیکربندی می‌کنیم.
 
 ---
 
@@ -632,13 +693,12 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | بخش | وضعیت مسیر جدید |
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
-| نصاب Debian | در مرحلهٔ Partitioning method؛ نصب سیستم‌عامل هنوز کامل نشده |
+| نصاب Debian | روی `Disk partitioning scheme`؛ انتخاب `All files in one partition` و تأیید دیسک مقصد گام‌های جاری‌اند |
 | Hostname | در نصاب وارد شده: `fc-node-01` |
 | Domain name | در نصاب وارد شده: `fragcity.ir` |
 | FQDNهای هدف | `panel.fragcity.ir` و `fc-node-01.fragcity.ir` |
 | DNS / public IP / TLS | بعد از نصب بررسی و تنظیم شوند؛ هنوز آماده فرض نشوند |
 | VMDK قبلی | نسخهٔ قبلی نزد کاربر موجود است؛ نباید به‌عنوان دیسک مقصد overwrite شود |
-| Partitioning | فقط پس از بررسی ظرفیت دیسک مقصد؛ پیشنهاد شروع حداقل 250 GB و LVM غیررمزشده |
 | Panel / Docker / Wings | روی نصب تازه هنوز نصب نشده‌اند |
 | Node و Wings config | بعد از نصب Panel و ساخت Node |
 | CS2 instance | هنوز نساز؛ ابتدا Storage/Egg/Volume طراحی شود |
@@ -647,6 +707,8 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 خروجی اجرای فرمان‌ها، لاگ‌ها، رمزها، نام حساب‌های شخصی و SHAهای فایل‌ها را به این README اضافه نکن. این سند فقط دستورها، تصمیم‌های معماری و مراحل تکرارپذیر را نگه می‌دارد.
 
 ## منابع رسمی
+
+- Debian Installer guide: https://www.debian.org/releases/trixie/amd64/install.en.pdf
 
 - Debian: https://www.debian.org/distrib/
 - Panel releases: https://github.com/pterodactyl/panel/releases
