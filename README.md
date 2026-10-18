@@ -1907,9 +1907,9 @@ fi
 
 1. Full Clone در VMware ساخته شده و در بوت اول گزینهٔ **I Copied It** انتخاب شده است. راهنمای Broadcom: https://knowledge.broadcom.com/external/article/310359/copy-workstation-virtual-machine-from-on.html
 2. VMware برای Clone، MAC جدید ساخته و DHCP فعلاً IP **192.168.1.9** داده است. IP اصلی **192.168.1.7** باقی می‌ماند؛ در مودم برای MAC کلون DHCP reservation برابر 192.168.1.9 ثبت کن.
-3. hostname کپی فعلاً fc-node-01-test است و Wings روی Clone قبلاً متوقف/disable شده است. طبق بخش 7 از راهنمای مستقل، hostname را به fc-node-01 برگردان؛ این اسکریپت فقط hostname و /etc/hosts را تغییر می‌دهد و سرویس‌ها، machine-id، SSH host keys و گواهی‌ها را دست نمی‌زند.
-4. در روتر قوانین **موجود** Port Forward برای TCP 80/443، TCP 8080 و TCP 2022 را هنگام تست از مقصد 192.168.1.7 به 192.168.1.9 تغییر بده؛ قانون تکراری با پورت عمومی یکسان نساز. DNS عمومی نیاز به تغییر ندارد، مگر IPv4 عمومی WAN تغییر کرده باشد.
-5. پس از تغییر مقصد Port Forward، سرویس‌های اصلی را بررسی کن و Wings را روی Clone با فرمان زیر فعال کن: sudo systemctl enable --now wings. Panel را از https://panel.fragcity.ir و وضعیت Node را در خود Panel آزمایش کن.
+3. hostname در Clone به fc-node-01 برگردانده شده و /etc/hosts نیز به نام اصلی اشاره می‌کند. هشدار ابتدایی sudo مبنی بر unable to resolve host fc-node-01-test پیش از اصلاح hosts ظاهر شد؛ با getent hosts fc-node-01 و sudo -v وضعیت نهایی را تأیید کن.
+4. مقصد قوانین **موجود** Port Forward برای TCP 80/443، TCP 8080 و TCP 2022 باید برای زمان تست از 192.168.1.7 به 192.168.1.9 تغییر کند؛ در گفت‌وگو هنوز تغییر روتر صریحاً تأیید نشده، پس بررسی کن. قانون تکراری با پورت عمومی یکسان نساز. DNS عمومی نیاز به تغییر ندارد، مگر IPv4 عمومی WAN تغییر کرده باشد.
+5. Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند؛ Wings نیز قبلاً با sudo systemctl enable --now wings فعال/اجرا شده است. اکنون مقصد Port Forwardها را تأیید کن، سپس Panel را از https://panel.fragcity.ir باز و وضعیت Node را در خود Panel بررسی کن. اگر Node Offline بود، قبل از تغییر config Wings، مسیر Port Forward TCP 8080 و لاگ اخیر Wings را بررسی کن.
 6. هنوز Base Game، Instance بازی یا پورت CS2 نصب/باز نشده است. هیچ اسکریپت نصب KUS یا Egg را اجرا نکن تا VMDK دادهٔ دوم شناسایی شود و طراحی Shared Base تأیید گردد.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
@@ -1983,7 +1983,7 @@ sudo blkid
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | اتصال Node با Port Forward پورت‌های TCP 8080/2022 برقرار شده؛ لاگ فعلی Wings و Docker خطای فعال نشان نمی‌دهد. بازرسی Storage و ممیزی اسکریپت‌های KUS انجام شده است، اما هیچ Base Game/Instance نصب نشده. گام جاری 7.3: استفاده از Clone به‌عنوان جایگزین موقت Node اصلی (VM اصلی خاموش بماند)، تغییر مقصد Port Forward به 192.168.1.9، تأیید Panel/Wings و سپس افزودن VMDK فقط به Clone. |
+| مرحلهٔ جاری | Clone به‌عنوان جایگزین موقت روشن است؛ IP آن 192.168.1.9 و hostname آن fc-node-01 است. Nginx، PHP 8.3-FPM، MariaDB، Redis و Wings فعال گزارش شده‌اند؛ واحد pteroq.service پیدا نشده و Port Forwardهای Clone هنوز صریحاً تأیید نشده‌اند. گام جاری: بررسی نام میزبان، تأیید مقصد پورت‌های TCP 80/443/8080/2022 به 192.168.1.9 و سپس بررسی Panel/Node؛ بعد افزودن VMDK فقط به Clone. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
