@@ -628,9 +628,20 @@ ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthe
 3. VMDK سیستم قبلی را انتخاب، mount یا overwrite نکن. Snapshot جای backup مستقل را نمی‌گیرد؛ اگر از فایل VM هم backup می‌گیری، دیسک مقصد را با دقت بررسی کن.
 4. اگر Snapshot در نسخهٔ VMware در دسترس نیست، این گام اختیاری را رد کن و به‌جای آن برنامهٔ backup جداگانه داشته باش.
 
-### ادامهٔ نصب بعد از مرحلهٔ 1.21
+### مسیر اجرایی بعد از مرحلهٔ 1.21 — دستهٔ شش‌گامی
 
-اگر مراحل 1.19.4 و 1.20 موفق بودند، از **بخش 2، به‌ترتیب 2.1 و سپس 2.2** شروع کن. این دو مرحله Repository لازم برای PHP 8.3 و وابستگی‌های Panel 1.x را نصب می‌کنند. بعد از اجرای هر بلوک، خروجی را بررسی کن؛ به فصل 3 نپر تا Composer و سرویس‌های لازم تأیید شوند.
+هدف این دسته آماده‌کردن وابستگی‌ها، نصب فایل‌های Panel و ساخت دیتابیس است. بلوک‌ها را به‌ترتیب اجرا کن و فقط وقتی یک بلوک بدون خطا تمام شد، سراغ بلوک بعدی برو.
+
+1. **مرحلهٔ 1.21 — Snapshot در VMware:** از همین VM یک Snapshot با نام `debian13-base-ssh-firewall` بساز. اگر نسخهٔ VMware Snapshot ندارد، این مرحله اختیاری است؛ برای دیسک VM قبلی هیچ تغییری نده.
+2. **مرحلهٔ 2.1 — مخزن PHP 8.3:** بلوک کامل بخش 2.1 را اجرا کن. شرط قبولی: آخرین `sudo apt update` با کد خروج صفر تمام شود.
+3. **مرحلهٔ 2.2 — بسته‌های موردنیاز:** بلوک بخش 2.2 را اجرا کن. در صورت خطای APT یا ناسازگاری بسته، متوقف شو و خطا را بررسی کن.
+4. **مرحلهٔ 2.3 — Composer و بررسی سرویس‌ها:** بلوک بخش 2.3 را اجرا کن. فقط در صورت تأیید نسخهٔ PHP، Composer، افزونه‌ها و فعال‌بودن سرویس‌ها ادامه بده.
+5. **مرحلهٔ 3.1 — فایل‌های Panel:** بلوک بخش 3.1 را فقط روی نصب تازه اجرا کن. در این راهنما نسخهٔ پایدار انتخابی `v1.15.1` است؛ قبل از اجرا صفحهٔ Release رسمی را دوباره بررسی کن. اگر فایل `.env` از قبل وجود داشت، اسکریپت باید متوقف شود؛ آن را overwrite نکن.
+6. **مرحلهٔ 3.2 — دیتابیس و حساب اختصاصی:** ابتدا دستورهای بررسی ابتدای بخش 3.2 را اجرا کن. فقط اگر نصب واقعاً تازه است، دیتابیس و حسابی که در بخش 3.2 آمده‌اند را بساز. رمز دیتابیس را به‌صورت محلی در prompt قرار بده؛ آن را در GitHub، README یا گزارش گفت‌وگو ثبت نکن.
+
+**ایست بازرسی:** بعد از پایان موفق مرحلهٔ 3.2، همین‌جا متوقف شو و خروجی‌های مراحل 2.1 تا 3.2 را برای بررسی بفرست. رمز واردشده، محتوای `.env`، کلید `APP_KEY` و اطلاعات ورود را نفرست. فعلاً مرحله‌های 3.3 به بعد را اجرا نکن؛ ابتدا صحت نسخه‌ها، سرویس‌ها، فایل‌های برنامه و دیتابیس را بررسی می‌کنیم.
+
+**نکتهٔ دسترسی وب:** طبق گزارش فعلی، Port Forward پورت 80 موقتاً به همین VM اشاره می‌کند. با فعال‌شدن NGINX ممکن است صفحهٔ پیش‌فرض آن از طریق HTTP قابل‌دسترسی شود. اطلاعات ورود را روی HTTP وارد نکن. فعال‌سازی Virtual Host مربوط به Panel و انتشار نهایی باید طبق بخش‌های 3.5 و 3.7، پس از بررسی دسترسی روتر، DNS و TLS انجام شود.
 
 **هیچ instance یا فایل بازی CS2 در این فاز نصب نمی‌شود.**
 ---
@@ -712,7 +723,7 @@ MariaDB باید روی 127.0.0.1:3306 و Redis روی loopback بمانند؛ �
 
 ## 3. نصب Pterodactyl Panel — فاز آینده، پیش از اجرا نسخه را بازبینی کن
 
-در زمان نگارش این راهنما، آخرین نسخهٔ پایدارِ شاخهٔ 1.x در Release رسمی `v1.15.1` است؛ شاخهٔ 2.0 هنوز Open Beta است و برای این راه‌اندازی Production انتخاب نمی‌شود. پیش از اجرای این فصل، صفحهٔ https://github.com/pterodactyl/panel/releases را دوباره بررسی و نسخهٔ پایدار را pin کن. مرجع نسخه‌ها: https://github.com/pterodactyl/panel/releases.
+در بازبینی **2026-10-18**، صفحهٔ Release رسمی، `v1.15.1` را آخرین نسخهٔ پایدار و نسخه‌های `v2.0.0-beta.*` را Open Beta نشان می‌دهد؛ برای این مسیر، نسخهٔ پایدار 1.x انتخاب شده است. پیش از اجرا، https://github.com/pterodactyl/panel/releases را دوباره بررسی کن. اگر Release پایدار جدیدتری منتشر شده، نسخه و نیازمندی‌های آن را بازبینی کن و سپس URL و شمارهٔ نسخهٔ pin‌شده در این بخش را به‌صورت آگاهانه تغییر بده.
 
 ### 3.1 دریافت فایل‌ها و Composer
 
@@ -731,14 +742,24 @@ fi
 sudo curl -fL https://github.com/pterodactyl/panel/releases/download/v1.15.1/panel.tar.gz -o /tmp/panel.tar.gz
 sudo tar -xzf /tmp/panel.tar.gz -C /var/www/pterodactyl
 sudo chown -R www-data:www-data /var/www/pterodactyl
-sudo chmod -R 755 storage bootstrap/cache
+sudo find storage bootstrap/cache -type d -exec chmod 750 {} +
+sudo find storage bootstrap/cache -type f -exec chmod 640 {} +
 sudo cp .env.example .env
 sudo chown www-data:www-data .env
 sudo chmod 640 .env
 
+# Give www-data a dedicated writable Composer home instead of relying on /var/www permissions.
+sudo install -d -o www-data -g www-data -m 0750 /var/www/.composer
+
 cd /var/www/pterodactyl
-sudo -u www-data php8.3 /usr/local/bin/composer install --no-dev --optimize-autoloader
+sudo -u www-data env HOME=/var/www COMPOSER_HOME=/var/www/.composer \
+  php8.3 /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction
 sudo -u www-data php8.3 artisan key:generate
+
+# Read-only checks; do not print the contents of .env.
+sudo -u www-data php8.3 artisan --version
+sudo test -s /var/www/pterodactyl/.env && echo "OK: .env exists"
+sudo stat -c '%U:%G %a %n' /var/www/pterodactyl/.env /var/www/pterodactyl/storage /var/www/pterodactyl/bootstrap/cache
 ~~~
 
 APP_KEY فقط یک‌بار هنگام نصب تازه تولید می‌شود. آن را دوباره تولید نکن.
@@ -1229,14 +1250,14 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | 1.19.4 اجرا شده و UFW فعال است؛ بررسی‌های read-only مرحلهٔ 1.20 موفق بوده‌اند. در لاگ فعلی دسترسی TCP به پورت 22 تأیید شده، اما نتیجهٔ ورود با کلید SSH دیده نمی‌شود. پیش از بخش 2، ورود کلیدی و Snapshot مرحلهٔ 1.21 را تأیید کن. |
+| مرحلهٔ جاری | UFW و بررسی‌های مرحلهٔ 1.20 موفق‌اند؛ ورود تازه با کلید SSH نیز با موفقیت تأیید شد. گام بعدی Snapshot مرحلهٔ 1.21 و سپس اجرای ترتیبی 2.1، 2.2، 2.3، 3.1 و 3.2 است؛ بعد از 3.2 توقف کن و لاگ‌ها را برای بررسی بفرست. |
 | مراحل پایه | مراحل 1.9 تا 1.18 اجرا شده‌اند؛ نتیجهٔ هر مرحله را از لاگ‌های همین گفتگو بررسی کن |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
-| IP LAN / رزرو DHCP | از `ip -4 -o address show dev ens33` و پنل DHCP بررسی شود؛ از مقدار قبلی فرض نشود |
+| IP LAN / رزرو DHCP | آخرین خروجی: `192.168.1.7/24` روی `ens33`، Gateway برابر `192.168.1.1`. رزرو DHCP روتر را پیش از اتکا به IP در Port Forward تأیید کن. |
 | Panel FQDN هدف | `panel.fragcity.ir` |
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
-| SSH hardening | سرویس فعال و پیکربندی sshd معتبر است؛ ورود root و احراز هویت با رمز غیرفعال، و احراز هویت با کلید فعال است. نتیجهٔ اجرای دستور ورود کلیدی از Windows PowerShell هنوز در لاگ فعلی موجود نیست. |
+| SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
 | Panel / Docker / Wings | نصب روی Debian تازه هنوز آغاز نشده |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
