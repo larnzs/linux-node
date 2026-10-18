@@ -598,73 +598,61 @@ SCRIPT
 - Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال بودند. تست Nginx موفق بود، HTTPS محلی `panel.fragcity.ir` پاسخ HTTP 200 داد، و گواهی‌های Panel/Node بیش از 14 روز تا انقضا داشتند.
 - پورت‌های TCP 80، 443، 8080 و 2022 در حالت LISTEN بودند. MariaDB socket ping و Redis PING موفق بودند. Root filesystem تقریباً 1% مصرف و حدود 253 GB آزاد داشت. خطای سطح بالا در سرویس‌های پایش‌شده طی 15 دقیقهٔ اخیر دیده نشد.
 - تنها WARN اسکریپت این بود که واحد systemd به نام pteroq.service پیدا نشد. بررسی بعدی نیز هیچ Queue Worker در حال اجرا، هیچ systemd unit مرتبط و هیچ cron entry برای artisan schedule:run پیدا نکرد. این یعنی Queue/Scheduler به‌احتمال زیاد هنوز پیکربندی نشده‌اند؛ قبل از ساخت سرویس جدید، مسیر واقعی Panel و مقدار غیرمحرمانه QUEUE_CONNECTION را تأیید می‌کنیم. طبق راهنمای رسمی Pterodactyl v1، نصب استاندارد به queue worker و cron برای اجرای schedule:run نیاز دارد: https://docs.pterodactyl.io/v1/panel/getting-started
-- UFW یک قانون ورودی `29001/udp` از Anywhere دارد. چون هنوز سرور CS2 یا Container بازی ساخته نشده، فعلاً آن را حذف نکن؛ ابتدا بررسی کن برنامه‌ای واقعاً روی این پورت UDP گوش می‌دهد و این قانون برای چه منظوری اضافه شده است.
+- قانون ورودی `29001/udp` در UFW عمداً برای سرور CS2 آینده باز نگه داشته شده است؛ بنا به تصمیم کاربر، آن را حذف، تغییر یا دوباره عیب‌یابی نکن.
 - اسکریپت نتوانسته مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند. این دو مورد هنوز باید دستی تأیید شوند. خروجی خام ترمینال در این سند ذخیره نشده است.
 
-### گام بعدی — بررسی فقط‌خواندنی مسیر Panel، Queue/Scheduler و UDP
+### قدم بعدی — پیش‌بررسی PHP CLI برای Queue Worker و Scheduler
 
-نتیجهٔ فعلی نشان می‌دهد هیچ Queue Worker در حال اجرا، هیچ Unit مرتبطی و هیچ cron entry برای artisan schedule:run پیدا نشده است. مستندات رسمی Pterodactyl v1 وجود هر دو سازوکار را برای کارهای پس‌زمینهٔ پنل توضیح می‌دهد: https://docs.pterodactyl.io/v1/panel/getting-started. هنوز Unit یا cron جدید نساز؛ ابتدا مسیر برنامه و تنظیم غیرمحرمانهٔ Queue را از خود VM تأیید کن.
+مسیر پنل و تنظیمات غیرمحرمانه مشخص شده‌اند: \`/var/www/pterodactyl\`، Laravel 12.64.0، \`QUEUE_CONNECTION=redis\` و Redis فعال است. Cron نیز فعال/enable گزارش شده، اما هیچ cron entry برای \`artisan schedule:run\` و هیچ Queue Worker یا service unit مرتبط پیدا نشد.
 
-این بلوک فقط‌خواندنی است؛ مقادیر رمز، APP_KEY، پسورد DB یا توکن‌ها را نمایش نمی‌دهد:
+طبق مستند رسمی Pterodactyl v1، Queue Worker باید با \`queue:work\` اجرا شود و scheduler با اجرای هر دقیقهٔ \`artisan schedule:run\` فعال شود: https://docs.pterodactyl.io/v1/panel/getting-started. پیش از ساخت service یا cron، فقط PHP CLI و دسترسی به Artisan را تأیید می‌کنیم.
+
+این بلوک فقط‌خواندنی است و هیچ فایل یا سرویسی را تغییر نمی‌دهد:
 
 ~~~bash
-set +e
+cd /var/www/pterodactyl || exit 1
 
-echo "=== Candidate Panel paths and version ==="
-for path in /var/www/pterodactyl /var/www/panel /var/www/fragcity-panel; do
-    if [ -f "$path/artisan" ] && [ -f "$path/.env" ]; then
-        echo "Panel files found: $path"
-        sudo -u www-data php "$path/artisan" --version 2>&1
-        echo "Non-secret environment settings:"
-        sudo awk -F= '
-          /^(APP_ENV|QUEUE_CONNECTION|CACHE_DRIVER|CACHE_STORE|REDIS_HOST|REDIS_PORT)=/ {
-            print $1 "=" $2
-          }
-        ' "$path/.env"
-    fi
-done
+echo "=== PHP selected by PATH ==="
+command -v php
+php -v | head -n 2
 
 echo
-echo "=== Queue/worker service units ==="
-systemctl list-unit-files --type=service --no-legend 2>/dev/null |
-  grep -Ei 'pteroq|queue|horizon|supervisor' || true
+echo "=== PHP at the official service path ==="
+if [ -x /usr/bin/php ]; then
+    readlink -f /usr/bin/php
+    /usr/bin/php -v | head -n 2
+else
+    echo "ERROR: /usr/bin/php does not exist or is not executable."
+fi
 
 echo
-echo "=== Running Panel queue processes ==="
-ps -eo pid,user,args |
-  grep -E '[a]rtisan queue:work|[a]rtisan horizon' || true
+echo "=== Artisan as the web application user ==="
+sudo -u www-data /usr/bin/php /var/www/pterodactyl/artisan --version
 
 echo
-echo "=== Cron service state ==="
-systemctl is-active cron 2>/dev/null || true
-systemctl is-enabled cron 2>/dev/null || true
+echo "=== Required Artisan commands ==="
+sudo -u www-data /usr/bin/php /var/www/pterodactyl/artisan list --raw 2>/dev/null |
+  grep -E '^(queue:work|schedule:run)([[:space:]]|$)' || true
 
 echo
-echo "=== Scheduler entries ==="
+echo "=== Cron service ==="
+systemctl is-active cron
+systemctl is-enabled cron
+
+echo
+echo "=== Existing scheduler entries only ==="
 sudo crontab -l 2>/dev/null |
   grep -F 'artisan schedule:run' || true
 sudo -u www-data crontab -l 2>/dev/null |
   grep -F 'artisan schedule:run' || true
 sudo grep -R -H 'artisan schedule:run' /etc/cron.d /etc/crontab 2>/dev/null || true
-
-echo
-echo "=== UDP listener on port 29001 ==="
-sudo ss -lunp |
-  grep -E '(:29001[[:space:]]|:29001$)' || echo "No UDP listener found on port 29001"
-
-echo
-echo "=== UFW rules with numbers ==="
-sudo ufw status numbered
 ~~~
 
-**نحوهٔ تصمیم‌گیری:**
+اگر \`/usr/bin/php\` معتبر باشد، Artisan را به‌عنوان \`www-data\` اجرا کند و هر دو command یعنی \`queue:work\` و \`schedule:run\` دیده شوند، قدم بعد ساخت \`pteroq.service\` و افزودن scheduler cron خواهد بود. فعلاً هیچ سرویس یا cron جدیدی نساز.
 
-- اگر مسیر Panel و QUEUE_CONNECTION مشخص شد، با همان مقدار و مسیر واقعی طراحی و پیکربندی Queue Worker را درست انجام می‌دهیم؛ مقدار را حدس نمی‌زنیم.
-- اگر Scheduler واقعاً وجود ندارد، یک cron job هر دقیقه برای artisan schedule:run طبق مستند رسمی لازم است. فعلاً آن را اضافه نکن تا مسیر تأیید شود.
-- پورت 29001/udp در UFW مجاز است اما Listener پیدا نشده. چون هنوز Instance بازی نداریم، فعلاً قانون را حذف نکن؛ ابتدا کاربرد آن را در تنظیمات allocation/فایروال پروژه روشن می‌کنیم.
-- مقصد Port Forward روتر و Online بودن Node در UI پنل را این فرمان‌ها نمی‌توانند ثابت کنند؛ آن دو مورد باید دستی تأیید شوند.
+**پورت 29001/udp:** طبق تصمیم کاربر، این پورت برای CS2 رزرو شده است و نباید حذف یا تغییر کند؛ در این مرحله هیچ بررسی دیگری روی آن لازم نیست.
 
-خروجی را برای تحلیل بفرست. فعلاً pteroq.service نساز و قانون UDP را هم حذف نکن.
+خروجی این پیش‌بررسی را بفرست تا unit و cron را با مسیر و PHP تأییدشده تنظیم کنیم.
 
 ## 11. پایان تست و بازگشت به VM اصلی
 
@@ -723,12 +711,11 @@ sudo ufw status numbered
 - [x] hostname داخل Clone به fc-node-01 برگردانده شد؛ /etc/hosts نام میزبان را resolve می‌کند.
 - [x] Health check فقط‌خواندنی نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد.
 - [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx test و HTTPS محلی Panel موفق بودند.
-- [x] بررسی‌های بعدی هیچ Queue Worker در حال اجرا، هیچ Unit مرتبط و هیچ Scheduler cron entry پیدا نکردند.
-- [x] قانون ورودی UFW برای 29001/udp وجود دارد، ولی Listener فعالی روی آن پورت پیدا نشده است.
-- [ ] مسیر واقعی Panel، نسخه و مقادیر غیرمحرمانهٔ QUEUE_CONNECTION/Redis را تأیید کن.
-- [ ] بررسی کن cron فعال است و بعد از تأیید مسیر Panel، cron مربوط به artisan schedule:run را پیکربندی کن.
-- [ ] Queue Worker را مطابق مسیر واقعی Panel و تنظیم QUEUE_CONNECTION پیکربندی کن؛ تا پیش از این تأیید، Unit جدید نساز.
-- [ ] مشخص کن UDP 29001 برای چه منظوری باز شده؛ تا قبل از شناخت کاربردش، قانون را حذف نکن.
+- [x] مسیر Panel برابر /var/www/pterodactyl، نسخه Laravel برابر 12.64.0، QUEUE_CONNECTION برابر redis و Cron فعال است.
+- [x] هیچ Queue Worker در حال اجرا و هیچ Scheduler cron entry برای artisan schedule:run پیدا نشد.
+- [x] قانون UFW ورودی 29001/udp عمداً برای سرور CS2 آینده باز است؛ طبق تصمیم کاربر آن را تغییر نده.
+- [ ] PHP CLI در /usr/bin/php و دسترسی www-data به Artisan را پیش‌بررسی کن.
+- [ ] پس از تأیید PHP/Artisan، pteroq.service و cron مربوط به artisan schedule:run را طبق راهنمای رسمی Pterodactyl ایجاد/فعال کن.
 - [ ] مقصد Port Forwardهای موجود TCP 80/443/8080/2022 در روتر به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
 - [ ] دسترسی بیرونی Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
@@ -736,4 +723,4 @@ sudo ufw status numbered
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
 - [ ] برای بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). بررسی بعدی نشان داد Queue Worker و Scheduler cron فعلاً دیده نشدند؛ مسیر واقعی Panel و QUEUE_CONNECTION باید قبل از راه‌اندازی آن‌ها تأیید شود. UFW قانون ورودی 29001/udp دارد ولی Listener فعالی روی این پورت پیدا نشده است. مقصد Port Forward و وضعیت Online از UI پنل باید دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). مسیر Panel و QUEUE_CONNECTION=redis مشخص است؛ Cron فعال است ولی Scheduler entry و Queue Worker پیدا نشده‌اند. قدم بعد فقط پیش‌بررسی PHP CLI و Artisan است و سپس worker/scheduler پیکربندی می‌شوند. پورت 29001/udp به خواست کاربر برای CS2 آینده باز می‌ماند و نباید تغییر کند. مقصد Port Forward و Online بودن Node در UI پنل هنوز باید دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند.
