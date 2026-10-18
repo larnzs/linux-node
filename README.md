@@ -917,9 +917,14 @@ MariaDB باید روی 127.0.0.1:3306 و Redis روی loopback بمانند؛ �
 
 این مرحله فقط‌خواندنی است و پیش از دریافت فایل‌های Panel اجرا می‌شود. بسته‌ها و سرویس‌ها در لاگ قبلی نصب شده‌اند؛ این بررسی سلامت Package Manager، نحو NGINX/PHP-FPM، اتصال محلی دیتابیس/Redis و پورت‌های در حال گوش‌دادن را کنترل می‌کند.
 
-**پیش‌شرط امنیتی:** قبل از اجرا بررسی کن Port Forward موقت TCP 80 در مودم/روتر به Debian حذف شده باشد. چون NGINX در حال حاضر روی پورت 80 گوش می‌دهد و UFW آن را مجاز کرده است، باقی‌ماندن Port Forward می‌تواند صفحهٔ پیش‌فرض NGINX را از اینترنت قابل‌دسترسی کند.
+**چرا فرمان قبلی SSH را قطع کرد؟** در اجرای قبلی، `nginx -v 2>&1` با `nginx: command not found` شکست خورد. در نشست کاربر عادی، مسیر `/usr/sbin` ممکن است داخل `PATH` نباشد. چون بلوک با `set -eu` شروع شده بود، اولین خطای فرمان باعث پایان اجرای Shell و در نتیجه بسته‌شدن نشست SSH شد. خود SSH خراب نیست و لاگ نشان نمی‌دهد که NGINX حذف شده باشد. برای مسیر قطعی از `sudo /usr/sbin/nginx -v` استفاده می‌کنیم.
+
+**مهم:** کل بلوک را داخل یک subshell یعنی بین `(` و `)` اجرا می‌کنیم. اگر فرمانی خطا بدهد، همان بلوک متوقف می‌شود ولی نباید نشست تعاملی SSH را ببندد.
+
+**پیش‌شرط امنیتی:** قبل از اجرا بررسی کن Port Forward موقت TCP 80 در مودم/روتر حذف شده باشد. NGINX روی پورت 80 گوش می‌دهد و UFW آن را مجاز کرده است؛ باقی‌ماندن Port Forward می‌تواند صفحهٔ پیش‌فرض NGINX را از اینترنت قابل‌دسترسی کند.
 
 ~~~bash
+(
 set -eu
 
 echo "=== Package manager health ==="
@@ -932,20 +937,29 @@ php8.3 -v
 php8.3 /usr/local/bin/composer --version
 mariadb --version
 redis-server --version
-nginx -v 2>&1
+sudo /usr/sbin/nginx -v 2>&1
 
 echo
 echo "=== PHP-FPM syntax ==="
-sudo php-fpm8.3 -t
+sudo /usr/sbin/php-fpm8.3 -t
 
 echo
 echo "=== NGINX syntax ==="
-sudo nginx -t
+sudo /usr/sbin/nginx -t
 
 echo
-echo "=== Required services ==="
-sudo systemctl is-enabled nginx mariadb redis-server php8.3-fpm
-sudo systemctl is-active nginx mariadb redis-server php8.3-fpm
+echo "=== Required services: enabled ==="
+for service in nginx mariadb redis-server php8.3-fpm; do
+  printf '%s: ' "$service"
+  sudo systemctl is-enabled "$service"
+done
+
+echo
+echo "=== Required services: active ==="
+for service in nginx mariadb redis-server php8.3-fpm; do
+  printf '%s: ' "$service"
+  sudo systemctl is-active "$service"
+done
 
 echo
 echo "=== MariaDB local socket/query ==="
@@ -963,6 +977,7 @@ curl --connect-timeout 5 --max-time 10 -sS -o /dev/null \
 echo
 echo "=== Listening TCP ports ==="
 sudo ss -ltnp
+)
 ~~~
 
 معیار قبولی:
@@ -971,9 +986,9 @@ sudo ss -ltnp
 - هر چهار سرویس `nginx`, `mariadb`, `redis-server`, `php8.3-fpm` هم enabled و هم active باشند.
 - پرس‌وجوی محلی MariaDB یک نسخه برگرداند و Redis پاسخ `PONG` بدهد.
 - درخواست محلی NGINX یک status HTTP برگرداند؛ قبل از نصب Virtual Host، پاسخ صفحهٔ پیش‌فرض روی loopback طبیعی است.
-- MariaDB روی loopback بماند و Redis فقط روی loopback گوش دهد. NGINX روی پورت 80 انتظار می‌رود؛ پورت 443 تا پیش از پیکربندی TLS هنوز ممکن است listener نداشته باشد.
+- MariaDB و Redis فقط روی loopback گوش دهند. NGINX روی پورت 80 انتظار می‌رود؛ پورت 443 تا پیش از پیکربندی TLS هنوز ممکن است listener نداشته باشد.
 
-اگر معیار قبولی برقرار نبود، 3.1 را اجرا نکن؛ خروجی خطا/سرویس‌های ناموفق را بفرست. لاگ‌های واقعی را در README ثبت نکن.
+اگر معیار قبولی برقرار نبود، 3.1 را اجرا نکن؛ خروجی خطا/سرویس‌های ناموفق را بفرست. در صورت بروز خطا، به‌دلیل اجرای بلوک داخل subshell، باید prompt نشست SSH باقی بماند. لاگ‌های واقعی را در README ثبت نکن.
 
 ## 3. نصب Pterodactyl Panel — فاز آینده، پیش از اجرا نسخه را بازبینی کن
 
@@ -1553,7 +1568,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Chapter 1 کامل است؛ Snapshot `debian13-base-ready` گرفته شده. مراحل 2.1–2.3 طبق لاگ موفق‌اند. تصمیم نصب اصلی: Pterodactyl v1.15.1 Stable؛ v2.0.0-beta.2 فقط برای Clone آزمایشگاهی تا زمان انتشار پایدار. گام بعد 2.4 پس‌بررسی سلامت و تأیید حذف Port Forward موقت TCP 80؛ سپس 3.1. |
+| مرحلهٔ جاری | Chapter 1 کامل و Snapshot `debian13-base-ready` گرفته شده. مراحل 2.1–2.3 موفق‌اند. 2.4 در اجرای اول به‌علت `nginx` خارج از PATH کاربر عادی با `set -e` متوقف شد؛ README اصلاح شده تا از `/usr/sbin/nginx` و subshell امن استفاده کند. گام بعد: ورود مجدد با SSH Key و تکرار 2.4؛ سپس پس از قبولی و حذف Port Forward موقت TCP 80، 3.1. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
