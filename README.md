@@ -1616,6 +1616,11 @@ echo "=== DNS resolution for the Node FQDN ==="
 getent ahostsv4 fc-node-01.fragcity.ir || true
 
 echo
+echo "=== Public IPv4 seen by an outbound HTTPS request ==="
+curl -4fsS --connect-timeout 5 --max-time 10 https://api.ipify.org || true
+printf '\\n'
+
+echo
 echo "=== Certbot certificate inventory ==="
 if command -v certbot >/dev/null 2>&1; then
   sudo certbot certificates
