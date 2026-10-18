@@ -1914,7 +1914,7 @@ fi
 6. هنوز Base Game، Instance بازی یا پورت CS2 نصب/باز نشده است. هیچ اسکریپت نصب KUS یا Egg را اجرا نکن تا VMDK دادهٔ دوم شناسایی شود و طراحی Shared Base تأیید گردد.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
-**آخرین health check (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN هستند. WARN مربوط به نبودن `pteroq.service` است. همچنین UFW قانون ورودی `29001/udp` دارد که هنوز هدفش مشخص نیست. بررسی فقط‌خواندنی بعدی هیچ Queue Worker یا Scheduler cron پیدا نکرد؛ مسیر واقعی Panel و QUEUE_CONNECTION را قبل از ساخت سرویس جدید تأیید کن. راهنمای رسمی Pterodactyl برای Queue Worker و schedule:run: https://docs.pterodactyl.io/v1/panel/getting-started. Listener روی 29001/udp هم پیدا نشد؛ کاربرد قانون UFW را مشخص کن و هنوز چیزی نصب یا حذف نکن. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
+**آخرین health check (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN هستند. پیش‌بررسی بعدی تأیید کرد PHP CLI 8.3.35، Laravel 12.64.0، QUEUE_CONNECTION=redis، Artisan commands و Cron سالم‌اند؛ اما Queue Worker و Scheduler cron قبلاً وجود نداشتند. دستور guarded برای راه‌اندازی هر دو در بخش 10 فایل test-vmdk instructions.md قرار دارد و هنوز اجرا نشده است. UFW قانون 29001/udp را بنا به تصمیم کاربر برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
 
 #### 7.3.2 افزودن VMDK داده فقط به Clone
 
@@ -1986,7 +1986,7 @@ sudo blkid
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Health check روی Clone با IP 192.168.1.9 و hostname fc-node-01 نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد. سرویس‌های اصلی و Wings فعال، HTTPS محلی Panel پاسخ HTTP 200 و پورت‌های TCP 80/443/8080/2022 در حالت LISTEN هستند. بررسی بعدی هیچ Queue Worker یا Scheduler cron پیدا نکرد؛ مسیر Panel مشخص است و QUEUE_CONNECTION=redis است. گام بعد پیش‌بررسی PHP CLI و Artisan، سپس تنظیم pteroq.service و cron است. روی 29001/udp Listener نیست ولی UFW قانون ورودی دارد؛ کاربردش نامشخص است. مقصد Port Forwardها و Online بودن Node در UI باید دستی تأیید شوند. سپس افزودن VMDK فقط به Clone. |
+| مرحلهٔ جاری | Clone با IP 192.168.1.9 و hostname fc-node-01 health check برابر 24 PASS / 1 WARN / 0 FAIL گرفت. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ HTTPS محلی Panel=200 است. پیش‌بررسی PHP CLI/Artisan موفق؛ QUEUE_CONNECTION=redis و Cron فعال‌اند، ولی Queue Worker و Scheduler cron هنوز باید با اسکریپت guarded بخش 10 راهنمای Clone تنظیم شوند. UFW پورت 29001/udp را برای CS2 آینده باز نگه می‌دارد؛ تغییر نده. مقصد Port Forwardها و Online بودن Node در UI هنوز دستی تأیید شوند؛ پس از تکمیل این مرحله VMDK جدید را فقط به Clone اضافه کن. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
