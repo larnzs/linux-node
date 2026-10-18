@@ -1763,9 +1763,13 @@ foreach ($name in $names) {
 }
 ~~~
 
-اگر پرس‌وجوی `1.1.1.1` timeout شد، فقط همان پرس‌وجوی مستقیم قابل‌دسترسی نبوده؛ خروجی را بفرست تا resolver دیگری یا روش کنترل‌شدهٔ دیگری را انتخاب کنیم. مقدار A عمومی برای `fc-node-01.fragcity.ir` باید با IPv4 عمومی فعلی Node مطابقت داشته باشد؛ پاسخ `panel.fragcity.ir` فقط برای مقایسه است. خروجی DNS را با IPv4 عمومی و مقصد رکورد دامنه مقایسه کن. پیش از صدور گواهی، تأیید کن که رکورد عمومی `fc-node-01.fragcity.ir` به مقصد درست می‌رسد و درخواست HTTP-01 از اینترنت به همین Debian می‌رسد. برای روش HTTP-01 باید TCP پورت 80 از روتر به IP LAN فعلی Node هدایت شود و UFW هم اجازهٔ آن را داشته باشد. **صرف بازشدن پنل روی HTTPS این دو مورد را ثابت نمی‌کند.** اگر DNS به Cloudflare یا پراکسی دیگری اشاره می‌کند، این تفاوت را قبل از صدور گواهی مشخص کن.
+اگر پرس‌وجوی `1.1.1.1` timeout شد، فقط همان پرس‌وجوی مستقیم قابل‌دسترسی نبوده؛ خروجی را بفرست تا resolver دیگری یا روش کنترل‌شدهٔ دیگری را انتخاب کنیم. مقدار A عمومی برای `fc-node-01.fragcity.ir` باید با IPv4 عمومی فعلی Node مطابقت داشته باشد؛ پاسخ `panel.fragcity.ir` فقط برای مقایسه است.
 
-اگر DNS و دسترسی ورودی صحیح‌اند و `certbot certificates` گواهی معتبر موجودی برای نام Node نشان نمی‌دهد، دستور زیر را اجرا کن:
+**نتیجهٔ بررسی در 2026-10-18:** خروجی Windows PowerShell پاسخ A برای هر دو نام `fc-node-01.fragcity.ir` و `panel.fragcity.ir` را از resolver پیش‌فرض و پرس‌وجوی مستقیم `1.1.1.1` نشان داد؛ هر چهار پاسخ برابر `85.185.40.85` بودند. بنابراین رکوردهای عمومی A در آن آزمون با IPv4 عمومی گزارش‌شده مطابقت داشتند. خطای اتصال به `dns.google` از خود Debian این نتیجه را نقض نمی‌کند.
+
+**گام بعد:** قبل از صدور گواهی Node، مطمئن شو Port Forward روتر برای **TCP 80 → 192.168.1.7:80** هنوز فعال و به همین VM هدایت می‌شود. گواهی Panel که قبلاً با روش NGINX/HTTP-01 گرفته شده، نشان می‌دهد اعتبارسنجی Panel در زمان صدورش موفق بوده؛ اما وضعیت فعلی Port Forward را به‌تنهایی ثابت نمی‌کند. روش HTTP-01 نیاز به دسترسی ورودی روی TCP 80 دارد. خروجی DNS را با IPv4 عمومی و مقصد رکورد دامنه مقایسه کن. پیش از صدور گواهی، تأیید کن که رکورد عمومی `fc-node-01.fragcity.ir` به مقصد درست می‌رسد و درخواست HTTP-01 از اینترنت به همین Debian می‌رسد. برای روش HTTP-01 باید TCP پورت 80 از روتر به IP LAN فعلی Node هدایت شود و UFW هم اجازهٔ آن را داشته باشد. **صرف بازشدن پنل روی HTTPS این دو مورد را ثابت نمی‌کند.** اگر DNS به Cloudflare یا پراکسی دیگری اشاره می‌کند، این تفاوت را قبل از صدور گواهی مشخص کن.
+
+اگر DNS همان‌طور که در نتیجهٔ بالا تأیید شد درست است، Port Forward TCP 80 همچنان به `192.168.1.7:80` هدایت می‌شود و `certbot certificates` برای نام Node گواهی ندارد، دستور زیر را اجرا کن. اگر هنوز از وضعیت Port Forward مطمئن نیستی، ابتدا آن را در روتر بررسی کن:
 
 ~~~bash
 sudo certbot certonly --nginx -d fc-node-01.fragcity.ir
@@ -1873,7 +1877,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال است و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب شده و config.yml توسط Auto-Deploy ساخته و خوانده شده است. اجرای wings --debug به‌دلیل نبودن گواهی /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem متوقف شد. پنل فقط در Certbot list گواهی panel.fragcity.ir دارد؛ گواهی Node وجود ندارد. getent برای FQDN محلی 127.0.1.1 برگرداند که ممکن است از /etc/hosts باشد؛ پاسخ DNS عمومی A هنوز باید با پرس‌وجوی DNS-over-HTTPS تأیید شود. مرحلهٔ جاری 6.5؛ Wings/systemd و Node Online تأیید نشده‌اند. |
+| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب و config.yml از Auto-Deploy ساخته و خوانده شده است. اجرای wings --debug به‌دلیل نبود گواهی /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem متوقف شد. خروجی Windows PowerShell نشان داد هر دو دامنه در resolver پیش‌فرض و 1.1.1.1 به 85.185.40.85 resolve می‌شوند. گام جاری: تأیید Port Forward TCP 80، صدور گواهی Node و سپس آزمون دوبارهٔ Wings؛ systemd/Node Online هنوز تأیید نشده‌اند. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1882,7 +1886,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند. NGINX syntax OK و UFW فعال است و قواعد 80/443 اجازه دارند. config.yml خوانده شده، اما Wings به‌دلیل نبود گواهی TLS برای fc-node-01.fragcity.ir متوقف شده؛ گواهی موجود فعلی فقط panel.fragcity.ir را پوشش می‌دهد. پیش از صدور گواهی Node باید رکورد DNS عمومی و دسترسی TCP 80 تأیید شود. |
+| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند. config.yml خوانده شد؛ Wings به‌دلیل نبود گواهی TLS برای fc-node-01.fragcity.ir متوقف شده است. DNS عمومی Node و Panel از Windows با دو resolver برابر 85.185.40.85 مشاهده شده؛ Port Forward TCP 80 هنوز باید تأیید شود. SMTP هنوز مقادیر نمونه دارد. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
