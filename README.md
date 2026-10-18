@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** فرمان‌ها و نتیجه‌های تأییدشده به ترتیب ثبت می‌شوند؛ بعد از هر مرحلهٔ جدید، همین فایل به‌روز خواهد شد. برای اجرای پروژه از صفر، از این سند شروع کن.
 >
-> **آخرین وضعیت: ۱۸ اکتبر ۲۰۲۶.** Pterodactyl Panel نسخهٔ 1.15.1 نصب و از Windows در LAN قابل ورود است؛ Docker Engine نسخهٔ 29.9.1 نصب و با hello-world آزمایش شده؛ Wings هنوز نصب/متصل نشده است.
+> **آخرین وضعیت: ۱۸ اکتبر ۲۰۲۶.** Pterodactyl Panel نسخهٔ 1.15.1 نصب و ورود از Windows در LAN تأیید شده؛ Docker Engine نسخهٔ 29.9.1 نصب و `hello-world` موفق؛ باینری Wings نسخهٔ 1.13.4 در `/usr/local/bin/wings` نصب و اجرای `--help` و `version` تأیید شده است. مرحلهٔ جاری: ساخت Node در Panel؛ config، اتصال، debug و سرویس systemd هنوز انجام نشده‌اند.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -409,9 +409,11 @@ sudo -u www-data php8.3 artisan p:info
 
 Latest Version: error یعنی این فرمان نتوانست مقدار Latest را دریافت کند؛ به‌تنهایی دلیل خرابی Panel نیست. برای شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده می‌کنیم. صفحهٔ Release رسمی که ۱۸ اکتبر ۲۰۲۶ بررسی شد v1.13.4 را آخرین Release معرفی می‌کرد: https://github.com/pterodactyl/wings/releases .
 
-### 6.2 دریافت باینری Wings v1.13.4
+### 6.2 نصب و تأیید باینری Wings v1.13.4 — انجام شده
 
-این دستور را اکنون روی fc-node-01 اجرا کن:
+این گام در ۱۸ اکتبر ۲۰۲۶ اجرا شد؛ **دوباره دانلود یا روی فایل موجود نصب نکن** مگر اینکه دلیل مشخصی برای تعویض باینری داشته باشیم.
+
+فرمان اجراشده:
 
 ~~~bash
 set -eu
@@ -423,31 +425,62 @@ if sudo test -e /usr/local/bin/wings; then
 fi
 
 sudo install -d -o root -g root -m 0755 /etc/pterodactyl
-curl -fL "https://github.com/pterodactyl/wings/releases/download/v1.13.4/wings_linux_amd64" -o /tmp/wings_linux_amd64
+curl -fL \
+  "https://github.com/pterodactyl/wings/releases/download/v1.13.4/wings_linux_amd64" \
+  -o /tmp/wings_linux_amd64
 file /tmp/wings_linux_amd64
 sha256sum /tmp/wings_linux_amd64
-sudo install -o root -g root -m 0755 /tmp/wings_linux_amd64 /usr/local/bin/wings
+sudo install -o root -g root -m 0755 \
+  /tmp/wings_linux_amd64 /usr/local/bin/wings
 /usr/local/bin/wings --help
 ~~~
 
-معیار موفقیت: دانلود بدون خطا، file خروجی را executable لینوکسی معتبر نشان دهد، و wings --help راهنما را چاپ کند. اگر خطا دیدی، متوقف شو و خروجی را بفرست؛ config هنوز ساخته نشده است.
+خروجی‌های واقعی ثبت‌شده:
+- فایل: ELF 64-bit LSB executable، x86-64، statically linked، stripped.
+- SHA-256: `7e763389bb5d386a7d32ccdd46cffcf1ab9ed697e5c2aca7fe44183b527cd4c0`
+- `sudo /usr/local/bin/wings version`: خروجی `wings vv1.13.4` و Copyright © 2018–2026 Dane Everitt & Contributors.
+- مالکیت و مجوز: `owner=root:root mode=755 size=28299424 path=/usr/local/bin/wings`.
 
-### 6.3 ساخت Node از مرورگر Windows
+فرمان بررسیِ فقط‌خواندنی برای دفعات بعد:
 
-این کار از مرورگر Windows انجام می‌شود؛ نصب Desktop روی Debian لازم نیست.
+~~~bash
+sudo /usr/local/bin/wings version
+sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /usr/local/bin/wings
+~~~
 
-1. وارد http://192.168.1.5 شو.
-2. Admin → Locations را باز کن و Location بساز یا از موجود استفاده کن.
-3. Admin → Nodes → Create New را باز کن.
-4. نام Node: fc-node-01.
-5. آدرس LAN برای PoC: 192.168.1.5.
-6. HTTP و SSL خاموش، چون domain/TLS نداریم.
-7. daemon port معمولاً TCP/8080 و SFTP port معمولاً TCP/2022 است؛ مقدار UI نسخهٔ نصب‌شده ملاک است.
-8. Node را ذخیره کن و به تب Configuration برو. از Generate Token/Auto-Deploy استفاده کن و فرمانی را که خود Panel تولید می‌کند مستقیم روی Debian اجرا کن.
+این خروجی‌ها نصب باینری را تأیید می‌کنند، نه اتصال Wings به Panel.
 
-**مهم:** command مربوط به Auto-Deploy و فایل /etc/pterodactyl/config.yml secret هستند؛ آن‌ها را در GitHub یا چت paste نکن.
+### 6.3 ساخت Node از مرورگر Windows — گام بعدی
 
-### 6.4 تأیید config
+این مرحله از مرورگر Windows انجام می‌شود؛ داخل Debian فرمانی برای ساخت Node لازم نیست.
+
+**اول فضای فعلی را فقط بررسی کن** (بدون تغییر فایل‌ها):
+
+~~~bash
+echo "=== RAM ==="
+free -h
+echo
+echo "=== Root filesystem ==="
+df -hT /
+~~~
+
+آخرین snapshot ما حدود 27 GiB فضای آزاد داشت، اما قبل از تنظیم Node مقدار فعلی را ملاک بگیر.
+
+در مرورگر Windows:
+1. وارد `http://192.168.1.5` شو و مطمئن شو با حساب Administrator وارد شده‌ای.
+2. از **Admin → Locations** یک Location بساز یا Location موجود را انتخاب کن؛ مثلاً Short Code برابر `lan` و Description برابر `FragCity LAN`.
+3. به **Admin → Nodes → Create New** برو.
+4. در Identity: نام `fc-node-01`، توضیح اختیاری، و Location مرحلهٔ قبل را انتخاب کن.
+5. در Network/Daemon: برای PoC محلی، FQDN/IP برابر `192.168.1.5`، SSL خاموش، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد، مگر اینکه UI نسخهٔ فعلی مقادیر دیگری را نشان دهد. چون هنوز دامنه و TLS نداریم، IP و HTTP فقط برای LAN است.
+6. در بخش منابع، با RAM ثبت‌شدهٔ حدود 5.6 GiB، **Total Memory = 4096 MiB** و Memory Overallocate = `0` تنظیم مناسب شروع است. برای دیسک، فقط اگر بررسی بالا نشان دهد حداقل حدود 22 GiB فضای خالی باقی مانده، **Total Disk Space = 16000 MiB** و Disk Overallocate = `0` قرار بده؛ اگر فضای آزاد کمتر است، مقدار را پایین‌تر بگذار تا دست‌کم حدود 6 GiB برای Debian/Docker و لاگ‌ها محفوظ بماند. این اعداد ظرفیت تخصیصی Panel هستند، نه رزرو یا افزایش فضای فیزیکی.
+7. اگر فیلد Server File Directory نمایش داده شد، فعلاً مقدار پیش‌فرض `/var/lib/pterodactyl/volumes` را حفظ کن. **آن را روی `/home/steam` تنظیم نکن**؛ طرح استفادهٔ مجدد از بازی موجود هنوز طراحی نشده است.
+8. Node را ذخیره کن. سپس وارد صفحهٔ همان Node شو و نتیجهٔ ساخت را بررسی کن.
+
+فعلاً Allocation برای سرور بازی نساز و هیچ سروری ایجاد نکن؛ ابتدا اتصال Wings را تأیید می‌کنیم و سپس Storage/Egg/Ports را جداگانه طراحی می‌کنیم.
+
+### 6.4 تولید config محرمانه از خود Panel
+
+پس از ساخته‌شدن Node، تب **Configuration** همان Node را باز کن و در بخش **Auto-Deploy** روی **Generate Token** بزن. فرمان کامل Bash را که خود Panel می‌سازد، مستقیم و بدون ویرایش در SSH مربوط به Debian اجرا کن. token یا command تولیدشده را اینجا نفرست و در GitHub قرار نده.
 
 پس از اجرای فرمان دقیق Auto-Deploy از Panel، فقط وجود فایل را بررسی کن:
 
@@ -482,8 +515,11 @@ PartOf=docker.service
 User=root
 WorkingDirectory=/etc/pterodactyl
 LimitNOFILE=4096
+PIDFile=/var/run/wings/daemon.pid
 ExecStart=/usr/local/bin/wings
 Restart=on-failure
+StartLimitInterval=180
+StartLimitBurst=30
 RestartSec=5s
 
 [Install]
@@ -542,9 +578,9 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | Cache permissions | اصلاح و تأیید شده |
 | Migration/seed و Admin | موفق |
 | Docker 29.9.1 | نصب؛ daemon active؛ hello-world موفق |
-| Wings v1.13.4 | گام بعدی: دریافت باینری |
-| Node fc-node-01 | باید در Panel ساخته شود |
-| Wings config/debug/systemd | منتظر Node/config |
+| Wings v1.13.4 | باینری نصب شده؛ `version` و مالکیت/مجوز تأیید شده |
+| Node fc-node-01 | مرحلهٔ جاری: ساخت در Panel |
+| Wings config/debug/systemd | منتظر Node؛ config محرمانه باید محلی تولید شود |
 | CS2 instance | هنوز ساخته نشده؛ Storage/Egg/Volume مسدودکننده است |
 | دامنه/TLS/Port Forwarding عمومی | انجام نشده |
 | Website/Wallet/Billing | مراحل آینده |
