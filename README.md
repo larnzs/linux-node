@@ -2091,7 +2091,7 @@ fi
 
 #### 7.3.2 محدودهٔ اولین آزمون
 
-طبق راهنمای رسمی K4ryuu، اولین گام اکنون یک سرور CS2-Egg-Go به‌صورت standalone و بدون Node daemon است تا نصب فایل‌های بازی، راه‌اندازی Source 2، اتصال Client، Console و Stop/Start در یک Instance آزمایش شود. راهنمای مرحله‌به‌مرحله در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) قرار دارد.
+طبق راهنمای رسمی K4ryuu، ابتدا یک سرور CS2-Egg-Go به‌صورت standalone و بدون Node daemon می‌سازیم تا نصب بازی، Source 2، Map، Console، اتصال Client و Stop/Start آزمایش شود. این فقط Baseline فنی است؛ نیاز اصلی محصول FragCity شامل CounterStrikeSharp و پلاگین‌های Fun Mode منتخب هم هست. پس از قبولی Baseline، `INSTALL_CSS=1` را فعال و پلاگین‌های کامپایل‌شدهٔ منتخب را روی Volume همان Instance نصب و تست می‌کنیم. راهنمای مرحله‌به‌مرحله و معیارهای قبولی هر دو فاز در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) قرار دارد. پلاگین‌ها و configs خصوصی باید per-instance بمانند؛ محتوای VIP حذف‌شده نباید دوباره وارد Deployment شود.
 
 این تست اولیه می‌تواند حدود 40 GB از Volume سرور در Storage فعلی مصرف کند؛ قبل از Start فضای آزاد را بررسی کن. پس از قبولی این تست، VMDK داده فقط به Clone اضافه و شناسایی می‌شود؛ سپس مسیر Storage مشترک آماده و cs2node/VPK sync آزمایش می‌شود. هنوز Instance دوم، Shared Base، Update خودکار Base یا Production اجرا نمی‌شود.
 
@@ -2122,7 +2122,7 @@ sudo blkid
 
 ### 7.5 Shared Base و Instanceهای بعدی — پس از قبولی تست پایه و طراحی Storage
 
-تست نخستِ یک Instance مستقل و بدون Node daemon در فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) انجام می‌شود و می‌تواند روی Storage فعلی، پس از بررسی حداقل 40 GB فضای آزاد، اجرا شود. پس از آن، فقط با VMDK دادهٔ شناسایی‌شده و mount ایمن، سازگاری Egg و مسیر Shared Base را ارزیابی می‌کنیم؛ سپس cs2node/VPK sync و Instance دوم را آزمایش می‌کنیم. Start/Stop/Console/Files/SFTP، جدایی فایل‌های خصوصی، Backup/Restore و baseline عملکرد باید بررسی شوند. افزونه‌ها و نقشه‌ها را مرحله‌ای اضافه کن تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
+ابتدا یک Instance مستقل بدون Node daemon را طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) با حداقل 40 GB فضای آزاد آزمایش می‌کنیم؛ سپس CounterStrikeSharp و پلاگین‌های Fun Mode منتخب را نصب و قبولی آن‌ها را نیز تأیید می‌کنیم. فقط پس از موفقیت بازی پایه و پلاگین‌ها، VMDK دادهٔ شناسایی‌شده و mount ایمن می‌شود و cs2node/VPK sync و Instance دوم آزمایش می‌شوند. Start/Stop/Console/Files/SFTP، جدایی Plugin و config خصوصی هر Instance، Backup/Restore و baseline عملکرد بررسی می‌شوند. پلاگین‌ها را دسته‌ای اضافه کن تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
 
 تا تکمیل مراحل قبل، هیچ Instance جدیدی روی Node اصلی نساز و به `/home/steam` دست نزن.
 
