@@ -2089,7 +2089,13 @@ fi
 
 **آخرین health check کاملِ اولیه (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN بودند. در ادامه، مرحلهٔ 3.4.1 برای Queue Worker و Scheduler روی Clone با IP `192.168.1.9` با موفقیت اجرا و تأیید شد: `pteroq.service` برابر `enabled` و `active (running)` است و ورودی `schedule:run` در crontab ریشه وجود دارد. طبق تأیید کاربر در 2026-10-18، شبکه و پنل از مسیر موردنظر عملیاتی‌اند؛ تأیید دستی Port Forward/دسترسی پنل برای این مرحله تکمیل‌شده ثبت می‌شود. Queue Worker و Scheduler هنوز باید جداگانه روی VMDK اصلی اعمال شوند. UFW قانون `29001/udp` را برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند.
 
-#### 7.3.2 افزودن VMDK داده فقط به Clone
+#### 7.3.2 محدودهٔ اولین آزمون
+
+طبق راهنمای رسمی K4ryuu، اولین گام اکنون یک سرور CS2-Egg-Go به‌صورت standalone و بدون Node daemon است تا نصب فایل‌های بازی، راه‌اندازی Source 2، اتصال Client، Console و Stop/Start در یک Instance آزمایش شود. راهنمای مرحله‌به‌مرحله در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) قرار دارد.
+
+این تست اولیه می‌تواند حدود 40 GB از Volume سرور در Storage فعلی مصرف کند؛ قبل از Start فضای آزاد را بررسی کن. پس از قبولی این تست، VMDK داده فقط به Clone اضافه و شناسایی می‌شود؛ سپس مسیر Storage مشترک آماده و cs2node/VPK sync آزمایش می‌شود. هنوز Instance دوم، Shared Base، Update خودکار Base یا Production اجرا نمی‌شود.
+
+#### 7.3.3 افزودن VMDK داده فقط به Clone
 
 1. پیش از انتخاب ظرفیت، فضای آزاد واقعی روی درایو Windows میزبان را بررسی کن. آخرین بررسی حدود 301.8 GB فضای آزاد روی D نشان داد؛ قبل از عملیات سنگین دوباره بررسی کن.
 2. در VMware یک virtual hard disk کاملاً جدید فقط به **Clone** اضافه کن؛ فایل VMDK اصلی یا دیسک موجود را به‌عنوان دیسک جدید انتخاب نکن.
@@ -2102,12 +2108,6 @@ sudo blkid
 
 4. دیسک تازه را با اندازه، نوع، filesystem و mountpoint شناسایی کن. **فرمت، partitioning یا mount نکن** تا نام دستگاه و جدا بودن آن از دیسک سیستم با خروجی بررسی و صریحاً تأیید شود.
 5. پس از تأیید دیسک جدید، filesystem و mount دائمی مخصوص Base/دادهٔ بازی طراحی می‌شود. مسیر نهایی و فرمان‌های mkfs یا /etc/fstab قبل از شناسایی دقیق دستگاه نوشته/اجرا نمی‌شوند.
-
-#### 7.3.3 محدودهٔ اولین آزمون
-
-طبق راهنمای رسمی K4ryuu، اولین گام اکنون یک سرور CS2-Egg-Go به‌صورت standalone و بدون Node daemon است تا نصب فایل‌های بازی، راه‌اندازی Source 2، اتصال Client، Console و Stop/Start در یک Instance آزمایش شود. راهنمای مرحله‌به‌مرحله در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) قرار دارد.
-
-این تست اولیه می‌تواند حدود 40 GB از Volume سرور در Storage فعلی مصرف کند؛ قبل از Start فضای آزاد را بررسی کن. پس از قبولی این تست، VMDK داده فقط به Clone اضافه و شناسایی می‌شود؛ سپس مسیر Storage مشترک آماده و cs2node/VPK sync آزمایش می‌شود. هنوز Instance دوم، Shared Base، Update خودکار Base یا Production اجرا نمی‌شود.
 
 **قدم فعلی:** Import کردن Egg رسمی طبق فصل جدید و آماده‌کردن یک سرور آزمایشی روی Clone. VM اصلی و ریپوی KUS دست‌نخورده می‌مانند؛ VMDK داده و Shared Base همچنان گام‌های بعدی‌اند.
 
