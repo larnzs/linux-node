@@ -1,6 +1,36 @@
 # FragCity — راهنمای مادرِ Copy/Paste از Debian تا سرورهای CS2
 
-> **این فایل مرجع اجرایی واحد پروژه است.** فقط دستورها، توضیحات، پیش‌نیازها و checkpointهای مرحله‌ای در این سند قرار می‌گیرند. خروجی ترمینال، لاگ واقعی و نتیجهٔ اجرای فرمان‌ها عمداً در README ثبت نمی‌شود؛ خروجی لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. برای اجرای پروژه از صفر، از این سند شروع کن.
+> **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
+>
+> **وضعیت فعلی: نصب Console-only و مراحل پایه تا 1.19.3 گزارش شده‌اند.** گام بعدی: اجرای 1.19.4 (Firewall)، سپس تأیید 1.20 و ساخت نقطهٔ بازگشت در 1.21؛ بعد از آن نصب پیش‌نیازهای Panel از بخش 2. IP عمومی، DNS و کلید SSH از لاگ‌ها بررسی شده‌اند اما دسترسی ورودی WAN/TLS فقط پس از آزمون مستقل آماده فرض می‌شود. Panel، Docker، Wings و instance بازی CS2 هنوز روی این Debian تازه نصب نشده‌اند.
+>
+> **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
+
+---
+
+## 0. وضعیت، محدوده و خط قرمزها
+
+- هدف این است که **همین VM با نام `fc-node-01`** را از ابتدا با Debian 13 بدون محیط گرافیکی آماده کنیم.
+- در نصاب وارد شده: **Hostname** = `fc-node-01` و **Domain name** = `fragcity.ir`. نام کامل موردنظر برای Node برابر `fc-node-01.fragcity.ir` است.
+- آدرس موردنظر پنل: `panel.fragcity.ir`. طرح DNS برای بعد از نصب: هر دو نام `panel.fragcity.ir` و `fc-node-01.fragcity.ir` باید از طریق رکورد A به IP عمومی قابل‌دسترسی میزبان اشاره کنند. رکوردهای DNS هنوز در این سند به‌عنوان ساخته‌شده فرض نمی‌شوند؛ آن‌ها را در DNS authoritative دامنه (cPanel فقط اگر همان‌جا DNS مدیریت می‌شود) ثبت و بعد بررسی می‌کنیم.
+- پرکردن فیلد Domain name در نصاب به‌تنهایی DNS، IP عمومی، Port Forwarding یا HTTPS را فعال نمی‌کند.
+- هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. راهنما: https://wiki.debian.org/DesktopEnvironment
+- VM فعلی روی VMware و Debian 13/Trixie است. IP، منابع و دیسک را بعد از شروع مجدد با بلوک بررسی مرحلهٔ 0 مشخص کن؛ از اعداد قدیمی برای نصب مجدد استفاده نکن.
+- Panel جدید هنوز روی این Debian نصب نشده است؛ نشانی نهایی آن `https://panel.fragcity.ir` خواهد بود. مسیرهای `/var/www/pterodactyl` و تنظیمات Panel فقط بعد از نصب در مراحل آینده ایجاد می‌شوند.
+- فایل‌های CS2/KUS متعلق به VMDK سیستم قبلی هستند که کاربر آن را نگه داشته است. **در نصب تازه آن دیسک را overwrite یا بدون طرح مشخص mount نکن.** این مسیر بازی در Debian تازه فرض نمی‌شود؛ نصب/آزمایش CS2 در فاز جداگانه و روی محیط آزمایشگاهی انجام خواهد شد.
+- تا بررسی مدل Storage/Egg، هیچ سرور بازی تازه‌ای از Egg نساز؛ ممکن است بازی را دوباره دانلود و فضای دیسک را پر کند.
+- فعلاً Port Forwarding عمومی، دامنه و HTTPS نداریم. این PoC فقط در LAN و روی HTTP است.
+
+### 0.1 حفاظت از دیسک قبلی
+
+فایل‌های VMDK مربوط به Debian Desktop قبلی نزد کاربر موجود هستند. **آن VMDK پشتیبان را در طول نصب جاری به‌عنوان دیسک مقصد انتخاب نکن و آن را overwrite نکن.** نصب روی دیسک مقصد، تمام داده‌های همان دیسک را پاک خواهد کرد.
+
+### 0.2 قرارداد اجرای مرحله‌ای
+
+- از این نقطه، فقط **بلوک مرحلهٔ جاری** را کپی و اجرا کن؛ به مراحل بعدی نپر.
+- هر بلوک، محل اجرا را مشخص می‌کند: `PowerShell` یعنی پنجرهٔ Windows که prompt آن با `PS C:\\...` شروع می‌شود؛ `bash` یعنی نشست SSH که prompt آن شبیه `sv1@fc-node-01:~# FragCity — راهنمای مادرِ Copy/Paste از Debian تا سرورهای CS2
+
+> **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
 > **وضعیت فعلی: نصب Console-only و مراحل پایهٔ 1.9 تا 1.14 تکمیل شده‌اند.** مرحلهٔ جاری: مراحل 1.15 تا 1.19 برای بررسی hostname، رزرو DHCP، بررسی IPv4 عمومی/CGNAT، DNS عمومی، کلید و سخت‌سازی SSH و Firewall. Panel، Docker، Wings و instance بازی CS2 هنوز روی این Debian تازه نصب نشده‌اند.
 >
@@ -27,11 +57,11 @@
 
 ### 0.2 قرارداد اجرای مرحله‌ای
 
-- از این نقطه، فقط **بلوک مرحلهٔ جاری** را کپی و اجرا کن؛ به مراحل بعدی نپر.
+ است. نحو این دو محیط متفاوت است؛ کد PowerShell را داخل Bash اجرا نکن.
 - خروجی دستورها و لاگ‌ها فقط در چت بررسی می‌شوند و در این README ثبت نمی‌شوند.
-- رمز، APP_KEY، Token و فایل‌های محرمانه را در چت یا GitHub قرار نده.
+- رمز، APP_KEY، Token، کلید خصوصی SSH و فایل‌های محرمانه را در چت یا GitHub قرار نده.
 - در مسیر جدید، تا قبل از تأیید مرحلهٔ جاری، دستور مرحلهٔ بعد اجرا نشود.
-- به مراحل Panel، Docker و Wings نپر؛ ابتدا نصب پایهٔ Debian Console-only را کامل می‌کنیم.
+- به مراحل Panel، Docker و Wings نپر؛ ابتدا نصب پایهٔ Debian Console-only و دسترسی امن SSH را کامل می‌کنیم.
 
 ---
 
@@ -394,11 +424,25 @@ dig +short AAAA fc-node-01.fragcity.ir
 
 ### 1.19 مرحلهٔ یازدهم — کلید SSH، سخت‌سازی ورود و Firewall میزبان
 
-**این مرحله را به زیربخش‌های زیر تقسیم کن؛ همهٔ آن‌ها را بدون توقف و بررسی پشت سر هم اجرا نکن.** پیش از غیرفعال‌کردن ورود با رمز، اتصال کلیدی را در یک پنجرهٔ جدید PowerShell آزمایش کن و نشست فعلی SSH را باز نگه دار.
+#### SSH اینجا دقیقاً چه کاری انجام می‌دهد؟
+
+SSH (Secure Shell) یک اتصال مدیریتی رمزنگاری‌شده بین Windows و Debian است. به‌جای تایپ‌کردن دستورها در کنسول VMware، دستورها را از Windows Terminal/PowerShell اجرا می‌کنی و روی Debian انجام می‌شوند.
+
+در احراز هویت با کلید، یک **جفت کلید** داریم:
+- **کلید خصوصی** با نام `id_ed25519_fragcity` روی کامپیوتر Windows می‌ماند؛ آن را به سرور یا چت نفرست.
+- **کلید عمومی** با پسوند `.pub` روی Debian در `~/.ssh/authorized_keys` حساب کاربری ذخیره می‌شود.
+- هنگام اتصال، Windows ثابت می‌کند کلید خصوصی متناظر را دارد؛ لازم نیست رمز حساب Debian از طریق SSH استفاده شود.
+
+در این مرحله اول کلید را آزمایش می‌کنیم؛ بعد ورود با رمز SSH را غیرفعال می‌کنیم. این تنظیم با رمز کاربر برای ورود محلی یا `sudo` یکی نیست. ورود مستقیم root از SSH نیز غیرفعال می‌شود. **پورت 22 را از روتر به اینترنت فوروارد نکن.**
+
+**قانون بسیار مهم تشخیص پنجره:**
+- اگر خط فرمان `PS C:\\...>` می‌بینی، در Windows PowerShell هستی.
+- اگر `sv1@fc-node-01:~$` می‌بینی، داخل Debian از طریق SSH هستی.
+- فرمان‌هایی که با `$env:USERPROFILE` و `Test-Path` شروع می‌شوند فقط برای PowerShell هستند. اگر آن‌ها را در Bash اجرا کنی، ممکن است خطای `keyPath: unbound variable` بگیری؛ این خطا به‌خودی‌خود به معنی خرابی SSH یا Debian نیست. یک پنجرهٔ PowerShell جدید باز کن و کد را همان‌جا اجرا کن.
 
 #### 1.19.1 ساخت کلید SSH در Windows
 
-در PowerShell ویندوز، مسیر اختصاصی کلید FragCity را بررسی و سپس در صورت نبودن فایل‌ها بساز:
+**محل اجرا: Windows PowerShell، نه داخل نشست SSH.** یک پنجرهٔ جدید PowerShell باز کن تا prompt آن `PS C:\\...>` باشد. مسیر اختصاصی کلید FragCity را بررسی و در صورت نبودن فایل‌ها بساز:
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
@@ -410,31 +454,43 @@ if ((Test-Path $keyPath) -or (Test-Path "$keyPath.pub")) {
 ssh-keygen -t ed25519 -a 64 -f $keyPath -C "fragcity-windows"
 ~~~
 
-اگر برای کلید passphrase انتخاب کردی، آن را در جای امن نگه دار و در چت یا README ننویس. فایل خصوصی `id_ed25519_fragcity` را هیچ‌وقت ارسال نکن؛ فقط فایل `.pub` کلید عمومی است.
+اگر کلید از قبل ساخته شده، دوباره آن را نساز؛ از همان فایل موجود استفاده کن. اگر برای کلید passphrase انتخاب کردی، آن را در جای امن نگه دار. فایل خصوصی `id_ed25519_fragcity` را هیچ‌وقت ارسال نکن؛ فقط فایل `.pub` کلید عمومی است.
 
-#### 1.19.2 نصب کلید عمومی برای حساب sv1
+#### 1.19.2 نصب کلید عمومی برای حساب Debian
 
-در همان PowerShell ویندوز اجرا کن:
-
-~~~powershell
-$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
-$pubKey = (Get-Content -Raw "$keyPath.pub").Trim()
-
-ssh sv1@192.168.1.7 "umask 077; mkdir -p ~/.ssh; printf '%s\\n' '$pubKey' >> ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys"
-~~~
-
-حالا **یک پنجرهٔ تازهٔ PowerShell** باز کن و ورود صرفاً با کلید را آزمایش کن:
+**محل اجرا: همان Windows PowerShell.** این بار PowerShell محتوای فایل عمومی را از طریق اتصال SSH به فایل `authorized_keys` روی Debian می‌فرستد. در این اولین اتصال، ممکن است رمز فعلی حساب Debian پرسیده شود؛ این رفتار طبیعی است.
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
-ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath sv1@192.168.1.7
+$debianUser = Read-Host "Debian non-root username"
+$nodeIp = Read-Host "Debian node LAN IPv4"
+$target = "$debianUser@$nodeIp"
+
+if (!(Test-Path "$keyPath.pub")) {
+    throw "Public key file was not found. Stop and check the key path."
+}
+
+Get-Content -Raw "$keyPath.pub" | ssh $target "umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys"
 ~~~
 
-اگر این اتصال موفق نشد، هنوز تنظیمات احراز هویت SSH را تغییر نده. نشست قبلی را نبند و خطا را بررسی کن.
+نام حساب و IP را هنگام prompt وارد کن. این فرمان یک‌بار کلید را اضافه می‌کند؛ بی‌دلیل آن را تکرار نکن، چون ممکن است خط یکسان چندبار به `authorized_keys` اضافه شود.
+
+حالا **یک پنجرهٔ تازهٔ PowerShell** باز کن تا نشست قبلی، اگر هنوز باز است، برای بازیابی در دسترس بماند. کد زیر باید با کلید خصوصی Windows احراز هویت کند و عمداً اجازهٔ استفاده از رمز SSH را نمی‌دهد:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$debianUser = Read-Host "Debian non-root username"
+$nodeIp = Read-Host "Debian node LAN IPv4"
+$target = "$debianUser@$nodeIp"
+
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
+~~~
+
+اگر وارد شدی، کلید و فایل `authorized_keys` درست کار می‌کنند. اگر اتصال ناموفق بود، تنظیمات SSH را سخت‌تر نکن و رمز ورود SSH را هنوز غیرفعال نکن؛ اول خطا را بررسی کن.
 
 #### 1.19.3 سخت‌سازی SSH؛ فقط پس از موفقیت ورود کلیدی
 
-پس از تأیید اتصال کلیدی از پنجرهٔ جدید، در نشست SSH اجرا کن:
+**محل اجرای بلوک اول: نشست SSH فعلی در Debian** که با حساب عادی وارد آن شده‌ای. این فایل تنظیمات SSH را برای اتصال‌های جدید تغییر می‌دهد:
 
 ~~~bash
 set -eu
@@ -450,11 +506,28 @@ sudo sshd -T | grep -Ei '^(port|permitrootlogin|passwordauthentication|kbdintera
 sudo systemctl reload ssh
 ~~~
 
-سپس از یک پنجرهٔ تازهٔ PowerShell دوباره ورود با کلید را آزمایش کن. تا موفقیت آزمایش دوم نشست قبلی را نبند. اگر `sshd -t` خطا داد، reload نکن و متن خطا را بررسی کن.
+این دستورات به ترتیب:
+1. احراز هویت با کلید را فعال و ورود root و احراز هویت SSH با رمز را غیرفعال می‌کنند.
+2. `sshd -t` نحو فایل‌های پیکربندی را بررسی می‌کند؛ در صورت موفقیت، معمولاً خروجی ندارد. اگر خطا داد، به‌خاطر `set -e` اجرای بلوک متوقف می‌شود و فرمان `reload` اجرا نخواهد شد.
+3. `sshd -T` سیاست مؤثر SSH را نشان می‌دهد؛ مقادیر مورد انتظار عبارت‌اند از `permitrootlogin no`، `passwordauthentication no`، `kbdinteractiveauthentication no` و `pubkeyauthentication yes`.
+4. `systemctl reload ssh` از سرویس می‌خواهد پیکربندی معتبر جدید را بخواند. این فرمان لازم نیست سیستم را reboot کند؛ نشست SSH فعلی هم معمولاً باز می‌ماند.
+
+**چرا پنجرهٔ دوم مهم است؟** نشست فعلی ممکن است با تنظیمات قبلی باز مانده باشد، حتی اگر اتصال جدید به‌دلیل تنظیم اشتباه شکست بخورد. بنابراین نشست فعلی را نبند. یک پنجرهٔ تازهٔ PowerShell باز کن و اتصال صرفاً با کلید را دوباره آزمایش کن:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$debianUser = Read-Host "Debian non-root username"
+$nodeIp = Read-Host "Debian node LAN IPv4"
+$target = "$debianUser@$nodeIp"
+
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target "hostname; id"
+~~~
+
+اگر این دستور نام میزبان و اطلاعات حساب را برگرداند و با رمز حساب Debian وارد نشد، آزمایش اتصال جدید موفق است. فقط پس از موفقیت، نشست قبلی را ببند. اگر ناموفق بود، همان نشست قبلی را باز نگه دار و خروجی خطا را بررسی کن.
 
 #### 1.19.4 Firewall میزبان با UFW
 
-فقط بعد از تأیید ورود کلیدی، قواعد Firewall را تنظیم کن. این قواعد برای شبکهٔ فعلی هستند؛ اگر subnet یا روش مدیریت عوض شد، قاعدهٔ SSH باید پیش از فعال‌کردن Firewall با شبکهٔ واقعی تطبیق داده شود.
+فقط پس از موفقیت آزمایش کلید در مرحلهٔ 1.19.3، قواعد Firewall را تنظیم کن. قاعدهٔ SSH برای شبکهٔ LAN فعلی نوشته شده است؛ اگر subnet عوض شده، پیش از فعال‌کردن Firewall آن را با شبکهٔ واقعی تطبیق بده.
 
 ~~~bash
 set -eu
@@ -471,16 +544,69 @@ sudo ufw --force enable
 sudo ufw status verbose
 ~~~
 
-این تنظیم، SSH ورودی را به subnet فعلی LAN محدود می‌کند و پورت‌های وب را در Firewall خود Debian مجاز می‌سازد. **این کار به‌تنهایی سرویس را روی اینترنت منتشر نمی‌کند**؛ Port Forwarding روتر هنوز جداگانه و در زمان مناسب انجام می‌شود. تا زمانی که Wings نصب و TLS آن پیکربندی نشده است، پورت‌های `8080` و `2022` را باز نکن و پورت `22` را به WAN فوروارد نکن.
+این کار SSH ورودی را به subnet فعلی LAN محدود می‌کند و برای وب پورت‌های TCP 80 و 443 را در Firewall خود Debian مجاز می‌سازد. وجود این قواعد به‌تنهایی سرویسی را در اینترنت منتشر نمی‌کند؛ روتر هنوز Port Forwarding جداگانه می‌خواهد. تا وقتی Wings نصب و TLS آن پیکربندی نشده است، پورت‌های `8080` و `2022` را باز نکن؛ پورت `22` را نیز از روتر به WAN فوروارد نکن.
+
+اگر نشست SSH قطع شد، از کنسول VMware وضعیت را بررسی کن؛ Firewall را با افزودن پورت‌ها یا بازکردن SSH برای کل اینترنت به‌صورت حدسی تغییر نده.
 
 راهنماهای رسمی: https://manpages.debian.org/trixie/openssh-server/sshd_config.5.en.html و https://wiki.debian.org/Uncomplicated%20Firewall%20%28ufw%29
 
-### پس از تکمیل این پنج مرحله
+### 1.20 مرحلهٔ دوازدهم — تأیید SSH و Firewall پس از اعمال قواعد
 
-بعد از بررسی نتیجهٔ مراحل 1.15 تا 1.19، مرحلهٔ بعدی نصب پیش‌نیازهای Panel و سپس خود Panel خواهد بود. اگر IPv4 عمومی ورودی یا DNS هنوز آماده نیست، این موارد را به‌عنوان تکمیل‌شده علامت نزن و سرویس را روی WAN منتشر نکن.
+**اول بلوک Debian را از نشست SSH اجرا کن.** این مرحله وضعیت را می‌خواند و سرویس یا قاعده‌ای را تغییر نمی‌دهد:
 
-**در این فاز هیچ instance بازی ساخته نمی‌شود و هیچ فایل بازی CS2 دانلود نمی‌شود.** طراحی و آزمایش CS2/Egg/Storage در مرحلهٔ جداگانه و روی محیط آزمایشگاهی انجام خواهد شد.
+~~~bash
+set -eu
+echo "=== Host identity ==="
+hostname -f
 
+echo
+echo "=== SSH service and effective policy ==="
+sudo sshd -t
+sudo systemctl is-active ssh
+sudo sshd -T | grep -Ei '^(port|permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication) '
+
+echo
+echo "=== Firewall ==="
+sudo ufw status verbose
+
+echo
+echo "=== Listening sockets ==="
+sudo ss -ltnp
+
+echo
+echo "=== Time and network ==="
+timedatectl show -p Timezone -p NTPSynchronized -p NTP
+ip -4 route
+~~~
+
+سپس از **یک پنجرهٔ تازهٔ Windows PowerShell** دوباره اتصال کلیدی را تست کن. نام کاربری، IP و مسیر کلید را در همان پنجره وارد کن:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$debianUser = Read-Host "Debian non-root username"
+$nodeIp = Read-Host "Debian node LAN IPv4"
+$target = "$debianUser@$nodeIp"
+
+Test-NetConnection $nodeIp -Port 22
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target "hostname; id"
+~~~
+
+مرحله کامل است وقتی SSH از LAN فعال باشد، Firewall نشان دهد فعال است، و اتصال کلیدی از پنجرهٔ تازه موفق شود. اگر هرکدام شکست خورد، نصب Panel را شروع نکن و همان خروجی را در گفت‌وگو بفرست.
+
+### 1.21 مرحلهٔ سیزدهم — ساخت نقطهٔ بازگشت در VMware
+
+قبل از نصب PHP، MariaDB، Redis، NGINX و Panel بهتر است نقطهٔ بازگشت داشته باشی:
+
+1. اگر نسخهٔ VMware تو Snapshot را پشتیبانی می‌کند، از رابط VMware برای همین VM یک Snapshot بساز.
+2. نام پیشنهادی: `debian13-base-ssh-firewall`.
+3. VMDK سیستم قبلی را انتخاب، mount یا overwrite نکن. Snapshot جای backup مستقل را نمی‌گیرد؛ اگر از فایل VM هم backup می‌گیری، دیسک مقصد را با دقت بررسی کن.
+4. اگر Snapshot در نسخهٔ VMware در دسترس نیست، این گام اختیاری را رد کن و به‌جای آن برنامهٔ backup جداگانه داشته باش.
+
+### ادامهٔ نصب بعد از مرحلهٔ 1.21
+
+اگر مراحل 1.19.4 و 1.20 موفق بودند، از **بخش 2، به‌ترتیب 2.1 و سپس 2.2** شروع کن. این دو مرحله Repository لازم برای PHP 8.3 و وابستگی‌های Panel 1.x را نصب می‌کنند. بعد از اجرای هر بلوک، خروجی را بررسی کن؛ به فصل 3 نپر تا Composer و سرویس‌های لازم تأیید شوند.
+
+**هیچ instance یا فایل بازی CS2 در این فاز نصب نمی‌شود.**
 ---
 
 ## 2. نصب PHP 8.3 و نیازمندی‌های Panel (نصب تازه)
@@ -511,7 +637,33 @@ sudo apt install -y \
   mariadb-server redis-server nginx git curl tar unzip
 ~~~
 
-Composer را از https://getcomposer.org/download/ دریافت کن و روش بررسی checksum/signature را از همان صفحه دنبال کن؛ checksum قدیمی را ثابت فرض نکن.
+### 2.3 نصب Composer 2 با بررسی امضای نصب‌کننده
+
+این بلوک را پس از تکمیل مرحلهٔ 2.2 اجرا کن. ابتدا امضای فعلی را از Composer دریافت می‌کند و با SHA-384 فایل نصب‌کننده مقایسه می‌کند؛ اگر مطابقت نداشت، نصب متوقف می‌شود.
+
+~~~
+set -eu
+cd /tmp
+
+EXPECTED_CHECKSUM="$(curl -fsSL https://composer.github.io/installer.sig)"
+curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php
+ACTUAL_CHECKSUM="$(sha384sum /tmp/composer-setup.php | awk '{print $1}')"
+
+if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
+  echo "ERROR: Composer installer signature mismatch; refusing to install."
+  rm -f /tmp/composer-setup.php
+  exit 1
+fi
+
+sudo php8.3 /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+rm -f /tmp/composer-setup.php
+
+php8.3 /usr/local/bin/composer --version
+~~~
+
+در ادامه، Composer را با `php8.3 /usr/local/bin/composer` اجرا کن تا به‌صورت تصادفی از نسخهٔ PHP متفاوتی که ممکن است پیش‌فرض سیستم باشد استفاده نکند.
+
+مرجع رسمی: https://getcomposer.org/download/
 
 بررسی:
 
@@ -559,7 +711,7 @@ sudo chown www-data:www-data .env
 sudo chmod 640 .env
 
 cd /var/www/pterodactyl
-sudo -u www-data /usr/local/bin/composer install --no-dev --optimize-autoloader
+sudo -u www-data php8.3 /usr/local/bin/composer install --no-dev --optimize-autoloader
 sudo -u www-data php8.3 artisan key:generate
 ~~~
 
@@ -600,7 +752,7 @@ sudo -u www-data php8.3 artisan p:environment:setup
 sudo -u www-data php8.3 artisan p:environment:database
 ~~~
 
-مقادیر هدف برای نصب جدید: URL برابر `https://panel.fragcity.ir`، timezone سیستم‌عامل UTC، cache/session/queue برابر redis، Redis host برابر `127.0.0.1` و port برابر `6379`، DB host برابر `127.0.0.1`، port برابر `3306`، database برابر `panel` و user برابر `pterodactyl`. رمزهای DB/Redis را فقط داخل prompt وارد کن و در README/چت ننویس. پیش از در دسترس قرار دادن عمومی Panel، DNS، TLS و firewall باید آماده باشند.
+مقادیر هدف برای نصب جدید: تا وقتی فقط NGINX/HTTP محلی را آزمایش می‌کنیم، URL در Wizard برابر `http://panel.fragcity.ir` باشد؛ بعد از صدور و تأیید گواهی TLS در مرحلهٔ 3.7، مقدار را به `https://panel.fragcity.ir` تغییر می‌دهیم. timezone سیستم‌عامل UTC، cache/session/queue برابر redis، Redis host برابر `127.0.0.1` و port برابر `6379`، DB host برابر `127.0.0.1`، port برابر `3306`، database برابر `panel` و user برابر `pterodactyl` است. رمزهای DB/Redis را فقط داخل prompt وارد کن و در README/چت ننویس. تا قبل از تأیید TLS و Firewall، Panel را از روتر روی WAN منتشر نکن.
 
 ### 3.4 اصلاح مجوز Cache، Migration و مدیر
 
@@ -706,6 +858,8 @@ curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: panel.fragcity.
 
 پس از فعال‌سازی، دسترسی را از مرورگر Windows بررسی کن. این پیکربندی فقط برای LAN/HTTP است.
 
+اگر دامنه از LAN به IP عمومی resolve می‌شود ولی روتر NAT loopback ندارد، برای آزمایش محلی می‌توانی روی Windows، فایل hosts را با دسترسی Administrator ویرایش کنی و موقتاً این نگاشت را اضافه کنی: `<node-lan-ip> panel.fragcity.ir`. آدرس IP داخلی را از مرحلهٔ 1.15/1.16 بگیر؛ IP را حدس نزن. این تغییر فقط روی همان Windows اثر دارد.
+
 ### 3.6 عیب‌یابی مسیر `/admin` در LAN
 
 اگر `https://panel.fragcity.ir/admin` باز نمی‌شود، قبل از تغییر تنظیمات Node این بررسی‌های فقط‌خواندنی را روی Debian اجرا کن. خروجی ترمینال را به README اضافه نکن.
@@ -740,6 +894,51 @@ sudo -u www-data php8.3 artisan route:list --path=admin
 - اگر `/admin` پاسخ `500` می‌دهد، خطای Laravel را بررسی کن؛ اگر `502` می‌دهد، NGINX و PHP-FPM را بررسی کن.
 - اگر درخواست محلی سالم است ولی از Windows باز نمی‌شود، ارتباط LAN، IP ماشین و فایروال را بررسی کن.
 - تا پیش از مشخص‌شدن خطا، NGINX را بازنویسی نکن، سرویس‌ها را کورکورانه restart نکن و Node جدید نساز.
+
+### 3.7 صدور TLS برای Panel و انتشار وب پس از آزمون LAN
+
+**این مرحله فقط زمانی اجرا شود که Panel در LAN روی HTTP سالم است** و رکورد `panel.fragcity.ir` به IPv4 عمومی فعلی اشاره می‌کند. IP عمومی بیرونی و WAN IPv4 نمایش‌داده‌شده در روتر باید بررسی شوند؛ اگر WAN پشت CGNAT یا NAT بالادستی است، ابتدا مسیر ورودی را حل کن.
+
+1. در Firewall روتر، فقط پس از تأیید آمادگی سرور، Port Forward برای **TCP 80 → IP داخلی Node:80** و **TCP 443 → IP داخلی Node:443** بساز. از WAN هیچ Port Forward برای SSH 22، MariaDB 3306، Redis 6379، Wings 8080 یا SFTP 2022 نساز.
+2. UFW مرحلهٔ 1.19.4 باید اجازهٔ TCP 80 و 443 را داشته باشد. بررسی کن NGINX روی پورت 80 پاسخ می‌دهد.
+3. هنگام اعتبارسنجی HTTP-01، سرویس موقتاً از اینترنت روی HTTP قابل‌دسترسی خواهد بود. در این زمان اطلاعات ورود را از طریق HTTP وارد نکن؛ بعد از موفقیت TLS به HTTPS مهاجرت کن. اگر دسترسی ورودی از اینترنت قابل اثبات نیست، Port Forward را حدس‌زنان تغییر نده.
+4. پس از آماده‌شدن NAT ورودی، روی Debian اجرا کن:
+
+~~~
+set -eu
+sudo apt install -y certbot python3-certbot-nginx
+sudo nginx -t
+sudo certbot --nginx --redirect -d panel.fragcity.ir
+~~~
+
+در Wizard مربوط به Certbot، ایمیل مدیریتی خودت را وارد کن؛ آن را در README ننویس. Certbot باید گواهی را نصب کند و HTTP را به HTTPS هدایت کند. اگر اعتبارسنجی شکست خورد، قبل از تکرار فرمان، DNS، Port Forward، Firewall و دسترسی بیرونی TCP 80 را بررسی کن.
+
+5. پس از صدور موفق گواهی، URL محیط Panel را به HTTPS تغییر بده و Cache تنظیمات را بازسازی کن:
+
+~~~
+set -eu
+sudo sed -i -E 's#^APP_URL=.*#APP_URL=https://panel.fragcity.ir#' /var/www/pterodactyl/.env
+cd /var/www/pterodactyl
+sudo -u www-data php8.3 artisan config:clear
+sudo -u www-data php8.3 artisan cache:clear
+sudo -u www-data php8.3 artisan view:clear
+sudo -u www-data php8.3 artisan config:cache
+sudo nginx -t
+sudo systemctl reload nginx
+~~~
+
+6. بررسی کن:
+
+~~~
+set -eu
+curl -fsSI --max-time 15 https://panel.fragcity.ir/
+sudo certbot certificates
+sudo certbot renew --dry-run
+~~~
+
+معیار قبولی: درخواست HTTPS بدون خطای گواهی پاسخ دهد و `certbot renew --dry-run` موفق باشد. اگر رکورد DNS، WAN یا دسترسی ورودی هنوز آماده نیست، این مرحله را اجرا نکن. Wings TLS برای `fc-node-01.fragcity.ir` کار جداگانه‌ای است و با گواهی Panel خودکار تکمیل نمی‌شود.
+
+منابع: https://certbot.eff.org/instructions?ws=nginx و https://docs.pterodactyl.io/v1/panel/getting-started
 
 
 
@@ -1004,14 +1203,15 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | مراحل 1.15 تا 1.19: hostname، رزرو DHCP، بررسی IPv4 عمومی/CGNAT، DNS و سخت‌سازی SSH/Firewall |
-| مراحل 1.9 تا 1.14 | تکمیل شده؛ Debian به‌روز است و DNS/HTTPS خروجی و NTP کار می‌کنند |
+| مرحلهٔ جاری | 1.19.4 Firewall، سپس 1.20 اعتبارسنجی پس از سخت‌سازی و 1.21 نقطهٔ بازگشت VMware |
+| مراحل پایه | مراحل 1.9 تا 1.18 اجرا شده‌اند؛ نتیجهٔ هر مرحله را از لاگ‌های همین گفتگو بررسی کن |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
-| IP داخلی فعلی | `192.168.1.7`؛ رزرو DHCP باید در مرحلهٔ 1.16 تأیید شود |
+| IP LAN / رزرو DHCP | از `ip -4 -o address show dev ens33` و پنل DHCP بررسی شود؛ از مقدار قبلی فرض نشود |
 | Panel FQDN هدف | `panel.fragcity.ir` |
-| DNS / public IP / TLS | هنوز به‌عنوان آماده فرض نشوند؛ مراحل 1.17 تا 1.18 و مراحل بعدی لازم‌اند |
-| SSH hardening / firewall | هنوز تکمیل نشده؛ طبق مرحلهٔ 1.19 فقط پس از آزمایش کلید SSH انجام شود |
+| DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
+| SSH hardening | کاربر گزارش کرده 1.19.3 انجام شده؛ اتصال کلیدی تازه را در 1.20 دوباره آزمایش کن |
+| Firewall UFW | هنوز باید در 1.19.4 اجرا و در 1.20 تأیید شود |
 | Panel / Docker / Wings | نصب روی Debian تازه هنوز آغاز نشده |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
