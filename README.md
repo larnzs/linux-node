@@ -1272,7 +1272,7 @@ fi
 sudo /usr/sbin/nginx -t
 sudo systemctl reload nginx
 sudo systemctl is-active nginx
-curl -sS -o /dev/null -w 'HTTP status: %{http_code}\\n' -H 'Host: panel.fragcity.ir' http://127.0.0.1/
+curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: panel.fragcity.ir' http://127.0.0.1/
 ~~~
 
 #### اگر محتوای NGINX اشتباهاً در Bash paste شد یا SSH قطع شد
