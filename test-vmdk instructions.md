@@ -599,7 +599,7 @@ SCRIPT
 - پورت‌های TCP 80، 443، 8080 و 2022 در حالت LISTEN بودند. MariaDB socket ping و Redis PING موفق بودند. Root filesystem تقریباً 1% مصرف و حدود 253 GB آزاد داشت. خطای سطح بالا در سرویس‌های پایش‌شده طی 15 دقیقهٔ اخیر دیده نشد.
 - تنها WARN health check اولیه این بود که واحد `pteroq.service` پیدا نشد. این نقص بعداً روی Clone اصلاح شد: بلوک README بخش 3.4.1 اجرا شد، سپس `pteroq.service` با وضعیت‌های `enabled` و `active (running)` تأیید شد و خط `artisan schedule:run` نیز در crontab ریشه ثبت و بررسی شد. راهنمای رسمی Pterodactyl v1، Queue Worker و cron مربوط به Scheduler را جزو نصب استاندارد می‌داند: https://docs.pterodactyl.io/v1/panel/getting-started
 - قانون ورودی `29001/udp` در UFW عمداً برای سرور CS2 آینده باز نگه داشته شده است؛ بنا به تصمیم کاربر، آن را حذف، تغییر یا دوباره عیب‌یابی نکن.
-- اسکریپت نتوانسته مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند. این دو مورد هنوز باید دستی تأیید شوند. خروجی خام ترمینال در این سند ذخیره نشده است.
+- اسکریپت سلامت به‌تنهایی نمی‌تواند مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند؛ اما طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند. بررسی دستی شبکه و دسترسی پنل برای این مرحله تکمیل‌شده محسوب می‌شود. خروجی خام ترمینال در این سند ذخیره نشده است.
 
 ### راه‌اندازی Queue Worker و Scheduler — منبع واحد در README
 
@@ -680,11 +680,11 @@ SCRIPT
 - [x] قانون UFW ورودی 29001/udp عمداً برای سرور CS2 آینده باز است؛ طبق تصمیم کاربر آن را تغییر نده.
 - [x] بلوک استاندارد README بخش 3.4.1 روی Clone اجرا شد؛ `pteroq.service` ایجاد و راه‌اندازی شد.
 - [x] تأیید شد `pteroq.service` هم `active` و هم `enabled` است و خط `schedule:run` در crontab ریشه وجود دارد.
-- [ ] مقصد Port Forwardهای موجود TCP 80/443/8080/2022 در روتر به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
-- [ ] دسترسی بیرونی Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
+- [x] طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند؛ بررسی دسترسی شبکه/پنل برای Clone با IP `192.168.1.9` تکمیل‌شده ثبت شد.
+- [x] دسترسی پنل و عملیاتی بودن شبکه طبق تأیید کاربر تأیید شد.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
 - [ ] دیسک تازه با lsblk و blkid شناسایی شود؛ تا قبل از تأیید فرمت نشود.
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را گرفته، IP برابر `192.168.1.9` و hostname برابر `fc-node-01` دارد. Health check اولیهٔ محلی 24 PASS / 1 WARN / 0 FAIL بود. PHP CLI/Artisan، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis و Cron تأیید شده‌اند. Queue Worker و Scheduler اکنون روی Clone راه‌اندازی و تأیید شده‌اند: `pteroq.service` برابر `active` و `enabled` است و خط Scheduler در crontab ریشه وجود دارد. هنگام اجرای `systemd-analyze verify` هشدار جداگانه‌ای دربارهٔ مسیر قدیمی `PIDFile` در `/etc/systemd/system/wings.service` زیر `/var/run/` دیده شد؛ این هشدار مانع فعال‌شدن `pteroq.service` نشد و فایل Wings باید جداگانه بررسی شود، نه اینکه کورکورانه تغییر کند. پورت `29001/udp` برای CS2 آینده باز می‌ماند و نباید تغییر کند. مقصد Port Forward و Online بودن Node در UI پنل هنوز دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با `lsblk`/`blkid` فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. چون دو دیسک مستقل‌اند، Queue Worker/Scheduler و هر تغییر دیگر باید قبل از بازگشت جداگانه روی VMDK اصلی اعمال شود.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را گرفته، IP برابر `192.168.1.9` و hostname برابر `fc-node-01` دارد. Health check اولیهٔ محلی 24 PASS / 1 WARN / 0 FAIL بود. PHP CLI/Artisan، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis و Cron تأیید شده‌اند. Queue Worker و Scheduler اکنون روی Clone راه‌اندازی و تأیید شده‌اند: `pteroq.service` برابر `active` و `enabled` است و خط Scheduler در crontab ریشه وجود دارد. هنگام اجرای `systemd-analyze verify` هشدار جداگانه‌ای دربارهٔ مسیر قدیمی `PIDFile` در `/etc/systemd/system/wings.service` زیر `/var/run/` دیده شد؛ این هشدار مانع فعال‌شدن `pteroq.service` نشد و فایل Wings باید جداگانه بررسی شود، نه اینکه کورکورانه تغییر کند. پورت `29001/udp` برای CS2 آینده باز می‌ماند و نباید تغییر کند. طبق تأیید کاربر، شبکه و پنل عملیاتی هستند و بررسی دسترسی پنل/شبکه تکمیل‌شده است. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با `lsblk`/`blkid` فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. چون دو دیسک مستقل‌اند، Queue Worker/Scheduler و هر تغییر دیگر باید قبل از بازگشت جداگانه روی VMDK اصلی اعمال شود.
