@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی: مراحل 1.9 تا 1.20 برای Debian Console-only انجام شده‌اند؛ ورود تازه با SSH Key و فعال‌بودن UFW تأیید شده است.** Chapter 1 هنوز کامل نیست: ابتدا مرحلهٔ 1.21 ممیزی نهایی و آزمون reboot، سپس مرحلهٔ 1.22 Snapshot (یا ثبت علت ردکردن آن) را انجام بده. تا تأیید این دو گام، مرحلهٔ 2.1 را شروع نکن. مدیریت WAN مودم هنوز به‌عنوان تأییدشده ثبت نشده؛ این مانع ساخت محلی Panel نیست، اما پیش‌نیاز انتشار عمومی/TLS است. Port Forward پورت 80 طبق گزارش موقتاً به Debian اشاره می‌کند و باید قبل از نصب/فعال‌شدن NGINX غیرفعال شود.
+> **وضعیت فعلی: ممیزی مرحلهٔ 1.21 پس از reboot با موفقیت بررسی شده است؛** ورود تازه با SSH Key، APT/dpkg، SSH hardening، UFW، NTP، شبکه، RAM/swap/disk و inodeها تأیید شده‌اند. **Chapter 1 فقط یک کار رابط VMware دارد: مرحلهٔ 1.22 Snapshot پایه** (یا اعلام صریح اینکه این نسخه Snapshot پشتیبانی نمی‌کند). بعد از آن، در Chapter 2 ابتدا مخزن PHP 8.3 را فقط بررسی می‌کنیم؛ چون `apt update` قبلاً `packages.sury.org/php trixie` را دیده، مخزن/کلید را کورکورانه دوباره نساز. قبل از نصب NGINX در 2.2، Port Forward موقت TCP 80 را از روتر حذف کن. مدیریت WAN مودم هنوز برای انتشار عمومی/TLS تأیید نشده است.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -803,21 +803,55 @@ ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthe
 
 این مرحله پس از نصب پاک Debian Console-only اجرا می‌شود؛ روی سیستم قدیمی پیش از نصب مجدد اجرا نکن.
 
-### 2.1 Repository برای PHP 8.3
+### 2.1 بررسی مخزن PHP 8.3 (اول بررسی، بعد تصمیم)
+
+در لاگ مرحلهٔ 1.21، APT قبلاً این مخزن را دیده بود: `https://packages.sury.org/php trixie InRelease`. بنابراین فعلاً کلید یا فایل منبع جدید نساز و فرمان `gpg --dearmor -o ...` را کورکورانه تکرار نکن؛ ممکن است فایل کلید/منبع از قبل وجود داشته باشد یا با نام دیگری تنظیم شده باشد.
+
+**محل اجرا: نشست SSH در Debian با کاربر عادی `sv1`.** این بلوک مخزن را تغییر نمی‌دهد؛ فقط فایل‌های تنظیمات فعلی، نسخهٔ قابل‌دسترس PHP، بسته‌های نصب‌شده و سلامت APT را بررسی می‌کند:
 
 ~~~bash
 set -eu
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg2 lsb-release
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://packages.sury.org/php/apt.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/sury-php.gpg
-sudo chmod a+r /etc/apt/keyrings/sury-php.gpg
+
+echo "=== Debian release ==="
 . /etc/os-release
-echo "deb [signed-by=/etc/apt/keyrings/sury-php.gpg] https://packages.sury.org/php/ ${VERSION_CODENAME} main" | sudo tee /etc/apt/sources.list.d/sury-php.list
+printf 'OS=%s\nVERSION_ID=%s\nCODENAME=%s\n' "$NAME" "$VERSION_ID" "$VERSION_CODENAME"
+
+echo
+echo "=== Existing Sury PHP repository definitions ==="
+sudo grep -RnsH --include='*.list' --include='*.sources' \
+  'packages.sury.org/php' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || true
+
+echo
+echo "=== Possible existing Sury keyring files ==="
+sudo find /etc/apt/keyrings /usr/share/keyrings -maxdepth 1 -type f \
+  \( -iname '*sury*php*' -o -iname '*debsury*' \) \
+  -printf '%M %u:%g %p\n' 2>/dev/null || true
+
+echo
+echo "=== Refresh package metadata ==="
 sudo apt update
+
+echo
+echo "=== PHP 8.3 package candidate ==="
+apt-cache policy php8.3-cli
+
+echo
+echo "=== PHP 8.3 packages already installed, if any ==="
+dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package} ${Version}\n' 'php8.3*' 2>/dev/null || true
 ~~~
 
+**معیار قبولی 2.1:**
+- `sudo apt update` بدون خطا و با کد خروج صفر تمام شود.
+- `apt-cache policy php8.3-cli` یک `Candidate` واقعی نشان دهد؛ اگر `Candidate: (none)` بود، متوقف شو و خروجی را بفرست.
+- در نتیجهٔ بررسی باید روشن باشد مخزن از کدام فایل منبع و کدام keyring استفاده می‌کند. اگر منبع در فایل دیگری ثبت شده، از روی گزارش آن را دوباره اضافه نکن.
+
+اگر مخزن درست کار می‌کند، مرحلهٔ 2.1 تمام است و به نصب بسته‌ها در 2.2 می‌رویم. اگر مخزن پیدا نشد یا خطای امضا/Release رخ داد، فایل تنظیمات را حذف یا جایگزین نکن؛ خروجی را بفرست تا دقیقاً همان تنظیم موجود را اصلاح کنیم.
+
+مرجع رسمی Pterodactyl تأیید می‌کند Debian 13 به مخزن اضافی برای PHP نیاز دارد و PHP 8.3/8.4 جزو نسخه‌های پشتیبانی‌شده هستند: https://docs.pterodactyl.io/v2/panel/getting-started
+
 ### 2.2 نصب بسته‌ها
+
+**پیش‌شرط شبکه:** پیش از اجرای این بلوک، Port Forward مربوط به TCP 80 را در مودم/روتر حذف کن. با نصب NGINX، سرویس وب روی پورت 80 فعال می‌شود؛ در این مرحله Panel هنوز تکمیل نشده و TLS آماده نیست. UFW اجازهٔ 80/443 دارد، اما بدون Port Forward ورودی همچنان از اینترنت به Debian هدایت نمی‌شود.
 
 ~~~bash
 sudo apt install -y \
@@ -1405,8 +1439,8 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | reboot و ورود مجدد با کلید SSH موفق‌اند؛ APT، dpkg، SSH policy، UFW، NTP، شبکه و منابع بررسی شده‌اند. در لاگ مرحلهٔ 1.21، خروجی `df -ih /` واضح نیست و باید جداگانه تکرار شود؛ سپس با تأیید نهایی Snapshot مرحلهٔ 1.22. تا آن زمان 2.1 را شروع نکن. |
-| مراحل پایه | 1.9 تا 1.20 بررسی شده‌اند؛ ممیزی/reboot در 1.21 انجام شده و فقط بررسی واضح inodeها باقی مانده؛ 1.22 هنوز منتظر تأیید نهایی است |
+| مرحلهٔ جاری | ممیزی 1.21 بعد از reboot کامل است، از جمله `df -ih /` با inodeهای 1%؛ گام رابط VMware یعنی Snapshot مرحلهٔ 1.22 هنوز در گفت‌وگو تأیید نشده. بعد از Snapshot، در 2.1 فقط مخزن PHP موجود را تأیید کن؛ مخزن Sury قبلاً در `apt update` دیده شده است. |
+| مراحل پایه | 1.9 تا 1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ مرحلهٔ 1.22 Snapshot هنوز باید انجام و گزارش شود |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
 | IP LAN / رزرو DHCP | آخرین خروجی: `192.168.1.7/24` روی `ens33`، Gateway برابر `192.168.1.1`. رزرو DHCP روتر را پیش از اتکا به IP در Port Forward تأیید کن. |
