@@ -20,7 +20,7 @@
 | محل پیشنهادی Full Clone | **D:\FragCity-VMs\fc-node-01-clone\** |
 | Hostname داخل Clone | **fc-node-01-test** |
 | وضعیت Wings داخل Clone | کاربر تأیید کرده که متوقف شده؛ با دستور بررسی کن که disabled هم باشد |
-| Network Adapter کلون | در اولین بوت disconnect نگه داشته شده است |
+| Network Adapter کلون | در اولین بوت قطع شد؛ برای SSH دوباره وصل شده و IP فعلی Clone برابر 192.168.1.9 است |
 | VMDK دادهٔ دوم | هنوز اضافه نشده؛ در این مرحله دیسکی را فرمت یا mount نکن |
 
 مسیر واقعی Clone را در VMware از تنظیمات همان VM بررسی کن. فایل‌های VM اصلی را به محل دیگری منتقل نکن و پوشهٔ قفل .lck را هنگام روشن‌بودن ماشین حذف نکن.
@@ -87,17 +87,18 @@ sudo systemctl poweroff
 
 Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را در نسخهٔ مستقل کپی کند. پس از ساخت، فایل‌های VM اصلی و Clone را از هم جدا نگه دار.
 
-## 5. اولین بوت: شبکه قطع و UUID/MAC جدید
+## 5. اولین بوت: UUID/MAC جدید و مسیر جایگزین برای SSH
 
-پیش از روشن‌کردن Clone:
+پیش از اولین بوت، در VMware مسیر **VM → Settings → Network Adapter** را باز کن و تیک **Connect at power on** را بردار. Clone را روشن کن و اگر پرسیده شد **I Copied It** را انتخاب کن تا VMware UUID/MAC مجازی تازه‌ای بسازد.
 
-1. آن را انتخاب کن و وارد **VM → Settings → Network Adapter** شو.
-2. تیک **Connect at power on** را بردار. آداپتور را حذف نکن.
-3. Clone را روشن کن.
-4. اگر VMware پرسید ماشین جابه‌جا شده یا کپی شده است، گزینهٔ **I Copied It** را انتخاب کن تا VMware هویت مجازی جدیدی برای آن بسازد.
-5. اجازه بده Debian تا صفحهٔ Login بالا بیاید.
+بهترین حالت برای اولین بوت، شبکهٔ جدا است؛ اما اگر برای انتقال دستورها نیاز به SSH داری، **لازم نیست اینترنت را قطع نگه داری**. در وضعیت فعلی Clone آدرس DHCP برابر **192.168.1.9** دارد و Node اصلی آدرس **192.168.1.7** را استفاده می‌کند. تا پیش از اجرای مرحلهٔ 8:
 
-Clone هویت‌های سطح سیستم‌عامل را هم از VM اصلی به ارث برده است؛ انتخاب **I Copied It** به‌تنهایی machine-id یا کلیدهای SSH را تغییر نمی‌دهد. تا وقتی مراحل بعد تمام نشده، Network Adapter را قطع نگه دار.
+- حتماً Wings روی Clone متوقف باشد؛ در این محیط قبلاً متوقف شده است.
+- هیچ Port Forward عمومی را به 192.168.1.9 تغییر نده. قوانین فعلی سرویس اصلی باید به IP اصلی 192.168.1.7 اشاره کنند.
+- از SSH به IP آزمایشگاهی Clone وصل شو و اسکریپت مرحلهٔ 8 را بلافاصله اجرا کن؛ اسکریپت Nginx و سرویس‌های کپی‌شدهٔ پنل را پیش از تغییر هویت متوقف می‌کند.
+- شبکه و SSH را داخل اسکریپت قطع نمی‌کنیم؛ ارتباط فعلی باید برای پایان کار و دیدن خروجی حفظ شود.
+
+**I Copied It فقط هویت مجازی VMware را تغییر می‌دهد؛ machine-id، SSH host keys، نام میزبان یا Node ID مربوط به Wings را به‌تنهایی جدا نمی‌کند.**
 
 راهنمای VMware/Broadcom: https://knowledge.broadcom.com/external/article/310359/copy-workstation-virtual-machine-from-on.html
 
@@ -142,11 +143,18 @@ cat /etc/hosts
 
 نام مورد انتظار **fc-node-01-test** است. فایل /etc/hosts را هم بررسی کن تا ارجاع‌های محلی قدیمی به fc-node-01 برای نام میزبان خود سیستم اصلاح شوند. اگر هنوز نام قدیمی در فایل وجود دارد، قبل از وصل‌کردن شبکه اصلاحش کن.
 
-## 8. جداسازی یک‌جای هویت محلی Clone
+## 8. اسکریپت کامل جداسازی هویت — حتی با شبکه و SSH متصل
 
-**این مرحله در گفت‌وگو پیشنهاد شده، اما اجرای موفق آن هنوز تأیید نشده است.** آن را یک‌بار و فقط بعد از تأیید hostname روی Clone اجرا کن. آداپتور شبکه باید همچنان قطع باشد.
+این نسخه برای همین وضعیت طراحی شده است: Clone با hostname برابر **fc-node-01-test** و IP فعلی **192.168.1.9** به شبکه متصل است تا بتوان با SSH فرمان را فرستاد. اسکریپت **شبکه، route یا SSH را خاموش نمی‌کند**؛ ابتدا سرویس‌های کپی‌شده‌ای را که ممکن است با Node/Panel اصلی تداخل کنند، متوقف و disable می‌کند.
 
-این اسکریپت از فایل‌های اصلی هویت پشتیبان محلی می‌گیرد، سرویس‌های بالقوهٔ متداخل را تا زمان پیکربندی مستقل متوقف و disable می‌کند، hostname و mapping محلی را تأیید می‌کند، machine-id جدید می‌سازد و SSH host keys را بازتولید می‌کند. فایل‌های پشتیبان حاوی دادهٔ حساس هستند و فقط در /root ماشین آزمایشگاهی می‌مانند؛ آن‌ها را upload یا ارسال نکن.
+پیش‌شرط‌ها:
+1. فرمان را فقط در SSH یا کنسول VM کلون اجرا کن. hostname باید fc-node-01-test باشد.
+2. قبل از شروع مطمئن شو این IP متعلق به Clone است و Port Forwardهای عمومی هنوز به IP اصلی 192.168.1.7 اشاره می‌کنند، نه .9.
+3. Wings باید در Clone از قبل متوقف باشد؛ اسکریپت دوباره آن را متوقف و disable می‌کند.
+4. پنجرهٔ SSH را نبند و تا پایان اسکریپت سیستم را reboot نکن.
+5. وقتی prompt نمایش داده شد، دقیقاً PREPARE-CLONE را وارد کن. تأیید از /dev/tty خوانده می‌شود؛ بنابراین با heredoc با متن اسکریپت تداخل ندارد.
+
+اسکریپت از فایل‌های هویت قبلی در /root پشتیبان می‌گیرد، Wings/Nginx/Certbot/Pterodactyl queue worker و سرویس‌های پنل محلی را روی Clone خاموش می‌کند، سپس hostname mapping، machine-id و SSH host keys را جدا می‌کند. سرویس SSH و شبکه را خاموش یا restart نمی‌کند. مقادیر شناسه‌ها چاپ نمی‌شوند.
 
 ~~~bash
 sudo bash <<'SCRIPT'
@@ -157,16 +165,24 @@ TARGET_HOST="fc-node-01-test"
 
 if [[ "$(hostnamectl --static)" != "$EXPECTED_HOST" ]]; then
     echo "ERROR: Hostname mismatch. Nothing changed."
-    echo "Expected: $EXPECTED_HOST"
-    echo "Actual:   $(hostnamectl --static)"
+    echo "Expected hostname: $EXPECTED_HOST"
+    echo "Actual hostname:   $(hostnamectl --static)"
     exit 1
 fi
 
-echo "This script must run ONLY on the isolated Clone."
-read -r -p "Type PREPARE-CLONE to continue: " confirmation
+if [[ ! -r /dev/tty ]]; then
+    echo "ERROR: An interactive terminal is required."
+    echo "Run this from a normal interactive SSH session or the VMware console."
+    exit 1
+fi
+
+echo "Target host: $(hostnamectl --static)"
+echo "Network will remain connected; SSH will not be stopped."
+echo "Do NOT run this on the original VM."
+IFS= read -r -p "Type PREPARE-CLONE to continue: " confirmation </dev/tty
 
 if [[ "$confirmation" != "PREPARE-CLONE" ]]; then
-    echo "Cancelled. Nothing changed."
+    echo "Cancelled. No changes made."
     exit 1
 fi
 
@@ -174,42 +190,57 @@ BACKUP="/root/fc-clone-prep-$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$BACKUP"
 
 echo
-echo "=== 1. Backing up identity files ==="
+echo "=== 1. Stop/disable services copied from the original VM ==="
+echo "Network and SSH are intentionally left running."
 
-cp -a /etc/hostname /etc/hosts "$BACKUP/"
-
-if [[ -e /etc/machine-id || -L /etc/machine-id ]]; then
-    cat /etc/machine-id > "$BACKUP/original-machine-id.txt" || true
-    chmod 600 "$BACKUP/original-machine-id.txt"
-fi
-
-if [[ -e /var/lib/dbus/machine-id || -L /var/lib/dbus/machine-id ]]; then
-    cat /var/lib/dbus/machine-id \
-        > "$BACKUP/original-dbus-machine-id.txt" || true
-    chmod 600 "$BACKUP/original-dbus-machine-id.txt"
-fi
-
-find /etc/ssh -maxdepth 1 -type f -name 'ssh_host_*' \
-    -exec cp -a {} "$BACKUP/" \;
-
-echo "Backup directory: $BACKUP"
-
-echo
-echo "=== 2. Keeping conflicting services disabled ==="
-
-for unit in wings.service nginx.service certbot.timer pteroq.service; do
+for unit in \
+    wings.service \
+    nginx.service \
+    certbot.timer \
+    pteroq.service \
+    php8.3-fpm.service \
+    mariadb.service \
+    redis-server.service \
+    cron.service
+do
     if systemctl cat "$unit" >/dev/null 2>&1; then
-        systemctl disable --now "$unit" >/dev/null 2>&1 || {
-            systemctl stop "$unit" || true
-        }
-        echo "Stopped/disabled where applicable: $unit"
+        if systemctl disable --now "$unit" >/dev/null 2>&1; then
+            echo "Stopped and disabled: $unit"
+        else
+            systemctl stop "$unit" >/dev/null 2>&1 || true
+            systemctl disable "$unit" >/dev/null 2>&1 || true
+            echo "Stop/disable attempted: $unit"
+        fi
     else
         echo "Not installed: $unit"
     fi
 done
 
 echo
-echo "=== 3. Updating hostname and local host mappings ==="
+echo "=== 2. Back up local identity files ==="
+
+cp -a /etc/hostname /etc/hosts "$BACKUP/"
+
+OLD_MACHINE_ID=""
+if [[ -r /etc/machine-id ]]; then
+    OLD_MACHINE_ID="$(tr -d '\n' < /etc/machine-id || true)"
+    cp -a /etc/machine-id "$BACKUP/machine-id-file"
+fi
+
+if [[ -e /var/lib/dbus/machine-id || -L /var/lib/dbus/machine-id ]]; then
+    cat /var/lib/dbus/machine-id > "$BACKUP/original-dbus-machine-id.txt" || true
+    chmod 600 "$BACKUP/original-dbus-machine-id.txt"
+    cp -a /var/lib/dbus/machine-id "$BACKUP/dbus-machine-id-file" || true
+fi
+
+find /etc/ssh -maxdepth 1 -type f -name 'ssh_host_*' \
+    -exec cp -a {} "$BACKUP/" \;
+
+chmod -R go-rwx "$BACKUP"
+echo "Local backup directory: $BACKUP"
+
+echo
+echo "=== 3. Set clone hostname and local host mapping ==="
 
 hostnamectl set-hostname "$TARGET_HOST"
 
@@ -244,7 +275,7 @@ for line in lines:
 
     if fields[0] == "127.0.1.1":
         output.append(
-            "127.0.1.1\t" + target
+            "127.0.1.1\\t" + target
             + ((" #" + comment) if marker else "")
         )
         has_local_entry = True
@@ -258,20 +289,20 @@ for line in lines:
 
     if changed:
         output.append(
-            "\t".join(fields)
+            "\\t".join(fields)
             + ((" #" + comment) if marker else "")
         )
     else:
         output.append(line)
 
 if not has_local_entry:
-    output.append("127.0.1.1\t" + target)
+    output.append("127.0.1.1\\t" + target)
 
-path.write_text("\n".join(output) + "\n")
+path.write_text("\\n".join(output) + "\\n")
 PY
 
 echo
-echo "=== 4. Regenerating machine-id ==="
+echo "=== 4. Generate a new machine-id ==="
 
 mkdir -p /var/lib/dbus
 rm -f /etc/machine-id /var/lib/dbus/machine-id
@@ -284,18 +315,25 @@ if [[ ! "$machine_id" =~ ^[0-9a-f]{32}$ ]]; then
     echo "ERROR: machine-id validation failed."
     exit 1
 fi
-echo "machine-id generated and validated (value hidden)."
+if [[ -n "$OLD_MACHINE_ID" && "$machine_id" == "$OLD_MACHINE_ID" ]]; then
+    echo "ERROR: machine-id did not change. Stop here and do not reboot/connect any extra network."
+    exit 1
+fi
+echo "New machine-id generated and validated (value hidden)."
 
 echo
-echo "=== 5. Regenerating SSH host keys ==="
+echo "=== 5. Regenerate SSH host keys ==="
 
 find /etc/ssh -maxdepth 1 -type f -name 'ssh_host_*' -delete
 ssh-keygen -A
 
-if systemctl cat ssh.service >/dev/null 2>&1; then
-    sshd -t
-    systemctl restart ssh.service
+if [[ ! -s /etc/ssh/ssh_host_ed25519_key.pub ]]; then
+    echo "ERROR: SSH host public key was not generated."
+    exit 1
 fi
+
+echo "New SSH host keys generated."
+echo "The current SSH session is left running; new keys will be loaded on the next reboot."
 
 echo
 echo "=== 6. Final local checks ==="
@@ -303,7 +341,7 @@ echo "=== 6. Final local checks ==="
 printf 'Hostname: '
 hostnamectl --static
 
-printf 'machine-id format: '
+printf 'machine-id: '
 if [[ "$machine_id" =~ ^[0-9a-f]{32}$ ]]; then
     echo "OK (value hidden)"
 else
@@ -311,29 +349,32 @@ else
     exit 1
 fi
 
-printf 'Wings state: '
-systemctl is-active wings 2>/dev/null || true
-
-printf 'Nginx state: '
-systemctl is-active nginx 2>/dev/null || true
-
-printf 'Backup: %s\n' "$BACKUP"
+for unit in wings.service nginx.service certbot.timer pteroq.service; do
+    printf '%s: ' "$unit"
+    systemctl is-active "$unit" 2>/dev/null || true
+done
 
 echo
-echo "Preparation complete."
-echo "Keep the network adapter disconnected."
-echo "Reboot this Clone before reconnecting its network."
+echo "Current network addresses (no changes made to network):"
+ip -br address || true
+
+echo
+echo "Preparation complete. Network and SSH remain available."
+echo "Keep Wings/Nginx disabled and review the output before rebooting."
+echo "Backup directory: $BACKUP"
 SCRIPT
 ~~~
 
-### کار اسکریپت و محدودیت‌های آن
+### این اسکریپت چه چیزهایی را تغییر نمی‌دهد؟
 
-- hostname را به fc-node-01-test تنظیم می‌کند و /etc/hosts را برای نام محلی اصلاح می‌کند.
-- machine-id و SSH host keys را برای کپی جدید تولید می‌کند.
-- Wings، Nginx، Certbot timer و در صورت وجود Pterodactyl queue worker را روی Clone متوقف و disable می‌کند تا قبل از پیکربندی جدید، سرویس‌های کپی‌شده ناخواسته اجرا نشوند.
-- از فایل‌های هویت کپی‌شده در مسیر پشتیبان محلی محافظت‌شده استفاده می‌کند. این پشتیبان برای rollback دستی است؛ اسکریپت rollback خودکار کامل نیست.
-- **این اسکریپت شناسهٔ Node ذخیره‌شده در /etc/pterodactyl/config.yml، Domain، DNS یا گواهی TLS را به Node آزمایشی تبدیل نمی‌کند.** فایل Wings قدیمی باقی می‌ماند، ولی سرویس آن disabled است؛ تا وقتی config تازه‌ای از Node مستقل Panel تولید نکرده‌ایم، Wings را روشن نکن.
-- اگر هر مرحله با خطا متوقف شد، شبکه را وصل نکن و فرمان‌های پاک‌سازی را حدس نزن؛ خروجی غیرحساس خطا را بررسی کن و از پشتیبان محلی بازیابی کنترل‌شده انجام بده.
+- آداپتور شبکه، IP، DHCP، route و SSH را قطع نمی‌کند.
+- Port Forward روتر، UFW، DNS، تنظیمات TLS و فایل /etc/pterodactyl/config.yml را بازنویسی نمی‌کند.
+- فایل‌های خصوصی SSH کاربر را تغییر نمی‌دهد؛ فقط SSH **host keys** را در Clone بازتولید می‌کند.
+- هویت Node داخل config قدیمی Wings را به Node جدید تبدیل نمی‌کند. Wings خاموش و disabled باقی می‌ماند تا بعداً در Panel یک Node مستقل تعریف کنیم و config تازهٔ همان Node را دریافت کنیم.
+- Nginx، Certbot timer، php-fpm، MariaDB، Redis و cron را در صورت وجود روی **Clone** متوقف/disable می‌کند تا پنل کپی‌شده و کارهای زمان‌بندی‌شده‌اش با محیط اصلی رقابت نکنند. این سرویس‌ها بعداً، در صورت نیاز، به‌صورت آگاهانه و جداگانه پیکربندی می‌شوند.
+- این نسخه reboot خودکار نمی‌کند؛ ابتدا خروجی را بازبینی کن.
+
+اگر فرمان به خطا رسید، شبکه را قطع نکن و مراحل را کورکورانه تکرار نکن. خروجی غیرحساس را بررسی کن؛ پوشهٔ پشتیبان فقط برای بازیابی کنترل‌شده روی Clone است و نباید به GitHub ارسال شود.
 
 ## 9. Reboot و تأیید هویت Clone
 
@@ -373,25 +414,69 @@ systemctl is-enabled wings nginx certbot.timer 2>/dev/null || true
 
 خروجی باید hostname آزمایشگاهی را نشان بدهد و Wings فعال نباشد. اثر انگشت SSH عمومی است؛ کلیدهای خصوصی را نمایش یا ارسال نکن. چون SSH host key جدید شده، کلاینت Windows در اتصال‌های بعدی ممکن است هشدار host key بدهد؛ فقط پس از اطمینان از IP و هویت Clone، اثر انگشت جدید را تأیید کن.
 
-## 10. چه زمانی شبکه را وصل کنیم؟
+## 10. تأیید هویت و کار با شبکهٔ متصل
 
-شبکه را فقط پس از تکمیل موفق مرحله‌های 8 و 9 وصل کن. این ترتیب عمداً محافظه‌کارانه است: Clone هنوز config قدیمی Wings و TLS را روی دیسک دارد و سرویس‌ها خاموش مانده‌اند.
+**برخلاف نسخهٔ اولیهٔ این راهنما، پس از قطع سرویس‌های حساس لازم نیست شبکه را برای اجرای اسکریپت جدا کنی.** چون برای انتقال فرمان از SSH استفاده می‌کنیم، شبکه می‌تواند فعال بماند؛ خود اسکریپت در مرحلهٔ 8 سرویس‌های زیر را متوقف/disable می‌کند و به SSH دست نمی‌زند.
 
-1. در VMware، فقط روی fc-node-01-clone به **VM → Settings → Network Adapter** برو و Connect at power on را فعال کن یا اتصال شبکه را برقرار کن.
-2. پس از بوت، IP جدید را پیدا کن؛ MAC جدید ممکن است باعث شود DHCP آدرس دیگری بدهد:
+پس از پایان اسکریپت، در همان کنسول یا SSH این بررسی‌ها را اجرا کن:
 
-   ~~~bash
-   ip -br address
-   ip route
-   ~~~
+~~~bash
+echo "=== Clone hostname ==="
+hostnamectl --static
 
-3. IP آزمایشگاهی را در روتر بررسی کن؛ در صورت نیاز DHCP reservation مجزا بساز. فرض نکن Clone همان IP ماشین اصلی را خواهد داشت.
-4. برای دریافت بسته‌ها و انجام تست‌های اینترنتی، اتصال LAN/NAT معمولاً کافی است. اما **Wings و Nginx را هنوز enable یا start نکن** و Port Forward عمومی برای Clone نساز.
-5. در Panel اصلی، یک Node آزمایشی مستقل بساز و برای آن FQDN، SSL و پورت‌های مناسب مستقل تنظیم کن. سپس config تازهٔ Wings را از همان Node آزمایشی بگیر و قبل از فعال‌کردن Wings، allowed_mounts و مسیرهای آزمایش را بررسی کن. config قدیمی را به‌عنوان config نهایی استفاده نکن.
-6. گواهی کپی‌شده متعلق به نام قبلی است؛ پیش از راه‌اندازی HTTPS آزمایشگاهی، نام دامنه و گواهی صحیح Clone را جداگانه تنظیم کن. Certbot timer تا زمان تعیین دامنه/گواهی آزمایشگاهی disabled بماند.
-7. اگر قرار است Clone در همان LAN کار کند، SSH را فقط با روش امن موجود و از کنسول تست کن. پورت SSH یا MariaDB/Redis را به اینترنت عمومی باز نکن.
+echo
+echo "=== Host mapping ==="
+grep -nE 'fc-node-01|fc-node-01-test' /etc/hosts || true
 
-**مهم:** تا زمانی که Node آزمایشی مستقل در Panel پیکربندی نشده، اجرای Wings روی Clone می‌تواند با هویت Node اصلی تداخل کند. این کار حتی پس از تغییر hostname و machine-id هم مجاز نیست.
+echo
+echo "=== machine-id validation (value hidden) ==="
+if sudo test "$(sudo cat /etc/machine-id | wc -c)" -ge 32; then
+    echo "machine-id file is populated"
+else
+    echo "ERROR: machine-id file is missing or empty"
+fi
+
+echo
+echo "=== SSH host public key fingerprint ==="
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+
+echo
+echo "=== Service state ==="
+for unit in wings.service nginx.service certbot.timer pteroq.service; do
+    printf '%s active=' "$unit"
+    systemctl is-active "$unit" 2>/dev/null || true
+    printf '%s enabled=' "$unit"
+    systemctl is-enabled "$unit" 2>/dev/null || true
+done
+
+echo
+echo "=== Network ==="
+ip -br address
+ip route
+~~~
+
+خروجی باید hostname آزمایشگاهی را نشان دهد و Wings/Nginx غیرفعال باشند. اگر بررسی‌ها موفق‌اند، ماشین Clone را reboot کن:
+
+~~~bash
+sudo reboot
+~~~
+
+پس از بوت، اتصال SSH قطع می‌شود و SSH host key جدیدی استفاده خواهد شد. اگر Windows دربارهٔ SSH host key تغییرکرده هشدار داد، قبل از پاک‌کردن هر ورودی مطمئن شو IP مقصد **192.168.1.9 همان Clone** است و نه Node اصلی. فقط پس از تأیید این موضوع، در Windows PowerShell می‌توان ورودی قدیمی مربوط به IP آزمایشی را حذف کرد:
+
+~~~powershell
+ssh-keygen -R 192.168.1.9
+~~~
+
+سپس با دستور SSH همیشگی‌ات به IP آزمایشگاهی وصل شو و اثر انگشت جدید را با fingerprint نمایش‌داده‌شده از Clone مقایسه کن.
+
+نکات شبکه:
+1. DHCP به Clone در بررسی فعلی **192.168.1.9** داده است؛ بهتر است در روتر برای MAC جدید همین IP را رزرو کنی. IP اصلی **192.168.1.7** و رزرو آن را دست‌نخورده نگه دار.
+2. برای دانلود بسته‌ها و استفاده از SSH خروجی اینترنت کافی است؛ Port Forward جدیدی لازم نیست.
+3. Port Forwardهای عمومی را به .9 منتقل نکن و پورت‌های عمومی تازه‌ای برای Clone نساز. وقتی در آینده تست end-to-end لازم شد، ابتدا Node آزمایشی مستقل در Panel، FQDN و پیکربندی Wings اختصاصی‌اش را آماده می‌کنیم.
+4. Nginx، Certbot timer و Wings روی Clone خاموش/disabled باقی می‌مانند تا نام/گواهی و هویت Node مستقل آماده شود. config فعلی Wings را به‌عنوان config نهایی آزمایشگاه استفاده نکن.
+5. هیچ پورت SSH، MariaDB یا Redis را به اینترنت عمومی باز نکن. اگر دسترسی LAN یا outbound قطع شد، قبل از هر تغییر روتر، وضعیت IP و سرویس SSH را بررسی کن.
+
+**مهم:** تغییر hostname، machine-id و SSH host keys به‌تنهایی هویت Node در Pterodactyl را مستقل نمی‌کند؛ تا وقتی Node آزمایشی مستقل ساخته و config تازهٔ Wings دریافت نشده، Wings را فعال نکن.
 
 ## 11. افزودن VMDK دادهٔ دوم — فقط به Clone
 
