@@ -1681,15 +1681,75 @@ fi
 )
 ~~~
 
-**اگر فایل هنوز وجود ندارد:** خودت با touch، nano یا tee فایل خالی نساز و مرحلهٔ 6.5 را اجرا نکن. اول بررسی کن که Node در Panel ذخیره شده، Generate Token را زده‌ای، فرمان کامل را در نشست SSH دبیان اجرا کرده‌ای و خروجی آن موفق بوده است. بعد از قطع‌شدن SSH دوباره وصل شو و آزمون فقط‌خواندنی بالا را تکرار کن؛ قطع‌شدن اتصال به‌تنهایی علت را مشخص نمی‌کند.
+**اگر فایل هنوز وجود ندارد:** خودت با touch، nano یا tee فایل خالی نساز و به مراحل TLS/debug بعدی نرو. اول بررسی کن که Node در Panel ذخیره شده، Generate Token را زده‌ای، فرمان کامل را در نشست SSH دبیان اجرا کرده‌ای و خروجی آن موفق بوده است. بعد از قطع‌شدن SSH دوباره وصل شو و آزمون فقط‌خواندنی بالا را تکرار کن؛ قطع‌شدن اتصال به‌تنهایی علت را مشخص نمی‌کند.
 
 اگر command از موجودبودن config خبر داد، گزینهٔ override را خودسرانه اضافه نکن؛ ابتدا وضعیت فایل و Node را بررسی کنیم. فایل config محرمانه است و نباید وارد Git یا چت شود.
 
 منبع رسمی: https://docs.pterodactyl.io/v1/wings/installing
 
-### 6.5 اجرای foreground
+### 6.5 گواهی TLS مخصوص Node — رفع خطای missing fullchain.pem
 
-فقط بعد از Node creation و config:
+در نخستین اجرای `sudo wings --debug`، Wings تنظیمات را خواند و به API پنل درخواست فرستاد، اما متوقف شد چون فایل `/etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem` وجود نداشت. این خطا به‌تنهایی نشانهٔ خرابی باینری Wings یا Docker نیست؛ گواهی TLS مربوط به FQDN خود Node هنوز در مسیر تنظیم‌شده موجود نیست.
+
+**گواهی `panel.fragcity.ir` جایگزین خودکار گواهی `fc-node-01.fragcity.ir` نیست.** ابتدا این بررسی فقط‌خواندنی را روی Debian اجرا کن. این بلوک هیچ تنظیمی را تغییر نمی‌دهد:
+
+~~~bash
+(
+echo "=== DNS resolution for Node FQDN ==="
+getent ahostsv4 fc-node-01.fragcity.ir || true
+
+echo
+echo "=== Public IPv4 seen by the server ==="
+curl -4fsS --connect-timeout 5 --max-time 10 https://api.ipify.org || true
+printf '\\n'
+
+echo
+echo "=== Existing Certbot certificates ==="
+if command -v certbot >/dev/null 2>&1; then
+  sudo certbot certificates
+else
+  echo "certbot command not found"
+fi
+
+echo
+echo "=== Expected Node certificate files ==="
+sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem && echo "fullchain: present" || echo "fullchain: missing"
+sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem && echo "privkey: present" || echo "privkey: missing"
+
+echo
+echo "=== NGINX syntax and firewall ==="
+sudo /usr/sbin/nginx -t
+sudo ufw status
+)
+~~~
+
+خروجی DNS را با IPv4 عمومی و مقصد رکورد دامنه مقایسه کن. پیش از صدور گواهی، تأیید کن که رکورد عمومی `fc-node-01.fragcity.ir` به مقصد درست می‌رسد و درخواست HTTP-01 از اینترنت به همین Debian می‌رسد. برای روش HTTP-01 باید TCP پورت 80 از روتر به IP LAN فعلی Node هدایت شود و UFW هم اجازهٔ آن را داشته باشد. **صرف بازشدن پنل روی HTTPS این دو مورد را ثابت نمی‌کند.** اگر DNS به Cloudflare یا پراکسی دیگری اشاره می‌کند، این تفاوت را قبل از صدور گواهی مشخص کن.
+
+اگر DNS و دسترسی ورودی صحیح‌اند و `certbot certificates` گواهی معتبر موجودی برای نام Node نشان نمی‌دهد، دستور زیر را اجرا کن:
+
+~~~bash
+sudo certbot certonly --nginx -d fc-node-01.fragcity.ir
+~~~
+
+این دستور را فقط بعد از تأیید پیش‌شرط‌های DNS و دسترسی ورودی اجرا کن. روش NGINX از HTTP-01 استفاده می‌کند؛ اگر Certbot خطا داد، همان خطا را بدون اطلاعات شخصی بفرست و پورت یا تنظیمات را حدس‌زنان تغییر نده.
+
+پس از موفقیت، فقط مسیر و وضعیت فایل‌های گواهی را بررسی کن:
+
+~~~bash
+sudo certbot certificates
+sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem && echo "OK: Node fullchain exists"
+sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem && echo "OK: Node private key exists"
+~~~
+
+اگر Certbot گواهی را با نام مسیر دیگری مثل `fc-node-01.fragcity.ir-0001` ثبت کرده باشد، Wings همچنان مسیر قبلی را جست‌وجو می‌کند. symlink نساز و تنظیمات محرمانهٔ Wings را خودسرانه تغییر نده؛ ابتدا مسیر واقعی گزارش‌شده را بررسی کنیم.
+
+منابع رسمی:
+- https://docs.pterodactyl.io/v1/guides/tutorials/ssl-certificates
+- https://certbot.eff.org/instructions
+
+### 6.6 اجرای foreground
+
+فقط بعد از Node creation و config و بعد از اینکه مرحلهٔ 6.5 وجود گواهی TLS مخصوص Node را تأیید کرد:
 
 ~~~bash
 sudo wings --debug
@@ -1697,7 +1757,7 @@ sudo wings --debug
 
 لاگ را بررسی کن. اگر بدون خطای fatal اجرا شد با Ctrl+C متوقفش کن. اگر خطا داد، متن خطا را بفرست و token/secret را حذف کن. تا debug موفق نشده، systemd service نساز و WAN را باز نکن.
 
-### 6.6 systemd (پس از debug موفق)
+### 6.7 systemd (پس از debug موفق)
 
 ~~~bash
 sudo tee /etc/systemd/system/wings.service >/dev/null <<'EOF'
@@ -1773,7 +1833,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال است و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب شده است. کاربر در مرحلهٔ 6.4 قرار دارد، اما آزمون فعلی نشان داده /etc/pterodactyl/config.yml هنوز وجود ندارد. فرمان Auto-Deploy باید از تب Configuration همان Node در Panel تولید و در SSH دبیان اجرا شود؛ سپس وجود فایل بررسی شود. سرویس Wings و Node Online تأیید نشده‌اند؛ سرور CS2 ساخته نشده است. |
+| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال است و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب شده و Auto-Deploy فایل config را ایجاد کرده است. اجرای sudo wings --debug تا درخواست API پنل پیش رفت اما به‌دلیل نبودن /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem متوقف شد. مرحلهٔ جاری 6.5: بررسی DNS/گواهی و صدور TLS مخصوص Node؛ هنوز Wings/systemd و Node Online تأیید نشده‌اند و سرور CS2 ساخته نشده است. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1782,7 +1842,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند؛ /etc/pterodactyl/config.yml در بررسی فعلی وجود ندارد. Auto-Deploy باید اجرا شود؛ Wings هنوز راه‌اندازی نشده و SMTP هنوز مقادیر نمونه دارد. |
+| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند. config.yml خوانده شده، اما اجرای foreground به دلیل نبود گواهی TLS برای fc-node-01.fragcity.ir متوقف شده است. مرحلهٔ 6.5 باید گواهی را اصلاح کند؛ SMTP هنوز مقادیر نمونه دارد. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
