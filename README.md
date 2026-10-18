@@ -1643,24 +1643,49 @@ sudo timeout 10 openssl s_client -connect 127.0.0.1:443 -servername fc-node-01.f
 3. به **Admin → Nodes → Create New** برو.
 4. در Identity: نام `fc-node-01`، توضیح اختیاری، و Location مرحلهٔ قبل را انتخاب کن.
 5. در Network/Daemon: FQDN برابر `fc-node-01.fragcity.ir`، SSL فعال پس از صدور و نصب گواهی معتبر برای همین نام، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد. DNS عمومی باید به IP عمومی Node برسد و قبل از ساخت Node باید TLS و فایروال بررسی شده باشند. از IP خصوصی در FQDN عمومی استفاده نکن.
-6. در بخش منابع، مقادیر Memory/Disk را فقط بر اساس خروجی واقعی `free -h` و `df -hT /` در سرور تازه تعیین کن. برای شروع Overallocate را `0` نگه دار و فضای کافی برای Debian، Docker، لاگ‌ها و رشد بعدی آزاد بگذار. اعداد ثابتِ VM قبلی را به Node جدید تعمیم نده؛ ظرفیت تخصیصی Panel فضای فیزیکی اضافه نمی‌کند.
+6. در بخش منابع، مقادیر Memory/Disk را فقط بر اساس خروجی واقعی free -h و df -hT / در سرور تازه تعیین کن. برای شروع Overallocate را 0 نگه دار و فضای کافی برای Debian، Docker، لاگ‌ها و رشد بعدی آزاد بگذار. مقدار انتخاب‌شدهٔ فعلی برای این Node برابر 4096 MiB (۴ GiB) است؛ این سقف مجموع RAM قابل‌تخصیص به سرورهای Node در Panel است، نه رزرو فیزیکی RAM و نه مقدار خودکار برای هر سرور. ظرفیت تخصیصی Panel فضای فیزیکی اضافه نمی‌کند.
 7. اگر فیلد Server File Directory نمایش داده شد، فعلاً مقدار پیش‌فرض `/var/lib/pterodactyl/volumes` را حفظ کن. **آن را روی `/home/steam` تنظیم نکن**؛ طرح استفادهٔ مجدد از بازی موجود هنوز طراحی نشده است.
 8. Node را ذخیره کن. سپس وارد صفحهٔ همان Node شو و نتیجهٔ ساخت را بررسی کن.
 
 فعلاً Allocation برای سرور بازی نساز و هیچ سروری ایجاد نکن؛ ابتدا اتصال Wings را تأیید می‌کنیم و سپس Storage/Egg/Ports را جداگانه طراحی می‌کنیم.
 
-### 6.4 تولید config محرمانه از خود Panel
+### 6.4 تولید config محرمانه از خود Panel — مرحلهٔ جاری
 
-پس از ساخته‌شدن Node، تب **Configuration** همان Node را باز کن و در بخش **Auto-Deploy** روی **Generate Token** بزن. فرمان کامل Bash را که خود Panel می‌سازد، مستقیم و بدون ویرایش در SSH مربوط به Debian اجرا کن. token یا command تولیدشده را اینجا نفرست و در GitHub قرار نده.
+فایل /etc/pterodactyl/config.yml به‌صورت خودکار هنگام نصب باینری Wings ساخته نمی‌شود. این فایل باید بعد از ساخت Node از فرمان Auto-Deploy خود Panel یا از محتوای تب Configuration ایجاد شود. در این مرحله روش Auto-Deploy را استفاده کن.
 
-پس از اجرای فرمان دقیق Auto-Deploy از Panel، فقط وجود فایل را بررسی کن:
+1. در مرورگر Windows وارد https://panel.fragcity.ir شو و به Admin → Nodes برو.
+2. Node ساخته‌شدهٔ fc-node-01 را باز کن و وارد تب Configuration شو. اگر Node هنوز ذخیره نشده، ابتدا به مرحلهٔ 6.3 برگرد و آن را کامل بساز.
+3. در بخش Auto-Deploy روی Generate Token بزن. Panel یک فرمان Bash تولید می‌کند که شامل آدرس Panel، token و Node ID واقعی است.
+4. از Windows PowerShell یک نشست SSH تعاملی تازه باز کن:
 
-~~~bash
-sudo test -s /etc/pterodactyl/config.yml && echo "OK: node config exists"
-sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /etc/pterodactyl/config.yml
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$target = "sv1@192.168.1.7"
+
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
 ~~~
 
-Token و Node ID را حدس نزن؛ UI آن‌ها را تولید می‌کند. فایل config نباید وارد Git شود.
+5. وقتی prompt شبیه sv1@fc-node-01:~$ دیدی، همان فرمانی را که Panel در Auto-Deploy نشان داده، کامل و بدون ویرایش در ترمینال SSH دبیان paste کن و اجرا کن. فرمان را در PowerShell ویندوز اجرا نکن و خودت token یا Node ID نساز.
+6. token و فرمان تولیدشده را در چت، README، عکس یا لاگ عمومی نفرست. اگر command خروجی خطا داد، متن را پیش از ارسال بررسی کن و هر token یا secret را حذف کن.
+
+پس از اجرای موفق فرمان Auto-Deploy، فقط وجود فایل و metadata آن را بررسی کن:
+
+~~~bash
+(
+if sudo test -s /etc/pterodactyl/config.yml; then
+  echo "OK: node config exists"
+  sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /etc/pterodactyl/config.yml
+else
+  echo "MISSING: Auto-Deploy has not created /etc/pterodactyl/config.yml"
+fi
+)
+~~~
+
+**اگر فایل هنوز وجود ندارد:** خودت با touch، nano یا tee فایل خالی نساز و مرحلهٔ 6.5 را اجرا نکن. اول بررسی کن که Node در Panel ذخیره شده، Generate Token را زده‌ای، فرمان کامل را در نشست SSH دبیان اجرا کرده‌ای و خروجی آن موفق بوده است. بعد از قطع‌شدن SSH دوباره وصل شو و آزمون فقط‌خواندنی بالا را تکرار کن؛ قطع‌شدن اتصال به‌تنهایی علت را مشخص نمی‌کند.
+
+اگر command از موجودبودن config خبر داد، گزینهٔ override را خودسرانه اضافه نکن؛ ابتدا وضعیت فایل و Node را بررسی کنیم. فایل config محرمانه است و نباید وارد Git یا چت شود.
+
+منبع رسمی: https://docs.pterodactyl.io/v1/wings/installing
 
 ### 6.5 اجرای foreground
 
@@ -1748,7 +1773,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel `v1.15.1` روی `https://panel.fragcity.ir` باز می‌شود؛ Docker Engine `29.9.1` نصب/active است و آزمون `hello-world` موفق شد. باینری Wings `1.13.4` نصب و نسخه/مجوز آن بررسی شده است. مرحلهٔ جاری 6.3: پیش‌بررسی DNS و گواهی اختصاصی `fc-node-01.fragcity.ir`، سپس ساخت Node در Panel. هنوز `config.yml`، سرویس Wings و Node Online تأیید نشده‌اند؛ هیچ سرور CS2 ساخته نشده است. |
+| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال است و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب شده است. کاربر در مرحلهٔ 6.4 قرار دارد، اما آزمون فعلی نشان داده /etc/pterodactyl/config.yml هنوز وجود ندارد. فرمان Auto-Deploy باید از تب Configuration همان Node در Panel تولید و در SSH دبیان اجرا شود؛ سپس وجود فایل بررسی شود. سرویس Wings و Node Online تأیید نشده‌اند؛ سرور CS2 ساخته نشده است. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1757,7 +1782,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS به صفحهٔ ورود پاسخ می‌دهد؛ Docker `29.9.1` و باینری Wings `1.13.4` نصب شده‌اند. تنظیم Node، Wings config و سرویس Wings هنوز انجام/تأیید نشده‌اند. SMTP هنوز مقادیر نمونه دارد و باید پیش از اتکا به ایمیل‌ها تکمیل شود. |
+| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند؛ /etc/pterodactyl/config.yml در بررسی فعلی وجود ندارد. Auto-Deploy باید اجرا شود؛ Wings هنوز راه‌اندازی نشده و SMTP هنوز مقادیر نمونه دارد. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
