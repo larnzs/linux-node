@@ -347,15 +347,16 @@ curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.frag
 - [x] Full Clone ساخته شد.
 - [x] در بوت اول Clone گزینهٔ I Copied It انتخاب شد.
 - [x] MAC کپی مستقل است و DHCP فعلاً IP برابر 192.168.1.9 داده است.
-- [x] Wings روی Clone متوقف/disable شده است.
-- [x] hostname Clone موقتاً به fc-node-01-test تغییر داده شده است.
-- [ ] اسکریپت بخش 7 اجرا شود تا hostname در Clone به fc-node-01 برگردد؛ machine-id، SSH host keys و configهای اصلی حفظ شوند.
-- [ ] مقصد Port Forwardهای 80/443/8080/2022 از 192.168.1.7 به 192.168.1.9 تغییر کند.
-- [ ] Wings پس از اصلاح Port Forwardها دوباره enable/start شود.
-- [ ] Panel و Node از طریق دامنهٔ فعلی بررسی شوند.
+- [x] hostname داخل Clone به fc-node-01 برگردانده شد؛ mapping محلی /etc/hosts نیز به نام اصلی اشاره می‌کند.
+- [x] Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند.
+- [x] Wings روی Clone دوباره enable و start شد و از بارگذاری config و درخواست فهرست سرورها شروع کرده است.
+- [ ] در اجرای قبلی sudo ابتدا هشدار unable to resolve host fc-node-01-test دیده شد؛ پس از تغییر hostname و /etc/hosts، با getent hosts fc-node-01 و sudo -v بررسی نهایی شود.
+- [ ] وضعیت pteroq بررسی شود؛ خروجی فعلی نشان می‌دهد pteroq.service به‌صورت واحد systemd قابل یافتن نیست. فعلاً سرویس دیگری را نصب/تغییر نده.
+- [ ] تأیید کن Port Forwardهای موجود TCP 80/443/8080/2022 اکنون به 192.168.1.9 اشاره می‌کنند؛ این تغییر هنوز در گفت‌وگو صریحاً تأیید نشده است.
+- [ ] در صورت تأیید مقصد Port Forward، دسترسی https://panel.fragcity.ir و وضعیت Node داخل Panel بررسی شود.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
 - [ ] دیسک تازه با lsblk و blkid شناسایی شود؛ تا قبل از تأیید فرمت نشود.
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
 - [ ] در بازگشت، ابتدا Clone خاموش، بعد Port Forwardها به 192.168.1.7 برگردانده شوند و سپس VM اصلی روشن شود.
 
-**آخرین checkpoint:** Clone روشن است و برای SSH با IP داخلی 192.168.1.9 در دسترس است؛ Wings روی آن متوقف شده و hostname برابر fc-node-01-test است. هدف فعلی این است که Clone موقتاً جایگزین Node اصلی شود، نه اینکه هم‌زمان دو Node اجرا شوند. اسکریپت قبلی که سرویس‌های Panel/DB را disable می‌کرد و identity rotation انجام می‌داد برای این سناریو استفاده نشود. VM اصلی باید تا پایان تست خاموش بماند. تا قبل از شناسایی دیسک تازه، هیچ فرمان formatting اجرا نشود.
+**آخرین checkpoint:** Clone با IP داخلی 192.168.1.9 روشن است. hostname به fc-node-01 برگشته است. Nginx، PHP-FPM، MariaDB و Redis فعال گزارش شده‌اند؛ Wings نیز فعال/enable شده است. pteroq.service در خروجی به‌صورت واحد موجود شناخته نشده و باید جداگانه بررسی شود. وضعیت مقصد Port Forwardها هنوز تأیید نشده است. Clone موقتاً جای VM اصلی را می‌گیرد؛ VM اصلی باید تا پایان تست خاموش بماند. machine-id و SSH host keys عمداً تغییر داده نشده‌اند و باید همین‌طور باقی بمانند. تا قبل از شناسایی دیسک تازه، هیچ فرمان formatting اجرا نشود.
