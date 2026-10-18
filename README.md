@@ -1440,7 +1440,22 @@ sudo systemctl is-active docker
 sudo docker info --format 'Server={{.ServerVersion}} Containers={{.Containers}} Images={{.Images}}'
 ~~~
 
-پیش از Chapter 5، فعال‌نبودن یا نصب‌نبودن Docker انتظار می‌رود و به‌تنهایی ایراد Panel نیست. پورت‌های Wings یعنی 8080 و SFTP یعنی 2022 تا پیش از نصب و پیکربندی Wings انتظار نمی‌روند. MariaDB روی `127.0.0.1:3306` و Redis روی `127.0.0.1:6379` باید محلی باقی بمانند؛ برای آن‌ها Port Forward عمومی نساز.
+پیش از Chapter 5، Docker ممکن است هنوز نصب/راه‌اندازی نشده باشد. خروجی `inactive` یعنی سرویس در حال اجرا نیست، اما به‌تنهایی ثابت نمی‌کند بسته نصب است یا نیست. چون وضعیت فعلی این Node باید پیش از نصب مشخص باشد، اگر `inactive` دیدی این بررسی فقط‌خواندنی را اجرا کن و خروجی را بازبینی کن؛ تا آن زمان نصب Docker را تکرار نکن:
+
+~~~bash
+(
+echo "=== Docker-related packages ==="
+dpkg-query -W -f='${binary:Package} ${Status}\\n' docker-ce docker-ce-cli containerd.io docker.io 2>/dev/null || true
+echo
+echo "=== Docker command ==="
+command -v docker || true
+echo
+echo "=== Docker service ==="
+sudo systemctl status docker --no-pager -l || true
+)
+~~~
+
+پورت‌های Wings یعنی 8080 و SFTP یعنی 2022 تا پیش از نصب و پیکربندی Wings انتظار نمی‌روند. MariaDB روی `127.0.0.1:3306` و Redis روی `127.0.0.1:6379` باید محلی باقی بمانند؛ برای آن‌ها Port Forward عمومی نساز.
 
 وجود باینری Wings به‌تنهایی به معنی ایجاد یا فعال‌بودن سرویس systemd نیست؛ وضعیت سرویس را فقط پس از مرحلهٔ ساخت سرویس بررسی کن.
 
