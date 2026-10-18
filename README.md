@@ -16,8 +16,8 @@
 - پرکردن فیلد Domain name در نصاب به‌تنهایی DNS، IP عمومی، Port Forwarding یا HTTPS را فعال نمی‌کند.
 - هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. راهنما: https://wiki.debian.org/DesktopEnvironment
 - VM فعلی روی VMware و Debian 13/Trixie است. IP، منابع و دیسک را بعد از شروع مجدد با بلوک بررسی مرحلهٔ 0 مشخص کن؛ از اعداد قدیمی برای نصب مجدد استفاده نکن.
-- Panel در http://192.168.1.5 و مسیر /var/www/pterodactyl است. PHP-FPM socket برابر /run/php/php8.3-fpm.sock.
-- مسیر `/home/steam` شامل فایل‌های CS2/KUS موجود است. **این مسیر را حذف، جابه‌جا، overwrite یا بدون طراحی mount دستکاری نکن.** برای ظرفیت دیسک، در هر مرحله مقدار فعلی را با `df -hT /` بررسی کن.
+- Panel جدید هنوز روی این Debian نصب نشده است؛ نشانی نهایی آن `https://panel.fragcity.ir` خواهد بود. مسیرهای `/var/www/pterodactyl` و تنظیمات Panel فقط بعد از نصب در مراحل آینده ایجاد می‌شوند.
+- فایل‌های CS2/KUS متعلق به VMDK سیستم قبلی هستند که کاربر آن را نگه داشته است. **در نصب تازه آن دیسک را overwrite یا بدون طرح مشخص mount نکن.** این مسیر بازی در Debian تازه فرض نمی‌شود؛ نصب/آزمایش CS2 در فاز جداگانه و روی محیط آزمایشگاهی انجام خواهد شد.
 - تا بررسی مدل Storage/Egg، هیچ سرور بازی تازه‌ای از Egg نساز؛ ممکن است بازی را دوباره دانلود و فضای دیسک را پر کند.
 - فعلاً Port Forwarding عمومی، دامنه و HTTPS نداریم. این PoC فقط در LAN و روی HTTP است.
 
@@ -318,9 +318,9 @@ MariaDB باید روی 127.0.0.1:3306 و Redis روی loopback بمانند؛ �
 
 ---
 
-## 3. نصب Pterodactyl Panel 1.15.1 (نصب تازه)
+## 3. نصب Pterodactyl Panel — فاز آینده، پیش از اجرا نسخه را بازبینی کن
 
-نسخهٔ نصب‌شدهٔ Panel برابر 1.15.1 است. برای بازسازی، صفحهٔ https://github.com/pterodactyl/panel/releases را دوباره بررسی و نسخه را pin کن.
+در زمان نگارش این راهنما، آخرین نسخهٔ پایدارِ شاخهٔ 1.x در Release رسمی `v1.15.1` است؛ شاخهٔ 2.0 هنوز Open Beta است و برای این راه‌اندازی Production انتخاب نمی‌شود. پیش از اجرای این فصل، صفحهٔ https://github.com/pterodactyl/panel/releases را دوباره بررسی و نسخهٔ پایدار را pin کن. مرجع نسخه‌ها: https://github.com/pterodactyl/panel/releases.
 
 ### 3.1 دریافت فایل‌ها و Composer
 
@@ -386,7 +386,7 @@ sudo -u www-data php8.3 artisan p:environment:setup
 sudo -u www-data php8.3 artisan p:environment:database
 ~~~
 
-مقادیر PoC فعلی: URL برابر http://192.168.1.5، timezone برابر Asia/Tehran، cache/session/queue برابر redis، Redis host برابر 127.0.0.1 و port برابر 6379، DB host برابر 127.0.0.1، port برابر 3306، database برابر panel و user برابر pterodactyl. رمز DB را در prompt و به‌شکل خصوصی وارد کن. Redis password در wizard فعلی خالی بود.
+مقادیر هدف برای نصب جدید: URL برابر `https://panel.fragcity.ir`، timezone سیستم‌عامل UTC، cache/session/queue برابر redis، Redis host برابر `127.0.0.1` و port برابر `6379`، DB host برابر `127.0.0.1`، port برابر `3306`، database برابر `panel` و user برابر `pterodactyl`. رمزهای DB/Redis را فقط داخل prompt وارد کن و در README/چت ننویس. پیش از در دسترس قرار دادن عمومی Panel، DNS، TLS و firewall باید آماده باشند.
 
 ### 3.4 اصلاح مجوز Cache، Migration و مدیر
 
@@ -427,7 +427,7 @@ sudo mariadb panel -e "SELECT id, name, nest_id FROM eggs WHERE LOWER(name) LIKE
 server {
     listen 80;
     listen [::]:80;
-    server_name 192.168.1.5;
+    server_name panel.fragcity.ir;
     root /var/www/pterodactyl/public;
     index index.php;
 
@@ -487,14 +487,14 @@ fi
 sudo /usr/sbin/nginx -t
 sudo systemctl reload nginx
 sudo systemctl is-active nginx
-curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: 192.168.1.5' http://127.0.0.1/
+curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: panel.fragcity.ir' http://127.0.0.1/
 ~~~
 
 پس از فعال‌سازی، دسترسی را از مرورگر Windows بررسی کن. این پیکربندی فقط برای LAN/HTTP است.
 
 ### 3.6 عیب‌یابی مسیر `/admin` در LAN
 
-اگر `http://192.168.1.5/admin` باز نمی‌شود، قبل از تغییر تنظیمات Node این بررسی‌های فقط‌خواندنی را روی Debian اجرا کن. خروجی ترمینال را به README اضافه نکن.
+اگر `https://panel.fragcity.ir/admin` باز نمی‌شود، قبل از تغییر تنظیمات Node این بررسی‌های فقط‌خواندنی را روی Debian اجرا کن. خروجی ترمینال را به README اضافه نکن.
 
 ~~~bash
 set +e
@@ -504,7 +504,7 @@ for path in / /admin /auth/login; do
   printf '%-14s ' "$path"
   curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
     -w 'HTTP=%{http_code} redirect=%{redirect_url}\n' \
-    -H 'Host: 192.168.1.5' "http://127.0.0.1${path}"
+    -H 'Host: panel.fragcity.ir' "http://127.0.0.1${path}"
 done
 
 echo
@@ -683,12 +683,12 @@ df -hT /
 قبل از تنظیم Node، فضای آزاد فعلی را ملاک بگیر.
 
 در مرورگر Windows:
-1. وارد `http://192.168.1.5` شو و مطمئن شو با حساب Administrator وارد شده‌ای.
+1. وارد `https://panel.fragcity.ir` شو و مطمئن شو با حساب Administrator وارد شده‌ای. این مرحله فقط بعد از تنظیم DNS و گواهی TLS انجام می‌شود.
 2. از **Admin → Locations** یک Location بساز یا Location موجود را انتخاب کن؛ مثلاً Short Code برابر `lan` و Description برابر `FragCity LAN`.
 3. به **Admin → Nodes → Create New** برو.
 4. در Identity: نام `fc-node-01`، توضیح اختیاری، و Location مرحلهٔ قبل را انتخاب کن.
-5. در Network/Daemon: برای PoC محلی، FQDN/IP برابر `192.168.1.5`، SSL خاموش، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد، مگر اینکه UI نسخهٔ فعلی مقادیر دیگری را نشان دهد. چون هنوز دامنه و TLS نداریم، IP و HTTP فقط برای LAN است.
-6. در بخش منابع، با RAM ثبت‌شدهٔ حدود 5.6 GiB، **Total Memory = 4096 MiB** و Memory Overallocate = `0` تنظیم مناسب شروع است. برای دیسک، فقط اگر بررسی بالا نشان دهد حداقل حدود 22 GiB فضای خالی باقی مانده، **Total Disk Space = 16000 MiB** و Disk Overallocate = `0` قرار بده؛ اگر فضای آزاد کمتر است، مقدار را پایین‌تر بگذار تا دست‌کم حدود 6 GiB برای Debian/Docker و لاگ‌ها محفوظ بماند. این اعداد ظرفیت تخصیصی Panel هستند، نه رزرو یا افزایش فضای فیزیکی.
+5. در Network/Daemon: FQDN برابر `fc-node-01.fragcity.ir`، SSL فعال پس از صدور و نصب گواهی معتبر برای همین نام، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد. DNS عمومی باید به IP عمومی Node برسد و قبل از ساخت Node باید TLS و فایروال بررسی شده باشند. از IP خصوصی در FQDN عمومی استفاده نکن.
+6. در بخش منابع، مقادیر Memory/Disk را فقط بر اساس خروجی واقعی `free -h` و `df -hT /` در سرور تازه تعیین کن. برای شروع Overallocate را `0` نگه دار و فضای کافی برای Debian، Docker، لاگ‌ها و رشد بعدی آزاد بگذار. اعداد ثابتِ VM قبلی را به Node جدید تعمیم نده؛ ظرفیت تخصیصی Panel فضای فیزیکی اضافه نمی‌کند.
 7. اگر فیلد Server File Directory نمایش داده شد، فعلاً مقدار پیش‌فرض `/var/lib/pterodactyl/volumes` را حفظ کن. **آن را روی `/home/steam` تنظیم نکن**؛ طرح استفادهٔ مجدد از بازی موجود هنوز طراحی نشده است.
 8. Node را ذخیره کن. سپس وارد صفحهٔ همان Node شو و نتیجهٔ ساخت را بررسی کن.
 
