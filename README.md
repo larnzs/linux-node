@@ -1193,7 +1193,13 @@ sudo mariadb panel -e "SELECT id, name, nest_id FROM eggs WHERE LOWER(name) LIKE
 
 ### 3.5 پیکربندی NGINX برای LAN
 
-فایل /etc/nginx/sites-available/pterodactyl.conf در VM فعلی:
+**بلوک NGINX زیر را به‌عنوان فرمان Bash اجرا نکن.** محتوای آن باید داخل فایل `/etc/nginx/sites-available/pterodactyl.conf` ذخیره شود. ابتدا در SSH دبیان این فرمان را اجرا کن:
+
+~~~bash
+sudo nano /etc/nginx/sites-available/pterodactyl.conf
+~~~
+
+وقتی ویرایشگر **Nano** باز شد، بلوک NGINX زیر را داخل ویرایشگر paste کن، نه در prompt ترمینال. سپس با `Ctrl+O`، `Enter` و `Ctrl+X` ذخیره کن و خارج شو. اگر فایل جدید باز شد، خالی‌بودن آن پیش از paste طبیعی است.
 
 ~~~nginx
 server {
