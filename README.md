@@ -11,7 +11,7 @@
 ## 0. وضعیت، محدوده و خط قرمزها
 
 - هدف این است که **همین VM با نام fc-node-01** را از ابتدا با Debian 13 بدون محیط گرافیکی آماده کنیم؛ VM جدید جزو برنامهٔ فعلی نیست. چون نصب پاک می‌تواند داده‌ها را حذف کند، ابتدا باید نسخهٔ پشتیبان تأیید شود.
-- هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. 【turn774568search7】【turn774568search3】
+- هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. راهنما: https://wiki.debian.org/DesktopEnvironment
 - VM فعلی روی VMware و Debian 13/Trixie است. IP، منابع و دیسک را بعد از شروع مجدد با بلوک بررسی مرحلهٔ 0 مشخص کن؛ از اعداد قدیمی برای نصب مجدد استفاده نکن.
 - Panel در http://192.168.1.5 و مسیر /var/www/pterodactyl است. PHP-FPM socket برابر /run/php/php8.3-fpm.sock.
 - مسیر `/home/steam` شامل فایل‌های CS2/KUS موجود است. **این مسیر را حذف، جابه‌جا، overwrite یا بدون طراحی mount دستکاری نکن.** برای ظرفیت دیسک، در هر مرحله مقدار فعلی را با `df -hT /` بررسی کن.
