@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی: Snapshot پایهٔ `debian13-base-ready` طبق گزارش کاربر گرفته شده؛ مراحل 2.1 تا 2.3 طبق لاگ نصب شده‌اند.** PHP 8.3.35، Composer 2.10.3، NGINX، MariaDB، Redis و PHP-FPM نصب شده و چهار سرویس فعال‌اند؛ افزونه‌های لازم PHP هم تأیید شده‌اند. گام بعدی: مرحلهٔ 2.4 برای کنترل سلامت نهایی بسته‌ها/سرویس‌ها؛ پیش از ادامه حتماً مطمئن شو Port Forward موقت TCP 80 در روتر حذف شده است. سپس می‌توانیم به نصب فایل‌های Panel در 3.1 برسیم. WAN management و TLS عمومی هنوز تأیید نشده‌اند.
+> **وضعیت فعلی: Chapter 1 کامل است؛ Snapshot `debian13-base-ready` گرفته شده.** مراحل 2.1–2.3 نصب موفق داشته‌اند و مرحلهٔ 2.4 نیز اکنون با موفقیت تأیید شده: PHP 8.3.35، Composer 2.10.3، MariaDB 11.8.6، Redis 8.0.2، NGINX 1.26.3؛ PHP-FPM و NGINX syntax OK، سرویس‌های NGINX/MariaDB/Redis/PHP-FPM enabled و active، MariaDB query موفق، Redis پاسخ PONG و NGINX محلی HTTP 200. گام بعد 3.1 برای نصب تازهٔ Panel `v1.15.1` پس از اطمینان از حذف Port Forward موقت TCP 80 در مودم/روتر. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -1568,7 +1568,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Chapter 1 کامل و Snapshot `debian13-base-ready` گرفته شده. مراحل 2.1–2.3 موفق‌اند. 2.4 در اجرای اول به‌علت `nginx` خارج از PATH کاربر عادی با `set -e` متوقف شد؛ README اصلاح شده تا از `/usr/sbin/nginx` و subshell امن استفاده کند. گام بعد: ورود مجدد با SSH Key و تکرار 2.4؛ سپس پس از قبولی و حذف Port Forward موقت TCP 80، 3.1. |
+| مرحلهٔ جاری | Chapter 1 کامل است؛ Snapshot `debian13-base-ready` گرفته شده. مراحل 2.1–2.4 با موفقیت انجام شده‌اند: PHP 8.3.35، Composer 2.10.3، NGINX 1.26.3، MariaDB 11.8.6، Redis 8.0.2؛ syntax tests و سرویس‌ها موفق، MariaDB query موفق، Redis PONG و NGINX محلی HTTP 200. گام بعد 3.1 برای نصب تازهٔ Panel `v1.15.1`; ابتدا مطمئن شو Port Forward موقت TCP 80 حذف شده است. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1577,7 +1577,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel و Docker/Wings هنوز نصب نشده‌اند؛ پیش‌نیازهای Panel در 2.1–2.3 نصب شده‌اند. |
+| Panel / Docker / Wings | فایل‌های Panel هنوز دریافت نشده‌اند؛ پیش‌نیازها و آزمون سلامت 2.1–2.4 موفق‌اند. Docker/Wings هنوز نصب نشده‌اند. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
