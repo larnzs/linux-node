@@ -1192,6 +1192,179 @@ sudo mariadb panel -e "SELECT id, name, nest_id FROM eggs WHERE LOWER(name) LIKE
 
 فرمان بالا صرفاً برای بررسی فهرست Eggهای همین نصب است. نام یا شناسهٔ Egg را حدس نزن؛ تا زمانی که سازگاری Egg با CS2 تأیید نشده، سرور جدید نساز.
 
+### 3.4.1 راه‌اندازی اجباری Queue Worker و Scheduler — بخش ضروری نصب Panel
+
+**این دو جزء در نصب اولیه جا افتاده بودند؛ اصلاحش اجباری است، نه اختیاری.** طبق راهنمای رسمی Pterodactyl 1.x، Scheduler باید هر دقیقه `artisan schedule:run` را اجرا کند و Queue Worker باید در پس‌زمینه `artisan queue:work` را پردازش کند. بدون این دو، بخشی از کارهای پس‌زمینهٔ Panel، ایمیل‌ها و وظایف زمان‌بندی‌شده پردازش نمی‌شوند. مرجع رسمی: https://docs.pterodactyl.io/v1/panel/getting-started
+
+**زمان اجرا در ترتیب نصب:** پس از تنظیم Panel، آماده بودن PHP/Artisan و Redis، و پیش از اعلام تکمیل نصب Panel. این مرحله در نصب تازه و همچنین برای همین VM که الان در حال ترمیم آن هستیم لازم است.
+
+**نکتهٔ چند-VMDK:** فایل‌های هر VM مستقل‌اند. این بلوک را اکنون روی Clone فعال با IP `192.168.1.9` اجرا کن. زمانی که به VMDK اصلی برگشتی، ابتدا Clone را کاملاً خاموش کن، Port Forwardها را به `192.168.1.7` برگردان و فقط VM اصلی را بوت کن؛ سپس همین بلوک را روی آن اجرا کن. دو VM هرگز هم‌زمان روشن نباشند. بلوک عمداً هر دو IP مورد انتظار را قبول می‌کند و پیش از تغییر، hostname، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis، Cron و دستورات Artisan را چک می‌کند.
+
+این بلوک از روی مستندات رسمی Pterodactyl تنظیم شده و برای اجرای مجدد، duplicate Scheduler اضافه نمی‌کند. اگر `pteroq.service` از قبل وجود داشته اما تنظیماتش با فرمان مورد انتظار تفاوت داشته باشد، آن را بازنویسی نمی‌کند و با خطا متوقف می‌شود. از crontab ریشه هم قبل از تغییر یک نسخهٔ محلی با مجوز محدود می‌گیرد.
+
+~~~bash
+sudo bash <<'SETUP'
+set -Eeuo pipefail
+
+EXPECTED_HOST="fc-node-01"
+PANEL_DIR="/var/www/pterodactyl"
+UNIT_PATH="/etc/systemd/system/pteroq.service"
+EXPECTED_EXEC="/usr/bin/php /var/www/pterodactyl/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3"
+
+echo "=== 1. Identify this VM and verify prerequisites ==="
+CURRENT_HOST="$(hostnamectl --static)"
+
+if [[ "$CURRENT_HOST" != "$EXPECTED_HOST" ]]; then
+    echo "ERROR: expected hostname $EXPECTED_HOST; found $CURRENT_HOST. Nothing changed."
+    exit 1
+fi
+
+if ! ip -o -4 address show | grep -Eq '192\.168\.1\.(7|9)/'; then
+    echo "ERROR: expected active FragCity VM at 192.168.1.7 or 192.168.1.9. Nothing changed."
+    exit 1
+fi
+
+if [[ ! -f "$PANEL_DIR/artisan" || ! -f "$PANEL_DIR/.env" ]]; then
+    echo "ERROR: Panel files not found at $PANEL_DIR. Nothing changed."
+    exit 1
+fi
+
+if ! systemctl is-active --quiet redis-server; then
+    echo "ERROR: redis-server is not active. Nothing changed."
+    exit 1
+fi
+
+if ! systemctl is-active --quiet cron; then
+    echo "ERROR: cron is not active. Nothing changed."
+    exit 1
+fi
+
+if ! grep -Eq "^QUEUE_CONNECTION=(redis|\"redis\"|'redis')[[:space:]]*$" "$PANEL_DIR/.env"; then
+    echo "ERROR: QUEUE_CONNECTION is not explicitly set to redis. Nothing changed."
+    exit 1
+fi
+
+echo "Hostname, active VM IP, Panel path, QUEUE_CONNECTION=redis, Redis and Cron: OK."
+
+echo
+echo "=== 2. Verify PHP CLI and Artisan ==="
+if [[ ! -x /usr/bin/php ]]; then
+    echo "ERROR: /usr/bin/php is missing or not executable. Nothing changed."
+    exit 1
+fi
+
+runuser -u www-data -- /usr/bin/php "$PANEL_DIR/artisan" --version
+
+ARTISAN_LIST="$(runuser -u www-data -- /usr/bin/php "$PANEL_DIR/artisan" list --raw 2>/dev/null)"
+if ! printf '%s\n' "$ARTISAN_LIST" | grep -Eq '^queue:work[[:space:]]'; then
+    echo "ERROR: queue:work was not found in Artisan. Nothing changed."
+    exit 1
+fi
+if ! printf '%s\n' "$ARTISAN_LIST" | grep -Eq '^schedule:run([[:space:]]|$)'; then
+    echo "ERROR: schedule:run was not found in Artisan. Nothing changed."
+    exit 1
+fi
+echo "Both Artisan commands are present."
+
+echo
+echo "=== 3. Create or validate pteroq.service ==="
+
+if [[ -e "$UNIT_PATH" ]]; then
+    if grep -Fxq "User=www-data" "$UNIT_PATH" &&
+       grep -Fxq "Group=www-data" "$UNIT_PATH" &&
+       grep -Fxq "WorkingDirectory=/var/www/pterodactyl" "$UNIT_PATH" &&
+       grep -Fxq "ExecStart=$EXPECTED_EXEC" "$UNIT_PATH"; then
+        echo "Existing pteroq.service matches required user, path and command; preserving it."
+    else
+        echo "ERROR: $UNIT_PATH already exists but does not match expected configuration."
+        echo "It was not overwritten. Inspect it manually before continuing."
+        exit 1
+    fi
+else
+    cat > "$UNIT_PATH" <<'UNIT'
+[Unit]
+Description=Pterodactyl Queue Worker
+After=redis-server.service
+StartLimitIntervalSec=180
+StartLimitBurst=30
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/pterodactyl
+Restart=always
+ExecStart=/usr/bin/php /var/www/pterodactyl/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    chmod 0644 "$UNIT_PATH"
+    echo "Created $UNIT_PATH"
+fi
+
+systemd-analyze verify "$UNIT_PATH"
+systemctl daemon-reload
+systemctl enable --now pteroq.service
+
+echo
+echo "=== 4. Add scheduler to root crontab without duplicating it ==="
+
+if ! command -v crontab >/dev/null 2>&1; then
+    echo "ERROR: crontab command not found. Queue Worker was configured, but Scheduler was not changed."
+    exit 1
+fi
+
+CRONTAB_BACKUP="/root/root-crontab-before-pterodactyl-scheduler-$(date +%Y%m%d-%H%M%S)"
+crontab -l > "$CRONTAB_BACKUP" 2>/dev/null || true
+chmod 0600 "$CRONTAB_BACKUP"
+echo "Root crontab backup: $CRONTAB_BACKUP"
+
+SCHEDULER_LINE='* * * * * /usr/bin/php /var/www/pterodactyl/artisan schedule:run >> /dev/null 2>&1'
+
+if crontab -l 2>/dev/null | grep -Fq '/var/www/pterodactyl/artisan schedule:run'; then
+    echo "A scheduler entry for this Panel already exists; no duplicate added."
+else
+    { crontab -l 2>/dev/null || true; printf '%s\n' "$SCHEDULER_LINE"; } | crontab -
+    echo "Added the scheduler entry to root's crontab."
+fi
+
+echo
+echo "=== 5. Verify both components ==="
+systemctl is-enabled pteroq.service
+systemctl is-active pteroq.service
+systemctl status pteroq.service --no-pager -l
+
+echo
+crontab -l | grep -F '/var/www/pterodactyl/artisan schedule:run'
+
+echo
+echo "Queue Worker and Scheduler are configured on this VM."
+echo "Repeat this procedure on the other VMDK later, when that VM alone is powered on."
+echo "Keep the original and Clone powered on one at a time only."
+SETUP
+~~~
+
+**معیار قبولی بلافاصله بعد از اجرا:**
+
+~~~bash
+sudo systemctl is-enabled pteroq.service
+sudo systemctl is-active pteroq.service
+sudo systemctl status pteroq.service --no-pager -l
+sudo crontab -l | grep -F '/var/www/pterodactyl/artisan schedule:run'
+~~~
+
+انتظار می‌رود `pteroq.service` هم `enabled` و هم `active` باشد و خط Scheduler در crontab ریشه وجود داشته باشد. اگر سرویس فعال نشد، به‌جای نصب مجدد Panel، خروجی زیر را برای عیب‌یابی بفرست:
+
+~~~bash
+sudo systemctl status pteroq.service --no-pager -l
+sudo journalctl -u pteroq.service -n 40 --no-pager
+~~~
+
+اگر این مرحله روی Clone موفق شد، قبل از پایان تست وضعیت Queue Worker را بررسی کن. این تغییرات به‌صورت خودکار به VMDK اصلی منتقل نمی‌شوند؛ هنگام بازگشت به آن نیز همین مرحله را جداگانه اجرا کن.
+
+**پورت `29001/udp` که برای سرور CS2 رزرو کرده‌ای در این مرحله دست‌نخورده می‌ماند.**
+
 ### 3.5 پیکربندی NGINX برای LAN
 
 **بلوک NGINX زیر را به‌عنوان فرمان Bash اجرا نکن.** محتوای آن باید داخل فایل `/etc/nginx/sites-available/pterodactyl.conf` ذخیره شود. ابتدا در SSH دبیان این فرمان را اجرا کن:
@@ -1914,7 +2087,7 @@ fi
 6. هنوز Base Game، Instance بازی یا پورت CS2 نصب/باز نشده است. هیچ اسکریپت نصب KUS یا Egg را اجرا نکن تا VMDK دادهٔ دوم شناسایی شود و طراحی Shared Base تأیید گردد.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
-**آخرین health check (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN هستند. پیش‌بررسی بعدی تأیید کرد PHP CLI 8.3.35، Laravel 12.64.0، QUEUE_CONNECTION=redis، Artisan commands و Cron سالم‌اند؛ اما Queue Worker و Scheduler cron قبلاً وجود نداشتند. دستور guarded برای راه‌اندازی هر دو در بخش 10 فایل test-vmdk instructions.md قرار دارد و هنوز اجرا نشده است. UFW قانون 29001/udp را بنا به تصمیم کاربر برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
+**آخرین health check (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN هستند. پیش‌بررسی بعدی تأیید کرد PHP CLI 8.3.35، Laravel 12.64.0، QUEUE_CONNECTION=redis، Artisan commands و Cron سالم‌اند؛ اما Queue Worker و Scheduler cron در نصب اولیه جا افتاده بودند. راه‌حل معیار اکنون در مرحلهٔ 3.4.1 همین README ثبت شده؛ روی Clone و هنگام بازگشت، جداگانه روی VMDK اصلی اجرا شود. UFW قانون 29001/udp را بنا به تصمیم کاربر برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند. مقصد Port Forward و Online بودن Node باید دستی تأیید شوند.
 
 #### 7.3.2 افزودن VMDK داده فقط به Clone
 
@@ -1986,7 +2159,7 @@ sudo blkid
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Clone با IP 192.168.1.9 و hostname fc-node-01 health check برابر 24 PASS / 1 WARN / 0 FAIL گرفت. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ HTTPS محلی Panel=200 است. پیش‌بررسی PHP CLI/Artisan موفق؛ QUEUE_CONNECTION=redis و Cron فعال‌اند، ولی Queue Worker و Scheduler cron هنوز باید با اسکریپت guarded بخش 10 راهنمای Clone تنظیم شوند. UFW پورت 29001/udp را برای CS2 آینده باز نگه می‌دارد؛ تغییر نده. مقصد Port Forwardها و Online بودن Node در UI هنوز دستی تأیید شوند؛ پس از تکمیل این مرحله VMDK جدید را فقط به Clone اضافه کن. |
+| مرحلهٔ جاری | Clone با IP 192.168.1.9 و hostname fc-node-01 health check برابر 24 PASS / 1 WARN / 0 FAIL گرفت. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ HTTPS محلی Panel=200 است. پیش‌بررسی PHP CLI/Artisan موفق؛ QUEUE_CONNECTION=redis و Cron فعال‌اند، ولی Queue Worker و Scheduler در نصب اولیه جا افتاده‌اند؛ راه‌اندازی استاندارد آن‌ها اکنون در مرحلهٔ 3.4.1 همین README ثبت شده و باید روی Clone فعال و هنگام بازگشت جداگانه روی VMDK اصلی اجرا شود. UFW پورت 29001/udp را برای CS2 آینده باز نگه می‌دارد؛ تغییر نده. مقصد Port Forwardها و Online بودن Node در UI هنوز دستی تأیید شوند؛ پس از تکمیل این مرحله VMDK جدید را فقط به Clone اضافه کن. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
