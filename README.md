@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی: Chapter 1 کامل است؛ Snapshot `debian13-base-ready` گرفته شده.** مراحل 2.1–2.3 نصب موفق داشته‌اند و مرحلهٔ 2.4 نیز اکنون با موفقیت تأیید شده: PHP 8.3.35، Composer 2.10.3، MariaDB 11.8.6، Redis 8.0.2، NGINX 1.26.3؛ PHP-FPM و NGINX syntax OK، سرویس‌های NGINX/MariaDB/Redis/PHP-FPM enabled و active، MariaDB query موفق، Redis پاسخ PONG و NGINX محلی HTTP 200. گام بعد 3.1 برای نصب تازهٔ Panel `v1.15.1` پس از اطمینان از حذف Port Forward موقت TCP 80 در مودم/روتر. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
+> **وضعیت فعلی: Chapter 1 و مراحل 2.1–2.4 کامل‌اند.** پنل `v1.15.1` نصب شده و اکنون در مرحلهٔ 3.5، پیکربندی NGINX برای LAN هستیم. در تلاش اخیر، بلوک `server { ... }` به‌اشتباه در Bash paste شده و اتصال SSH قطع شده است؛ ذخیره‌شدن فایل یا سلامت NGINX را فرض نکن. ابتدا از PowerShell دوباره وصل شو و راهنمای عیب‌یابیِ انتهای مرحلهٔ 3.5 را اجرا کن. NGINX را reload نکن تا `nginx -t` موفق شود. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -27,16 +27,17 @@
 
 ### 0.2 قرارداد اجرای مرحله‌ای
 
-- از این نقطه، فقط **بلوک مرحلهٔ جاری** را کپی و اجرا کن؛ به مراحل بعدی نپر.
-- هر بلوک، محل اجرا را مشخص می‌کند: `PowerShell` یعنی پنجرهٔ Windows که prompt آن با `PS C:\\...` شروع می‌شود؛ `bash` یعنی نشست SSH که prompt آن شبیه `sv1@fc-node-01:~# FragCity — راهنمای مادرِ Copy/Paste از Debian تا سرورهای CS2
-
-> **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
->
-> **وضعیت فعلی: نصب Console-only و مراحل پایهٔ 1.9 تا 1.14 تکمیل شده‌اند.** مرحلهٔ جاری: مراحل 1.15 تا 1.19 برای بررسی hostname، رزرو DHCP، بررسی IPv4 عمومی/CGNAT، DNS عمومی، کلید و سخت‌سازی SSH و Firewall. Panel، Docker، Wings و instance بازی CS2 هنوز روی این Debian تازه نصب نشده‌اند.
->
-> **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
-
----
+- فقط **بلوک مرحلهٔ جاری** را اجرا کن؛ به مراحل بعدی نپر.
+- محل اجرا را از برچسب زبان و توضیح قبل از بلوک بررسی کن:
+  - `powershell`: پنجرهٔ Windows PowerShell با prompt شبیه `PS C:\\...`؛
+  - `bash`: نشست SSH دبیان با prompt شبیه `sv1@fc-node-01:~$`؛
+  - `sql`: فقط داخل prompt مربوط به MariaDB/MySQL، بعد از بازکردن کلاینت دیتابیس؛
+  - `nginx`, `yaml`, `json` و مشابه آن: **محتوای فایل** هستند، نه فرمان Bash. آن‌ها را در فایل مربوطه paste کن، نه در ترمینال.
+- برای ویرایش فایل، ابتدا فقط فرمان بازکردن ویرایشگر را در Bash اجرا کن؛ مثلاً `sudo nano /etc/nginx/sites-available/pterodactyl.conf`. سپس در خود Nano محتوای فایل را paste کن. برای ذخیره در Nano از `Ctrl+O`، سپس `Enter` و برای خروج از `Ctrl+X` استفاده کن.
+- کد NGINX که با `server {` شروع می‌شود را **هرگز مستقیم در Bash اجرا نکن**. دیدن خطاهایی مانند `server: command not found` پس از این اشتباه، به‌تنهایی ثابت نمی‌کند که NGINX خراب شده است یا فایل پیکربندی ذخیره شده است.
+- بلوک Bash را کامل و یک‌جا اجرا کن؛ اگر بلوک با `(...)` احاطه شده، پرانتزها را حذف نکن. این کار کمک می‌کند خطای داخل آن بلوک، نشست تعاملی اصلی SSH را نبندد.
+- اگر SSH ناگهان قطع شد، از یک پنجرهٔ تازهٔ PowerShell طبق بخش «اتصال روزمره از Windows PowerShell به Debian» دوباره وصل شو. نصب یا مهاجرت را از ابتدا تکرار نکن، سرویس را کورکورانه restart نکن و تا اجرای آزمون‌های فقط‌خواندنی، فایل یا symlink را حذف/فعال نکن.
+- خروجی لازم را برای عیب‌یابی در گفت‌وگو بفرست، اما رمزها، APP_KEY، token و محتوای `.env` یا `config.yml` را ارسال نکن.
 
 ## 1. نصب Debian 13 از صفر — Console-only
 
@@ -1259,14 +1260,53 @@ set -eu
 if ! sudo test -e /etc/nginx/sites-enabled/pterodactyl.conf && ! sudo test -L /etc/nginx/sites-enabled/pterodactyl.conf; then
   sudo ln -s /etc/nginx/sites-available/pterodactyl.conf /etc/nginx/sites-enabled/pterodactyl.conf
 fi
+
+# Validate the new site before disabling Debian's default site.
+sudo /usr/sbin/nginx -t
+
 if sudo test -L /etc/nginx/sites-enabled/default; then
   sudo rm /etc/nginx/sites-enabled/default
 fi
+
+# Validate again; reload only after both syntax checks pass.
 sudo /usr/sbin/nginx -t
 sudo systemctl reload nginx
 sudo systemctl is-active nginx
-curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: panel.fragcity.ir' http://127.0.0.1/
+curl -sS -o /dev/null -w 'HTTP status: %{http_code}\\n' -H 'Host: panel.fragcity.ir' http://127.0.0.1/
 ~~~
+
+#### اگر محتوای NGINX اشتباهاً در Bash paste شد یا SSH قطع شد
+
+خطاهایی مثل `-bash: server: command not found` معمولاً یعنی محتوا در محل اشتباه وارد شده است؛ این پیام به‌تنهایی به معنی خرابی NGINX نیست. **پیش از فعال‌سازی یا reload، دوباره وارد Debian شو و فقط وضعیت فعلی را بررسی کن.**
+
+در یک پنجرهٔ تازهٔ **Windows PowerShell**، دستور اتصال روزمرهٔ بخش 1 را اجرا کن. بعد از بازشدن نشست SSH، این بلوک فقط‌خواندنی را کامل اجرا کن:
+
+~~~bash
+(
+echo "=== NGINX site file ==="
+if sudo test -f /etc/nginx/sites-available/pterodactyl.conf; then
+  sudo stat -c '%U:%G %a %s bytes %n' /etc/nginx/sites-available/pterodactyl.conf
+  sudo sed -n '1,180p' /etc/nginx/sites-available/pterodactyl.conf
+else
+  echo "CONFIG FILE MISSING: /etc/nginx/sites-available/pterodactyl.conf"
+fi
+
+echo
+echo "=== Enabled site links ==="
+sudo ls -l /etc/nginx/sites-enabled/pterodactyl.conf /etc/nginx/sites-enabled/default 2>&1
+
+echo
+echo "=== NGINX syntax test ==="
+sudo /usr/sbin/nginx -t
+
+echo
+echo "=== NGINX service ==="
+sudo systemctl is-active nginx
+sudo systemctl status nginx --no-pager -l
+)
+~~~
+
+این بلوک چیزی را فعال، حذف، ذخیره یا reload نمی‌کند. لاگش را برای بررسی بفرست. اگر آزمون syntax شکست خورد، فایل را اصلاح نکن یا سرویس را reload نکن تا علت مشخص شود. اگر فایل وجود ندارد، محتوا را فقط با بازکردن Nano طبق دستور ابتدای همین مرحله وارد کن.
 
 پس از فعال‌سازی، دسترسی را از مرورگر Windows بررسی کن. این پیکربندی فقط برای LAN/HTTP است.
 
@@ -1615,7 +1655,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Chapter 1 کامل است؛ Snapshot `debian13-base-ready` گرفته شده. مراحل 2.1–2.4 با موفقیت انجام شده‌اند: PHP 8.3.35، Composer 2.10.3، NGINX 1.26.3، MariaDB 11.8.6، Redis 8.0.2؛ syntax tests و سرویس‌ها موفق، MariaDB query موفق، Redis PONG و NGINX محلی HTTP 200. گام بعد 3.1 برای نصب تازهٔ Panel `v1.15.1`; ابتدا مطمئن شو Port Forward موقت TCP 80 حذف شده است. |
+| مرحلهٔ جاری | Chapter 1 و مراحل 2.1–2.4 کامل‌اند؛ Panel `v1.15.1` نصب شده و مراحل اولیهٔ setup/database/migration/admin طی شده‌اند. مرحلهٔ 3.5 پیکربندی NGINX برای LAN هنوز تأیید نشده است؛ بلوک NGINX اشتباهاً در Bash paste شده و SSH قطع شده. بعد از اتصال مجدد، بخش عیب‌یابی 3.5 را اجرا کن؛ تا موفق‌شدن `nginx -t` reload یا انتشار عمومی انجام نده. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1624,7 +1664,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | فایل‌های Panel هنوز دریافت نشده‌اند؛ پیش‌نیازها و آزمون سلامت 2.1–2.4 موفق‌اند. Docker/Wings هنوز نصب نشده‌اند. |
+| Panel / Docker / Wings | فایل‌های Panel و مراحل اولیهٔ تنظیم آن طی شده‌اند؛ NGINX site configuration/HTTP محلی هنوز در مرحلهٔ 3.5 منتظر بررسی است. Docker/Wings هنوز نصب نشده‌اند. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
