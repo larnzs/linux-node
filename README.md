@@ -639,6 +639,54 @@ Test-NetConnection $nodeIp -Port 22
 ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target "hostname; id"
 ~~~
 
+اگر فرمان بالا خروجی `hostname; id` را نشان داد و سپس به `PS C:\\...` برگشت، **این رفتار طبیعی است**: فرمان از راه دور اجرا شده و SSH بعد از پایانش اتصال را بسته است. برای بازکردن یک Shell تعاملی روی Debian، در همان پنجرهٔ PowerShell فرمان زیر را جداگانه اجرا کن:
+
+~~~powershell
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
+~~~
+
+هنگام اجرای این فرمان، انتهای دستور نباید عبارت `"hostname; id"` داشته باشد. وقتی prompt شبیه `sv1@fc-node-01:~### 1.21 ممیزی نهایی Base Debian و آزمون ماندگاری پس از reboot
+
+این هنوز بخشی از Chapter 1 است؛ در این گام سرویس‌های Panel نصب نمی‌شوند. هدف این است که سیستم‌عامل، APT، SSH، Firewall، زمان، شبکه و فضای دیسک را پس از راه‌اندازی مجدد دوباره تأیید کنیم. قبل از اجرای بلوک، مطمئن شو کار در نشست SSH با حساب عادیِ عضو گروه `sudo` انجام می‌شود.
+
+**الف) اعمال آخرین به‌روزرسانی‌های Debian و بررسی سلامت APT:**
+
+~~~bash
+set -eu
+
+sudo apt update
+sudo apt full-upgrade -y
+sudo apt-get check
+sudo dpkg --audit
+
+echo
+echo "=== SSH config validation ==="
+sudo sshd -t
+
+echo
+echo "=== Firewall before reboot ==="
+sudo ufw status verbose
+
+echo
+echo "=== Time synchronization before reboot ==="
+timedatectl show -p Timezone -p NTPSynchronized -p NTP
+~~~
+
+اگر APT دربارهٔ تعارض، حذف بستهٔ مهم، یا انتخاب دستی فایل پیکربندی سؤال غیرمنتظره‌ای نشان داد، حدس نزن؛ متوقف شو و متن همان سؤال را بفرست. در صورت خطای هر دستور نیز مرحله را متوقف کن.
+
+**ب) راه‌اندازی مجدد کنترل‌شده برای آزمایش ماندگاری تنظیمات:**
+
+~~~bash
+sudo reboot
+~~~
+
+قطع‌شدن نشست SSH طبیعی است. بعد از بالا آمدن VM، از Windows PowerShell در یک نشست تازه با کلید SSH وصل شو. اگر IP داخلی تغییر کرده است، IP واقعیِ رزروشده را از کنسول VMware یا DHCP بررسی کن؛ IP جدید را حدس نزن.
+
+ ظاهر شد، داخل Debian هستی و می‌توانی بخش «ج) پس از ورود تازه، بررسی نهایی روی Debian» را اجرا کنی.
+
+دستور سادهٔ `ssh sv1@192.168.1.7` ممکن است شکست بخورد، چون کلید `id_ed25519_fragcity` را صریحاً معرفی نمی‌کند. پس از غیرفعال‌کردن PasswordAuthentication، باید کلید درست را ارائه دهی. همچنین `sv1` نام کاربری است؛ `fc-node-01` نام میزبان است، نه نام حساب.
+
+
 **ج) پس از ورود تازه، بررسی نهایی روی Debian:**
 
 ~~~bash
