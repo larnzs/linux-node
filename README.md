@@ -1900,6 +1900,7 @@ fi
 ### 7.3 آماده‌سازی کپی آزمایشگاهی و VMDK دوم — گام جاری
 
 راهنمای مستقل و کامل: [test-vmdk instructions.md](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md).
+اسکریپت جامع سلامت فقط‌خواندنی پس از آماده‌شدن سرویس‌ها: [clone-health-check.sh](https://github.com/larnzs/linux-node/blob/main/clone-health-check.sh). این اسکریپت هیچ سرویس یا تنظیمی را تغییر نمی‌دهد؛ Port Forward روتر و وضعیت Online نود باید جداگانه بررسی شوند.
 
 **تصمیم مهم در این فاز:** Clone فعلی قرار است موقتاً جای VM اصلی را بگیرد؛ این یک Node دوم برای اجرای هم‌زمان نیست. تا پایان تست، VM اصلی باید کاملاً خاموش بماند و فقط Clone روشن باشد. بنابراین باید Panel، دیتابیس، Nginx، PHP-FPM، Redis، گواهی‌ها و تنظیمات موجود Wings در Clone حفظ شوند. **اسکریپت قبلی که این سرویس‌ها را disable می‌کرد یا machine-id و SSH host keys را بازتولید می‌کرد برای این مدل استفاده نشود.**
 
