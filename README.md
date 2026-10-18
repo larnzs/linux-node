@@ -1705,8 +1705,18 @@ fi
 
 ~~~bash
 (
-echo "=== DNS resolution for Node FQDN ==="
+echo "=== Local host resolution (may be affected by /etc/hosts) ==="
 getent ahostsv4 fc-node-01.fragcity.ir || true
+
+echo
+echo "=== Public DNS A record via Google DNS-over-HTTPS ==="
+curl -fsS --connect-timeout 5 --max-time 10 'https://dns.google/resolve?name=fc-node-01.fragcity.ir&type=A' || true
+printf '\\n'
+
+echo
+echo "=== Public DNS A record for Panel (comparison) ==="
+curl -fsS --connect-timeout 5 --max-time 10 'https://dns.google/resolve?name=panel.fragcity.ir&type=A' || true
+printf '\\n'
 
 echo
 echo "=== Public IPv4 seen by the server ==="
