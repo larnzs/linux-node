@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** فقط دستورها، توضیحات، پیش‌نیازها و checkpointهای مرحله‌ای در این سند قرار می‌گیرند. خروجی ترمینال، لاگ واقعی و نتیجهٔ اجرای فرمان‌ها عمداً در README ثبت نمی‌شود؛ خروجی لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. برای اجرای پروژه از صفر، از این سند شروع کن.
 >
-> **وضعیت فعلی: نصاب Debian 13 روی صفحهٔ `Disk partitioning scheme` است.** مسیر نصب: LVM غیررمزشده، تمام فایل‌های سیستم در یک پارتیشن اصلی؛ سپس تأیید کنترل‌شدهٔ تغییرات، mirror شبکه، انتخاب بسته‌های بدون Desktop و نصب GRUB. Hostname = `fc-node-01` و Domain name = `fragcity.ir`.
+> **وضعیت فعلی: نصب Console-only انجام شده و ماشین به صفحهٔ متنی ورود `fc-node-01 tty1` رسیده است.** مرحلهٔ جاری: آماده‌سازی پایه پس از نصب؛ بررسی سیستم، به‌روزرسانی بسته‌ها، نصب ابزارهای مدیریتی، تثبیت hostname/FQDN، تنظیم ساعت و فعال‌سازی SSH. هیچ instance یا بازی CS2 در این فاز نصب نمی‌شود.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -117,72 +117,155 @@ Debian عموماً استفاده از network mirror را پیشنهاد می�
 2. اگر VM دوباره به نصاب برگشت، در VMware از تنظیمات CD/DVD فایل ISO را Disconnect کن یا اتصال ISO هنگام بوت را خاموش کن؛ باید از دیسک مجازی Debian بوت شود.
 3. در صفحهٔ Console باید به صفحهٔ login متنی برسد. ورود کاربر را خودت انجام بده؛ نام کاربری و رمز را در README ثبت نکن.
 
-### 1.9 اولین به‌روزرسانی و ابزارهای پایه
+### 1.9 مرحلهٔ اول — شناسایی اولیهٔ سیستم
 
-بعد از ورود به Debian تازه، این بلوک را یک‌بار اجرا کن. اگر `sudo` دسترسی ندارد یا فرمان شکست خورد، خروجی خطا را بفرست و ادامه نده.
-
-~~~bash
-set -eu
-
-sudo apt update
-sudo apt full-upgrade -y
-sudo apt install -y \
-  sudo git curl ca-certificates gnupg2 lsb-release nano htop tmux jq \
-  rsync unzip tar xz-utils dnsutils netcat-openbsd openssh-server
-
-sudo systemctl enable --now ssh
-sudo reboot
-~~~
-
-### 1.10 بررسی اولیهٔ سیستم تازه
-
-پس از reboot وارد کنسول یا SSH شو و این بلوک فقط‌خواندنی را اجرا کن:
+پس از نمایش `fc-node-01 Login:` وارد حسابی شو که هنگام نصب ساخته‌ای. نام حساب و رمز را در README یا چت ننویس. سپس این بلوک فقط‌خواندنی را اجرا کن:
 
 ~~~bash
-set -eu
+set -u
 
-echo "=== OS and hostname ==="
+echo "=== OS ==="
 cat /etc/os-release
+
+echo
+echo "=== Account and hostname ==="
+id
+groups
 hostname
 hostname -f || true
 
 echo
 echo "=== Network ==="
-hostname -I
 ip -br address
 ip route
 
 echo
-echo "=== Virtualization and CPU ==="
-systemd-detect-virt || true
-uname -m
-uname -r
-lscpu | grep -E '^(Architecture|CPU\\(s\\)|Model name|Thread|Core|Socket)'
-
-echo
-echo "=== Memory and storage ==="
+echo "=== CPU, RAM and storage ==="
+lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket)'
 free -h
 lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 df -hT /
-df -ih /
-nproc
 
 echo
-echo "=== SSH and Internet ==="
-sudo systemctl is-active ssh
-getent hosts deb.debian.org
-curl -fsSI --max-time 15 https://deb.debian.org/ | head -n 1
+echo "=== Clock and virtualization ==="
+timedatectl status
+systemd-detect-virt || true
 ~~~
 
-**معیار پایان مرحلهٔ Debian:** سیستم به متن login بوت شود؛ معماری `x86_64`، IP شبکه و default route معتبر باشد، SSH فعال باشد و دسترسی HTTPS به Debian mirror کار کند. اگر `hostname -f` هنوز FQDN را درست نشان نداد، نگران نشو؛ بعداً DNS و resolver را بررسی می‌کنیم. خروجی این بلوک را به README اضافه نکن؛ فقط خروجی لازم برای عیب‌یابی را در گفت‌وگو بفرست.
+این مرحله تغییری نمی‌دهد. اگر سیستم با نامی غیر از `fc-node-01` بالا آمده یا دیسک مقصد غیرمنتظره است، پیش از مراحل بعدی خروجی را بفرست.
 
-### 1.11 IP ثابت در LAN و DNS عمومی — بعد از بوت، نه داخل نصاب
+### 1.10 مرحلهٔ دوم — به‌روزرسانی Debian
 
-1. در روتر، برای MAC آداپتور VM یک **DHCP reservation** تعریف کن تا LAN IP ثابت بماند؛ مقدار IP واقعی را بعد از نصب مشخص می‌کنیم.
-2. در DNS authoritative دامنه، رکوردهای A زیر باید به IP عمومی قابل‌دسترسی میزبان اشاره کنند:
-   - `panel.fragcity.ir`
-   - `fc-node-01.fragcity.ir`
-3. هنوز DNS record، TLS، port forwarding یا دسترسی اینترنتی را ساخته‌شده فرض نکن. هر کدام را جداگانه بررسی و سپس پیکربندی می‌کنیم.
+فقط اگر مرحلهٔ اول نشان داد سیستم Debian 13 (Trixie) است، این بلوک را اجرا کن:
+
+~~~bash
+set -eu
+sudo apt update
+sudo apt full-upgrade -y
+~~~
+
+اگر `sudo` شناخته نشد یا دسترسی نداشتی، متوقف شو و خطا را بفرست؛ با روش حدسی سطح دسترسی را تغییر نده. اگر APT دربارهٔ حذف بسته‌های مهم یا خطای Repository هشدار داد، ادامه نده و پیام را بررسی کن.
+
+### 1.11 مرحلهٔ سوم — نصب ابزارهای پایهٔ مدیریت سرور
+
+~~~bash
+set -eu
+sudo apt install -y \
+  sudo git curl ca-certificates gnupg lsb-release \
+  nano vim-tiny htop tmux jq rsync unzip zip tar xz-utils \
+  dnsutils netcat-openbsd lsof tree openssh-server chrony
+~~~
+
+این بلوک فقط ابزارهای سیستم، ابزارهای شبکه، SSH و همگام‌سازی ساعت را نصب می‌کند. **Docker، PHP، MariaDB، Pterodactyl، Wings و CS2 عمداً در این مرحله نصب نمی‌شوند.**
+
+### 1.12 مرحلهٔ چهارم — تثبیت Hostname/FQDN و ساعت
+
+نامی که در نصاب وارد شد باید روی سیستم نیز ثابت باشد. این بلوک hostname را روی `fc-node-01` می‌گذارد و FQDN موردنظر را در hosts محلی تعریف می‌کند. تعریف محلی hosts جای رکورد DNS عمومی را نمی‌گیرد.
+
+~~~bash
+set -eu
+
+sudo hostnamectl set-hostname fc-node-01
+
+sudo sed -i -E '/^127\.0\.1\.1[[:space:]]/d' /etc/hosts
+printf '%s\n' '127.0.1.1 fc-node-01.fragcity.ir fc-node-01' \
+  | sudo tee -a /etc/hosts >/dev/null
+
+sudo timedatectl set-timezone UTC
+sudo systemctl enable --now chrony
+~~~
+
+برای سرور، UTC را در سیستم‌عامل نگه می‌داریم تا زمان‌های لاگ و عیب‌یابی یکدست باشند. منطقهٔ زمانی نمایشی سایت، در صورت نیاز، جداگانه در خود Panel تنظیم می‌شود.
+
+### 1.13 مرحلهٔ پنجم — فعال‌سازی و بررسی SSH
+
+~~~bash
+set -eu
+
+sudo sshd -t
+sudo systemctl enable --now ssh
+sudo systemctl is-active ssh chrony
+
+echo
+echo "=== SSH listening sockets ==="
+sudo ss -ltnp | grep -E 'LISTEN.+:22([[:space:]]|$)' || true
+
+echo
+echo "=== Effective SSH policy (read-only) ==="
+sudo sshd -T | grep -Ei '^(port|permitrootlogin|passwordauthentication|pubkeyauthentication) '
+~~~
+
+فعلاً تنظیمات ورود SSH را تغییر نده و پورت 22 را هنوز روی اینترنت عمومی باز نکن. بعد از اینکه اتصال LAN و کلید SSH را آزمایش کردیم، سخت‌سازی SSH و فایروال را جداگانه انجام می‌دهیم.
+
+### 1.14 مرحلهٔ ششم — بررسی DNS، اینترنت خروجی و همگام‌سازی زمان
+
+~~~bash
+set -eu
+
+echo "=== Host identity ==="
+hostname
+hostname -f
+
+echo
+echo "=== LAN and routing ==="
+ip -br address
+ip route
+
+echo
+echo "=== DNS lookup ==="
+getent ahosts deb.debian.org
+
+echo
+echo "=== HTTPS connectivity ==="
+curl -fsSI --max-time 15 https://deb.debian.org/ -o /dev/null \
+  -w 'HTTPS status: %{http_code}\n'
+
+echo
+echo "=== UTC clock and NTP ==="
+date -u
+timedatectl show -p Timezone -p NTPSynchronized -p NTP
+chronyc tracking
+
+echo
+echo "=== Storage ==="
+df -hT /
+df -ih /
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
+~~~
+
+این بلوک آخر وضعیت فعلی شبکه، دسترسی HTTPS و ساعت را بررسی می‌کند. اگر `getent`، `curl` یا `chronyc` خطا داد، بلوک را دوباره و پشت‌سرهم اجرا نکن؛ خروجی را همین‌جا بفرست تا اول علت را مشخص کنیم.
+
+### 1.15 بعد از این شش مرحله چه می‌کنیم؟
+
+پس از بررسی خروجی‌ها، به ترتیب سراغ این موارد می‌رویم:
+
+1. رزرو DHCP برای IP داخلی ثابت.
+2. بررسی IP عمومی و اینکه اتصال ورودی از اینترنت واقعاً ممکن است.
+3. بررسی DNS برای `panel.fragcity.ir` و `fc-node-01.fragcity.ir`.
+4. فایروال و SSH با روش امن، قبل از انتشار سرویس‌ها.
+5. نصب پیش‌نیازهای Panel و سپس خود Panel.
+
+**در این فاز هیچ instance بازی ساخته نمی‌شود و هیچ فایل بازی CS2 دانلود نمی‌شود.** طراحی و آزمایش CS2/Egg/Storage در مرحلهٔ جداگانه و روی محیط آزمایشگاهی انجام خواهد شد.
 
 ---
 
@@ -706,16 +789,16 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | بخش | وضعیت مسیر جدید |
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
-| نصاب Debian | روی `Disk partitioning scheme`؛ انتخاب `All files in one partition` و تأیید دیسک مقصد گام‌های جاری‌اند |
-| Hostname | در نصاب وارد شده: `fc-node-01` |
-| Domain name | در نصاب وارد شده: `fragcity.ir` |
-| FQDNهای هدف | `panel.fragcity.ir` و `fc-node-01.fragcity.ir` |
-| DNS / public IP / TLS | بعد از نصب بررسی و تنظیم شوند؛ هنوز آماده فرض نشوند |
-| VMDK قبلی | نسخهٔ قبلی نزد کاربر موجود است؛ نباید به‌عنوان دیسک مقصد overwrite شود |
-| Panel / Docker / Wings | روی نصب تازه هنوز نصب نشده‌اند |
-| Node و Wings config | بعد از نصب Panel و ساخت Node |
-| CS2 instance | هنوز نساز؛ ابتدا Storage/Egg/Volume طراحی شود |
-| Website/Wallet/Billing | مراحل آینده |
+| نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
+| مرحلهٔ جاری | مراحل 1.9 تا 1.14: ممیزی، آپدیت، ابزارهای پایه، FQDN، ساعت، SSH و تست شبکه |
+| Hostname | `fc-node-01` |
+| Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
+| Panel FQDN هدف | `panel.fragcity.ir` |
+| DNS / public IP / TLS | بعد از بررسی واقعی شبکه تنظیم می‌شوند؛ هنوز آماده فرض نشوند |
+| SSH hardening / firewall | بعد از تأیید دسترسی LAN و بررسی اتصال کلید عمومی |
+| Panel / Docker / Wings | نصب روی Debian تازه هنوز آغاز نشده |
+| CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
+| Website/Wallet/Billing | فازهای بعدی |
 
 خروجی اجرای فرمان‌ها، لاگ‌ها، رمزها، نام حساب‌های شخصی و SHAهای فایل‌ها را به این README اضافه نکن. این سند فقط دستورها، تصمیم‌های معماری و مراحل تکرارپذیر را نگه می‌دارد.
 
