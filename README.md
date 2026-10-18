@@ -2120,9 +2120,9 @@ sudo blkid
 4. Backup/Restore و رفتار حذف/Reinstall یک Instance.
 5. فضای لازم برای Base، نقشه‌ها/Workshop، addons، logها و backup.
 
-### 7.5 اولین سرور آزمایشی — پس از قبولی طراحی Storage
+### 7.5 Shared Base و Instanceهای بعدی — پس از قبولی تست پایه و طراحی Storage
 
-فقط پس از تأیید Storage، سازگاری Egg، CPU/RAM/disk و طراحی Allocation/Firewall یک Instance آزمایشی کم‌بار می‌سازیم. سپس Start/Stop/Console/Files/SFTP، جدایی داده‌ها و baseline عملکرد را بررسی می‌کنیم. افزونه‌ها و نقشه‌ها باید مرحله‌ای اضافه شوند تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
+تست نخستِ یک Instance مستقل و بدون Node daemon در فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) انجام می‌شود و می‌تواند روی Storage فعلی، پس از بررسی حداقل 40 GB فضای آزاد، اجرا شود. پس از آن، فقط با VMDK دادهٔ شناسایی‌شده و mount ایمن، سازگاری Egg و مسیر Shared Base را ارزیابی می‌کنیم؛ سپس cs2node/VPK sync و Instance دوم را آزمایش می‌کنیم. Start/Stop/Console/Files/SFTP، جدایی فایل‌های خصوصی، Backup/Restore و baseline عملکرد باید بررسی شوند. افزونه‌ها و نقشه‌ها را مرحله‌ای اضافه کن تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
 
 تا تکمیل مراحل قبل، هیچ Instance جدیدی روی Node اصلی نساز و به `/home/steam` دست نزن.
 
