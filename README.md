@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی:** پنل Pterodactyl، Docker و Wings راه‌اندازی شده‌اند؛ ارتباط Node با Port Forward پورت‌های Wings برقرار است. بازبینی فقط‌خواندنی نشان داد هنوز Base Game یا Instance بازی روی Node ساخته نشده است. مستندات Shared Base بررسی شده، اما روش فنی باید ابتدا روی Clone آزمایشگاهی و VMDK جداگانه اثبات شود. **مرحلهٔ جاری 7.3:** Clone موقتاً جای VM اصلی را می‌گیرد و VM اصلی تا پایان تست خاموش می‌ماند؛ پس از آن VMDK جداگانه فقط به Clone افزوده می‌شود. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
+> **وضعیت فعلی:** پنل Pterodactyl، Docker و Wings راه‌اندازی شده‌اند؛ شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. هنوز CS2 Instance ساخته نشده است. کاربر انتخاب کرده که ابتدا طبق راهنمای K4ryuu یک سرور پایه با Egg رسمی CS2-Egg-Go روی Clone آزمایش شود؛ فصل جدید [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) مسیر Import Egg و ساخت این Instance را ثبت می‌کند. این تست standalone فایل‌های بازی را در Volume معمول Pterodactyl دانلود می‌کند و به حدود 40 GB فضای آزاد نیاز دارد. پس از موفقیت تست پایه، VMDK داده فقط به Clone افزوده و شناسایی می‌شود؛ نصب cs2node/VPK sync و Shared Base تا آماده‌شدن Storage مستقل انجام نمی‌شود. VM اصلی با IP 192.168.1.7 تا پایان تست خاموش می‌ماند؛ Clone با IP 192.168.1.9 فعال است. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -2072,8 +2072,8 @@ fi
 
 ### 7.3 آماده‌سازی کپی آزمایشگاهی و VMDK دوم — گام جاری
 
-راهنمای مستقل و کامل: [test-vmdk instructions.md](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md).
-کد کامل اسکریپت جامع سلامت فقط‌خواندنی داخل [test-vmdk instructions.md](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)، بخش 10 قرار دارد؛ نیازی به دانلود فایل جداگانه نیست. این اسکریپت هیچ سرویس یا تنظیمی را تغییر نمی‌دهد؛ Port Forward روتر و وضعیت Online نود باید جداگانه بررسی شوند.
+راهنمای مستقل Clone و دیسک: [test-vmdk instructions.md](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md). فصل جاری برای Egg/ساخت سرور: [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md).
+کد کامل اسکریپت جامع سلامت فقط‌خواندنی در بخش 10 فایل test-vmdk instructions.md است؛ نیازی به دانلود فایل جداگانه نیست. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. این اسکریپت فقط وضعیت VM را بررسی می‌کند و دیسک داده یا Shared Base را آماده نمی‌سازد.
 
 **تصمیم مهم در این فاز:** Clone فعلی قرار است موقتاً جای VM اصلی را بگیرد؛ این یک Node دوم برای اجرای هم‌زمان نیست. تا پایان تست، VM اصلی باید کاملاً خاموش بماند و فقط Clone روشن باشد. بنابراین باید Panel، دیتابیس، Nginx، PHP-FPM، Redis، گواهی‌ها و تنظیمات موجود Wings در Clone حفظ شوند. **اسکریپت قبلی که این سرویس‌ها را disable می‌کرد یا machine-id و SSH host keys را بازتولید می‌کرد برای این مدل استفاده نشود.**
 
@@ -2084,7 +2084,7 @@ fi
 3. hostname در Clone به fc-node-01 برگردانده شده و /etc/hosts نیز به نام اصلی اشاره می‌کند. هشدار ابتدایی sudo مبنی بر unable to resolve host fc-node-01-test پیش از اصلاح hosts ظاهر شد؛ با getent hosts fc-node-01 و sudo -v وضعیت نهایی را تأیید کن.
 4. مقصد قوانین **موجود** Port Forward برای TCP 80/443، TCP 8080 و TCP 2022 برای زمان تست به Clone با IP `192.168.1.9` تنظیم شده بود. طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند؛ برای این مرحله، بررسی دسترسی و Port Forward را تکمیل‌شده در نظر می‌گیریم. قانون تکراری با پورت عمومی یکسان نساز. DNS عمومی نیاز به تغییر ندارد، مگر IPv4 عمومی WAN تغییر کرده باشد.
 5. Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند؛ Wings نیز قبلاً با `sudo systemctl enable --now wings` فعال/اجرا شده است. طبق تأیید کاربر در 2026-10-18، پنل بالا می‌آید و شبکه عملیاتی است؛ این مرحله از بررسی شبکه و دسترسی پنل تکمیل‌شده محسوب می‌شود. اگر بعداً Node به Offline تغییر کرد، قبل از دست‌کاری `config.yml`، مقصد Port Forward TCP 8080 و لاگ اخیر Wings را بررسی کن.
-6. هنوز Base Game، Instance بازی یا پورت CS2 نصب/باز نشده است. هیچ اسکریپت نصب KUS یا Egg را اجرا نکن تا VMDK دادهٔ دوم شناسایی شود و طراحی Shared Base تأیید گردد.
+6. تصمیم به‌روزشده در 2026-10-19: ابتدا طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) فقط یک Instance پایه با Egg رسمی CS2-Egg-Go و بدون Node daemon آزمایش می‌شود؛ نخستین Start می‌تواند تا حدود 40 GB داخل Volume عادی Pterodactyl دانلود کند، پس فضای آزاد را پیش از Start بررسی کن. این گام به معنی آماده‌شدن Shared Base نیست. نصب cs2node/VPK sync، انتقال مسیر `/srv/cs2-shared` و اجرای چند Instance تا شناسایی و mount ایمن VMDK دادهٔ دوم انجام نمی‌شوند. هیچ اسکریپت KUS را اجرا نکن.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
 **آخرین health check کاملِ اولیه (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN بودند. در ادامه، مرحلهٔ 3.4.1 برای Queue Worker و Scheduler روی Clone با IP `192.168.1.9` با موفقیت اجرا و تأیید شد: `pteroq.service` برابر `enabled` و `active (running)` است و ورودی `schedule:run` در crontab ریشه وجود دارد. طبق تأیید کاربر در 2026-10-18، شبکه و پنل از مسیر موردنظر عملیاتی‌اند؛ تأیید دستی Port Forward/دسترسی پنل برای این مرحله تکمیل‌شده ثبت می‌شود. Queue Worker و Scheduler هنوز باید جداگانه روی VMDK اصلی اعمال شوند. UFW قانون `29001/udp` را برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند.
@@ -2105,9 +2105,11 @@ sudo blkid
 
 #### 7.3.3 محدودهٔ اولین آزمون
 
-اولین آزمون فقط Base مرکزی و دسترسی خواندنی از یک Instance خواهد بود؛ هنوز دومین Instance هم‌زمان، Update خودکار Base یا نصب کامل Production اجرا نمی‌شود. پس از تأیید دسترسی و مالکیت فایل‌ها، یک Instance خصوصی ساخته می‌شود و بعد Instance دوم برای آزمون جداسازی اضافه خواهد شد.
+طبق راهنمای رسمی K4ryuu، اولین گام اکنون یک سرور CS2-Egg-Go به‌صورت standalone و بدون Node daemon است تا نصب فایل‌های بازی، راه‌اندازی Source 2، اتصال Client، Console و Stop/Start در یک Instance آزمایش شود. راهنمای مرحله‌به‌مرحله در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) قرار دارد.
 
-**قدم فعلی:** آماده‌سازی Clone برای استفاده به‌عنوان جایگزین موقت و تأیید Panel/Wings؛ سپس افزودن VMDK فقط به Clone. روی VM اصلی، ریپوهای KUS یا تنظیمات پایدار FragCity هیچ تغییری نده.
+این تست اولیه می‌تواند حدود 40 GB از Volume سرور در Storage فعلی مصرف کند؛ قبل از Start فضای آزاد را بررسی کن. پس از قبولی این تست، VMDK داده فقط به Clone اضافه و شناسایی می‌شود؛ سپس مسیر Storage مشترک آماده و cs2node/VPK sync آزمایش می‌شود. هنوز Instance دوم، Shared Base، Update خودکار Base یا Production اجرا نمی‌شود.
+
+**قدم فعلی:** Import کردن Egg رسمی طبق فصل جدید و آماده‌کردن یک سرور آزمایشی روی Clone. VM اصلی و ریپوی KUS دست‌نخورده می‌مانند؛ VMDK داده و Shared Base همچنان گام‌های بعدی‌اند.
 
 ### 7.4 تصمیم Storage — پس از بررسی 7.3
 
