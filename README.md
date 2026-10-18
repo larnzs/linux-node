@@ -1347,27 +1347,29 @@ sudo -u www-data php8.3 artisan route:list --path=admin
 - اگر درخواست محلی سالم است ولی از Windows باز نمی‌شود، ارتباط LAN، IP ماشین و فایروال را بررسی کن.
 - تا پیش از مشخص‌شدن خطا، NGINX را بازنویسی نکن، سرویس‌ها را کورکورانه restart نکن و Node جدید نساز.
 
-### 3.7 صدور TLS برای Panel و انتشار وب پس از آزمون LAN
+### 3.7 صدور TLS برای Panel و Node — راهنمای مرجع
 
-**این مرحله فقط زمانی اجرا شود که Panel در LAN روی HTTP سالم است**, رکورد `panel.fragcity.ir` به IPv4 عمومی فعلی اشاره می‌کند، و مرحلهٔ 1.17.1 تأیید کرده که رابط مدیریت مودم از WAN غیرفعال است. IP عمومی بیرونی و WAN IPv4 نمایش‌داده‌شده در روتر باید بررسی شوند؛ اگر WAN پشت CGNAT یا NAT بالادستی است، ابتدا مسیر ورودی را حل کن. پورت‌های 80/443 باید بعداً به Debian فوروارد شوند، نه به رابط مدیریتی مودم.
+برای FragCity دو hostname جدا داریم و هرکدام گواهی TLS مناسب خودش را لازم دارد:
 
-1. در Firewall روتر، فقط پس از تأیید آمادگی سرور، Port Forward برای **TCP 80 → IP داخلی Node:80** و **TCP 443 → IP داخلی Node:443** بساز. از WAN هیچ Port Forward برای SSH 22، MariaDB 3306، Redis 6379، Wings 8080 یا SFTP 2022 نساز.
-2. UFW مرحلهٔ 1.19.4 باید اجازهٔ TCP 80 و 443 را داشته باشد. بررسی کن NGINX روی پورت 80 پاسخ می‌دهد.
-3. هنگام اعتبارسنجی HTTP-01، سرویس موقتاً از اینترنت روی HTTP قابل‌دسترسی خواهد بود. در این زمان اطلاعات ورود را از طریق HTTP وارد نکن؛ بعد از موفقیت TLS به HTTPS مهاجرت کن. اگر دسترسی ورودی از اینترنت قابل اثبات نیست، Port Forward را حدس‌زنان تغییر نده.
-4. پس از آماده‌شدن NAT ورودی، روی Debian اجرا کن:
+- Panel مشتری/ادمین: panel.fragcity.ir
+- Node و Wings: fc-node-01.fragcity.ir
 
-~~~
+**گواهی Panel به‌تنهایی گواهی Node را ایجاد نمی‌کند.** اگر Wings روی مسیر گواهی Node تنظیم شده باشد ولی آن گواهی صادر نشده باشد، Wings با خطای missing fullchain.pem متوقف می‌شود. این راهنما هر دو گواهی و بازیابی همان خطا را پوشش می‌دهد.
+
+**پیش‌شرط شبکه:** Panel در LAN سالم باشد؛ رابط مدیریت روتر از WAN قابل دسترسی نباشد؛ DNS عمومی برای hostname موردنظر به IP عمومی فعلی اشاره کند؛ و Port Forward ورودی TCP 80/443 (برای این VM) به IP LAN رزروشدهٔ Node هدایت شود. اگر WAN پشت CGNAT/NAT بالادستی است، پیش از صدور گواهی مسیر ورودی را حل کن. هیچ Port Forward عمومی برای SSH 22، MariaDB 3306 یا Redis 6379 ایجاد نکن. Wings/SFTP ports را هم تا بعد از آزمون و بازبینی firewall عمومی نکن.
+
+#### 3.7.1 گواهی Panel
+
+~~~bash
 set -eu
 sudo apt install -y certbot python3-certbot-nginx
-sudo nginx -t
+sudo /usr/sbin/nginx -t
 sudo certbot --nginx --redirect -d panel.fragcity.ir
 ~~~
 
-در Wizard مربوط به Certbot، ایمیل مدیریتی خودت را وارد کن؛ آن را در README ننویس. Certbot باید گواهی را نصب کند و HTTP را به HTTPS هدایت کند. اگر اعتبارسنجی شکست خورد، قبل از تکرار فرمان، DNS، Port Forward، Firewall و دسترسی بیرونی TCP 80 را بررسی کن.
+در prompt مربوط به Certbot، ایمیل مدیریتی خودت را وارد کن؛ آن را در README یا چت ننویس. سپس URL برنامه را به HTTPS تغییر بده و Cache را بازسازی کن:
 
-5. پس از صدور موفق گواهی، URL محیط Panel را به HTTPS تغییر بده و Cache تنظیمات را بازسازی کن:
-
-~~~
+~~~bash
 set -eu
 sudo sed -i -E 's#^APP_URL=.*#APP_URL=https://panel.fragcity.ir#' /var/www/pterodactyl/.env
 cd /var/www/pterodactyl
@@ -1375,23 +1377,71 @@ sudo -u www-data php8.3 artisan config:clear
 sudo -u www-data php8.3 artisan cache:clear
 sudo -u www-data php8.3 artisan view:clear
 sudo -u www-data php8.3 artisan config:cache
-sudo nginx -t
+sudo /usr/sbin/nginx -t
 sudo systemctl reload nginx
 ~~~
 
-6. بررسی کن:
+بررسی اولیهٔ Panel:
 
-~~~
+~~~bash
 set -eu
 curl -fsSI --max-time 15 https://panel.fragcity.ir/
 sudo certbot certificates
 sudo certbot renew --dry-run
 ~~~
 
-معیار قبولی: درخواست HTTPS بدون خطای گواهی پاسخ دهد و `certbot renew --dry-run` موفق باشد. اگر رکورد DNS، WAN یا دسترسی ورودی هنوز آماده نیست، این مرحله را اجرا نکن. Wings TLS برای `fc-node-01.fragcity.ir` کار جداگانه‌ای است و با گواهی Panel خودکار تکمیل نمی‌شود.
+#### 3.7.2 گواهی جداگانهٔ Node/Wings
 
-منابع: https://certbot.eff.org/instructions?ws=nginx و https://docs.pterodactyl.io/v1/panel/getting-started
+بعد از آنکه رکورد A عمومی fc-node-01.fragcity.ir ساخته شد، باید گواهی جداگانهٔ Node را نیز پیش از اجرای wings --debug دریافت کنی. روش HTTP-01 نیاز دارد که TCP 80 از اینترنت به همین VM برسد.
 
+**نکتهٔ DNS محلی:** خروجی getent ahostsv4 fc-node-01.fragcity.ir ممکن است به‌دلیل نگاشت 127.0.1.1 در /etc/hosts همین آدرس محلی را نشان دهد؛ این خروجی به‌تنهایی DNS عمومی را اثبات نمی‌کند. از Windows PowerShell (نه نشست SSH) برای مقایسهٔ resolver پیش‌فرض و Cloudflare استفاده کن:
+
+~~~powershell
+$names = @("fc-node-01.fragcity.ir", "panel.fragcity.ir")
+
+foreach ($name in $names) {
+    Write-Host ""
+    Write-Host "=== Default DNS resolver: $name ==="
+    Resolve-DnsName -Name $name -Type A -ErrorAction Continue | Select-Object Name, Type, IPAddress
+    Write-Host ""
+    Write-Host "=== Cloudflare DNS (1.1.1.1): $name ==="
+    Resolve-DnsName -Name $name -Type A -Server 1.1.1.1 -DnsOnly -ErrorAction Continue | Select-Object Name, Type, IPAddress
+}
+~~~
+
+در بررسی انجام‌شده در 2026-10-18، هر دو hostname از resolver پیش‌فرض Windows و از 1.1.1.1 به 85.185.40.85 resolve شدند. اگر درخواست curl به dns.google از Debian با خطای (35) Recv failure: Connection reset by peer مواجه شد، این خطا **پاسخ DNS نیست**؛ از نتیجهٔ PowerShell بالا استفاده کن و آن خطا را به‌اشتباه به نبودن رکورد تعبیر نکن.
+
+وقتی پاسخ A عمومی fc-node-01.fragcity.ir با IPv4 عمومی فعلی Node مطابقت دارد، TCP 80 از روتر به IP LAN فعلی Node فوروارد شده و Certbot هنوز گواهی Node را فهرست نمی‌کند، روی Debian اجرا کن:
+
+~~~bash
+sudo certbot certonly --nginx -d fc-node-01.fragcity.ir
+~~~
+
+این فرمان در VM فعلی با موفقیت اجرا شده است. Certbot گواهی مستقل fc-node-01.fragcity.ir را در این مسیرها ایجاد کرد و تمدید خودکار را تنظیم کرد:
+
+- /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem
+- /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem
+
+تاریخ انقضای گزارش‌شده برای گواهی Node: 2027-01-16.
+
+پس از صدور هر دو گواهی، آن‌ها و تمدید را بررسی کن:
+
+~~~bash
+set -eu
+sudo certbot certificates
+sudo test -s /etc/letsencrypt/live/panel.fragcity.ir/fullchain.pem && echo "OK: Panel fullchain exists"
+sudo test -s /etc/letsencrypt/live/panel.fragcity.ir/privkey.pem && echo "OK: Panel private key exists"
+sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem && echo "OK: Node fullchain exists"
+sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem && echo "OK: Node private key exists"
+sudo certbot renew --dry-run
+~~~
+
+**اگر Wings خطای missing fullchain.pem داد:** گواهی Node وجود ندارد یا مسیر تعریف‌شده در config با مسیر واقعی Certbot فرق دارد. به همین مرحله برگرد، فایل خالی یا symlink نساز، محتوای محرمانهٔ config.yml را منتشر نکن و Wings را تا تأیید مسیر گواهی دوباره اجرا نکن.
+
+منابع:
+- https://certbot.eff.org/instructions?ws=nginx
+- https://docs.pterodactyl.io/v1/panel/getting-started
+- https://docs.pterodactyl.io/v1/guides/tutorials/ssl-certificates
 
 
 ---
@@ -1653,7 +1703,7 @@ sudo timeout 10 openssl s_client -connect 127.0.0.1:443 -servername fc-node-01.f
 3. به **Admin → Nodes → Create New** برو.
 4. در Identity: نام `fc-node-01`، توضیح اختیاری، و Location مرحلهٔ قبل را انتخاب کن.
 5. در Network/Daemon: FQDN برابر `fc-node-01.fragcity.ir`، SSL فعال پس از صدور و نصب گواهی معتبر برای همین نام، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد. DNS عمومی باید به IP عمومی Node برسد و قبل از ساخت Node باید TLS و فایروال بررسی شده باشند. از IP خصوصی در FQDN عمومی استفاده نکن.
-6. در بخش منابع، مقادیر Memory/Disk را فقط بر اساس خروجی واقعی free -h و df -hT / در سرور تازه تعیین کن. برای شروع Overallocate را 0 نگه دار و فضای کافی برای Debian، Docker، لاگ‌ها و رشد بعدی آزاد بگذار. مقدار انتخاب‌شدهٔ فعلی برای این Node برابر 4096 MiB (۴ GiB) است؛ این سقف مجموع RAM قابل‌تخصیص به سرورهای Node در Panel است، نه رزرو فیزیکی RAM و نه مقدار خودکار برای هر سرور. ظرفیت تخصیصی Panel فضای فیزیکی اضافه نمی‌کند.
+6. در بخش منابع، مقادیر Memory/Disk را بر اساس خروجی واقعی free -h و df -hT / تعیین کن. Overallocate را برای شروع 0 نگه دار و فضای کافی برای Debian، Docker و لاگ‌ها باقی بگذار. مقدار انتخاب‌شدهٔ فعلی برای این Node برابر 4096 MiB (4 GiB) است؛ این سقف مجموع RAM قابل‌تخصیص در Panel است، نه رزرو فیزیکی RAM و نه مقدار خودکار برای هر سرور.
 7. اگر فیلد Server File Directory نمایش داده شد، فعلاً مقدار پیش‌فرض `/var/lib/pterodactyl/volumes` را حفظ کن. **آن را روی `/home/steam` تنظیم نکن**؛ طرح استفادهٔ مجدد از بازی موجود هنوز طراحی نشده است.
 8. Node را ذخیره کن. سپس وارد صفحهٔ همان Node شو و نتیجهٔ ساخت را بررسی کن.
 
@@ -1697,109 +1747,28 @@ fi
 
 منبع رسمی: https://docs.pterodactyl.io/v1/wings/installing
 
-### 6.5 گواهی TLS مخصوص Node — رفع خطای missing fullchain.pem
+### 6.5 گواهی TLS مخصوص Node — فیکس انجام‌شده
 
-در نخستین اجرای `sudo wings --debug`، Wings تنظیمات را خواند و به API پنل درخواست فرستاد، اما متوقف شد چون فایل `/etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem` وجود نداشت. این خطا به‌تنهایی نشانهٔ خرابی باینری Wings یا Docker نیست؛ گواهی TLS مربوط به FQDN خود Node هنوز در مسیر تنظیم‌شده موجود نیست.
+در اولین اجرای wings --debug، Wings فایل config.yml را خواند و به API پنل وصل شد، اما به‌دلیل نبودن /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem متوقف شد. علت این بود که تا آن لحظه فقط گواهی Panel صادر شده بود.
 
-**گواهی `panel.fragcity.ir` جایگزین خودکار گواهی `fc-node-01.fragcity.ir` نیست.** ابتدا این بررسی فقط‌خواندنی را روی Debian اجرا کن. این بلوک هیچ تنظیمی را تغییر نمی‌دهد:
+**رفع انجام‌شده در VM فعلی (2026-10-18):** دستور certbot certonly --nginx -d fc-node-01.fragcity.ir با موفقیت اجرا شد؛ Certbot هر دو فایل fullchain.pem و privkey.pem را در مسیر مورد انتظار گزارش کرد، وجود فایل‌ها تأیید شد و تمدید خودکار فعال است. نیازی نیست این گواهی را دوباره صادر کنی.
 
-~~~bash
-(
-echo "=== Local host resolution (may be affected by /etc/hosts) ==="
-getent ahostsv4 fc-node-01.fragcity.ir || true
-
-echo
-echo "=== Public DNS A record via Google DNS-over-HTTPS ==="
-curl -fsS --connect-timeout 5 --max-time 10 'https://dns.google/resolve?name=fc-node-01.fragcity.ir&type=A' || true
-printf '\\n'
-
-echo
-echo "=== Public DNS A record for Panel (comparison) ==="
-curl -fsS --connect-timeout 5 --max-time 10 'https://dns.google/resolve?name=panel.fragcity.ir&type=A' || true
-printf '\\n'
-
-echo
-echo "=== Public IPv4 seen by the server ==="
-curl -4fsS --connect-timeout 5 --max-time 10 https://api.ipify.org || true
-printf '\\n'
-
-echo
-echo "=== Existing Certbot certificates ==="
-if command -v certbot >/dev/null 2>&1; then
-  sudo certbot certificates
-else
-  echo "certbot command not found"
-fi
-
-echo
-echo "=== Expected Node certificate files ==="
-sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem && echo "fullchain: present" || echo "fullchain: missing"
-sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem && echo "privkey: present" || echo "privkey: missing"
-
-echo
-echo "=== NGINX syntax and firewall ==="
-sudo /usr/sbin/nginx -t
-sudo ufw status
-)
-~~~
-
-توجه: `getent` مسیر محلی سیستم را هم بررسی می‌کند؛ اگر خروجی `127.0.1.1` باشد، معمولاً از نگاشت میزبان در `/etc/hosts` آمده و **اثبات‌کنندهٔ رکورد عمومی DNS نیست**.
-
-اگر درخواست `curl` به `dns.google` با خطای `(35) Recv failure: Connection reset by peer` تمام شد، یعنی اتصال HTTPS به آن سرویس DNS-over-HTTPS reset شده است؛ این **نه پاسخ DNS است و نه اثبات نبودن رکورد**. در این حالت، بررسی زیر را از **Windows PowerShell جدا از SSH** اجرا کن تا resolver پیش‌فرض ویندوز و سپس resolver عمومی Cloudflare را مقایسه کنیم:
-
-~~~powershell
-$names = @("fc-node-01.fragcity.ir", "panel.fragcity.ir")
-
-foreach ($name in $names) {
-    Write-Host ""
-    Write-Host "=== Default DNS resolver: $name ==="
-    Resolve-DnsName -Name $name -Type A -ErrorAction Continue |
-        Select-Object Name, Type, IPAddress
-
-    Write-Host ""
-    Write-Host "=== Cloudflare DNS (1.1.1.1): $name ==="
-    Resolve-DnsName -Name $name -Type A -Server 1.1.1.1 -DnsOnly -ErrorAction Continue |
-        Select-Object Name, Type, IPAddress
-}
-~~~
-
-اگر پرس‌وجوی `1.1.1.1` timeout شد، فقط همان پرس‌وجوی مستقیم قابل‌دسترسی نبوده؛ خروجی را بفرست تا resolver دیگری یا روش کنترل‌شدهٔ دیگری را انتخاب کنیم. مقدار A عمومی برای `fc-node-01.fragcity.ir` باید با IPv4 عمومی فعلی Node مطابقت داشته باشد؛ پاسخ `panel.fragcity.ir` فقط برای مقایسه است.
-
-**نتیجهٔ بررسی در 2026-10-18:** خروجی Windows PowerShell پاسخ A برای هر دو نام `fc-node-01.fragcity.ir` و `panel.fragcity.ir` را از resolver پیش‌فرض و پرس‌وجوی مستقیم `1.1.1.1` نشان داد؛ هر چهار پاسخ برابر `85.185.40.85` بودند. بنابراین رکوردهای عمومی A در آن آزمون با IPv4 عمومی گزارش‌شده مطابقت داشتند. خطای اتصال به `dns.google` از خود Debian این نتیجه را نقض نمی‌کند.
-
-**گام بعد:** قبل از صدور گواهی Node، مطمئن شو Port Forward روتر برای **TCP 80 → 192.168.1.7:80** هنوز فعال و به همین VM هدایت می‌شود. گواهی Panel که قبلاً با روش NGINX/HTTP-01 گرفته شده، نشان می‌دهد اعتبارسنجی Panel در زمان صدورش موفق بوده؛ اما وضعیت فعلی Port Forward را به‌تنهایی ثابت نمی‌کند. روش HTTP-01 نیاز به دسترسی ورودی روی TCP 80 دارد. خروجی DNS را با IPv4 عمومی و مقصد رکورد دامنه مقایسه کن. پیش از صدور گواهی، تأیید کن که رکورد عمومی `fc-node-01.fragcity.ir` به مقصد درست می‌رسد و درخواست HTTP-01 از اینترنت به همین Debian می‌رسد. برای روش HTTP-01 باید TCP پورت 80 از روتر به IP LAN فعلی Node هدایت شود و UFW هم اجازهٔ آن را داشته باشد. **صرف بازشدن پنل روی HTTPS این دو مورد را ثابت نمی‌کند.** اگر DNS به Cloudflare یا پراکسی دیگری اشاره می‌کند، این تفاوت را قبل از صدور گواهی مشخص کن.
-
-اگر DNS همان‌طور که در نتیجهٔ بالا تأیید شد درست است، Port Forward TCP 80 همچنان به `192.168.1.7:80` هدایت می‌شود و `certbot certificates` برای نام Node گواهی ندارد، دستور زیر را اجرا کن. اگر هنوز از وضعیت Port Forward مطمئن نیستی، ابتدا آن را در روتر بررسی کن:
+روند مرجع کامل برای صدور، بررسی DNS عمومی، Port Forward و تمدید هر دو گواهی اکنون در مرحلهٔ 3.7.2 قرار دارد. اگر خطای TLS تکرار شد، قبل از تغییر config یا ساخت symlink، مسیرهای همان بخش را بررسی کن؛ محتوای config.yml محرمانه است و نباید در GitHub یا چت قرار بگیرد.
 
 ~~~bash
-sudo certbot certonly --nginx -d fc-node-01.fragcity.ir
-~~~
-
-این دستور را فقط بعد از تأیید پیش‌شرط‌های DNS و دسترسی ورودی اجرا کن. روش NGINX از HTTP-01 استفاده می‌کند؛ اگر Certbot خطا داد، همان خطا را بدون اطلاعات شخصی بفرست و پورت یا تنظیمات را حدس‌زنان تغییر نده.
-
-پس از موفقیت، فقط مسیر و وضعیت فایل‌های گواهی را بررسی کن:
-
-~~~bash
-sudo certbot certificates
 sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem && echo "OK: Node fullchain exists"
 sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem && echo "OK: Node private key exists"
 ~~~
 
-اگر Certbot گواهی را با نام مسیر دیگری مثل `fc-node-01.fragcity.ir-0001` ثبت کرده باشد، Wings همچنان مسیر قبلی را جست‌وجو می‌کند. symlink نساز و تنظیمات محرمانهٔ Wings را خودسرانه تغییر نده؛ ابتدا مسیر واقعی گزارش‌شده را بررسی کنیم.
+### 6.6 اجرای foreground — گام بعدی
 
-منابع رسمی:
-- https://docs.pterodactyl.io/v1/guides/tutorials/ssl-certificates
-- https://certbot.eff.org/instructions
-
-### 6.6 اجرای foreground
-
-فقط بعد از Node creation و config و بعد از اینکه مرحلهٔ 6.5 وجود گواهی TLS مخصوص Node را تأیید کرد:
+Node ساخته شده، /etc/pterodactyl/config.yml از Auto-Deploy تولید شده و گواهی TLS مخصوص fc-node-01.fragcity.ir در مسیر مورد انتظار ایجاد و تأیید شده است. در SSH دبیان اجرا کن:
 
 ~~~bash
 sudo wings --debug
 ~~~
 
-لاگ را بررسی کن. اگر بدون خطای fatal اجرا شد با Ctrl+C متوقفش کن. اگر خطا داد، متن خطا را بفرست و token/secret را حذف کن. تا debug موفق نشده، systemd service نساز و WAN را باز نکن.
+انتظار داریم خطای قبلی missing fullchain.pem دیگر تکرار نشود. اگر Wings بدون خطای FATAL بالا آمد و در حالت foreground ماند، با Ctrl+C متوقفش کن و نتیجه را بفرست؛ پس از تأیید به ساخت systemd می‌رویم. اگر خطای دیگری دیدی، فرمان را پی‌درپی تکرار نکن؛ متن خطا را بفرست و token/secret را حذف کن. تا debug موفق نشده، systemd service نساز و پورت‌های Wings/SFTP را در روتر باز نکن.
 
 ### 6.7 systemd (پس از debug موفق)
 
@@ -1877,7 +1846,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب و config.yml از Auto-Deploy ساخته و خوانده شده است. اجرای wings --debug به‌دلیل نبود گواهی /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem متوقف شد. خروجی Windows PowerShell نشان داد هر دو دامنه در resolver پیش‌فرض و 1.1.1.1 به 85.185.40.85 resolve می‌شوند. گام جاری: تأیید Port Forward TCP 80، صدور گواهی Node و سپس آزمون دوبارهٔ Wings؛ systemd/Node Online هنوز تأیید نشده‌اند. |
+| مرحلهٔ جاری | Panel v1.15.1 روی https://panel.fragcity.ir باز می‌شود؛ Docker Engine 29.9.1 فعال و آزمون hello-world موفق شد؛ باینری Wings 1.13.4 نصب و config.yml از Auto-Deploy ساخته شده است. گواهی‌های جداگانهٔ Panel و Node صادر شده‌اند؛ گواهی Node برای fc-node-01.fragcity.ir تا 2027-01-16 معتبر گزارش شده و هر دو فایل fullchain.pem/privkey.pem تأیید شده‌اند. مرحلهٔ جاری 6.6: اجرای دوبارهٔ sudo wings --debug؛ systemd و Node Online هنوز تأیید نشده‌اند و سرور CS2 ساخته نشده است. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1886,7 +1855,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند. config.yml خوانده شد؛ Wings به‌دلیل نبود گواهی TLS برای fc-node-01.fragcity.ir متوقف شده است. DNS عمومی Node و Panel از Windows با دو resolver برابر 85.185.40.85 مشاهده شده؛ Port Forward TCP 80 هنوز باید تأیید شود. SMTP هنوز مقادیر نمونه دارد. |
+| Panel / Docker / Wings | Panel روی HTTPS پاسخ می‌دهد؛ Docker 29.9.1 فعال و باینری Wings 1.13.4 نصب شده‌اند؛ config.yml موجود است و گواهی مستقل معتبر برای fc-node-01.fragcity.ir صادر/تأیید شده است. مرحلهٔ بعد آزمون foreground است؛ سرویس systemd/Node Online هنوز تأیید نشده. SMTP هنوز مقادیر نمونه دارد. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
