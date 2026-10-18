@@ -2,30 +2,84 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** فقط دستورها، توضیحات، پیش‌نیازها و checkpointهای مرحله‌ای در این سند قرار می‌گیرند. خروجی ترمینال، لاگ واقعی و نتیجهٔ اجرای فرمان‌ها عمداً در README ثبت نمی‌شود؛ خروجی لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. برای اجرای پروژه از صفر، از این سند شروع کن.
 >
-> **آخرین وضعیت: ۱۸ اکتبر ۲۰۲۶.** Pterodactyl Panel، Docker Engine و باینری Wings در VM موجود نصب شده‌اند. مرحلهٔ جاری: رفع مشکل دسترسی به `/admin`، سپس ساخت Node در Panel؛ config، اتصال، debug و سرویس systemd هنوز تکمیل نشده‌اند.
+> **مسیر فعلی متوقف شده است.** هدف جدید: شروع دوباره از نصب Debian 13 به‌شکل Console-only و بدون Desktop Environment. پیش از نصب مجدد همین VM، داده‌های موجود باید بررسی و نسخهٔ پشتیبان آن‌ها حفظ شود. تا آن زمان به ساخت Node یا راه‌اندازی Wings ادامه نده.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
 ---
 
-## 0. محدوده و خط قرمزها
+## 0. وضعیت، محدوده و خط قرمزها
 
-- فعلاً **همین VM موجود** با نام fc-node-01 را ادامه می‌دهیم؛ ساخت VM جدید بخشی از مسیر فعلی نیست.
-- برای نصب‌های آینده Debian را بدون Desktop Environment نصب کن. در Software selection گزینهٔ Debian desktop environment را بردار و SSH server و standard system utilities را انتخاب کن. مدیریت Panel با مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست.
-- وضعیت VM فعلی: Debian 13/Trixie، VMware، x86_64/amd64، kernel برابر 6.12.113+deb13-amd64، چهار vCPU، حدود 5.6 GiB RAM، IP برابر 192.168.1.5.
+- هدف این است که **همین VM با نام fc-node-01** را از ابتدا با Debian 13 بدون محیط گرافیکی آماده کنیم؛ VM جدید جزو برنامهٔ فعلی نیست. چون نصب پاک می‌تواند داده‌ها را حذف کند، ابتدا باید نسخهٔ پشتیبان تأیید شود.
+- هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. 【turn774568search7】【turn774568search3】
+- VM فعلی روی VMware و Debian 13/Trixie است. IP، منابع و دیسک را بعد از شروع مجدد با بلوک بررسی مرحلهٔ 0 مشخص کن؛ از اعداد قدیمی برای نصب مجدد استفاده نکن.
 - Panel در http://192.168.1.5 و مسیر /var/www/pterodactyl است. PHP-FPM socket برابر /run/php/php8.3-fpm.sock.
 - مسیر `/home/steam` شامل فایل‌های CS2/KUS موجود است. **این مسیر را حذف، جابه‌جا، overwrite یا بدون طراحی mount دستکاری نکن.** برای ظرفیت دیسک، در هر مرحله مقدار فعلی را با `df -hT /` بررسی کن.
 - تا بررسی مدل Storage/Egg، هیچ سرور بازی تازه‌ای از Egg نساز؛ ممکن است بازی را دوباره دانلود و فضای دیسک را پر کند.
 - فعلاً Port Forwarding عمومی، دامنه و HTTPS نداریم. این PoC فقط در LAN و روی HTTP است.
 
-## 1. نصب Debian از صفر (راهنمای بازسازی)
+### 0.1 ممیزی اولیه و حفاظت از داده‌ها
 
-این بخش برای نصب آینده است؛ برای ادامه روی VM فعلی Debian را دوباره نصب نکن.
+**این اولین مرحلهٔ اجرایی است.** فقط بررسی می‌کند؛ چیزی را حذف یا تغییر نمی‌دهد. تا زمانی که این مرحله اجرا نشده و مسیر نسخهٔ پشتیبان مشخص نشده است، نصب مجدد یا فرمت دیسک ممنوع است.
+
+~~~bash
+set -eu
+
+echo "=== Current host ==="
+hostname
+cat /etc/os-release | sed -n '1,6p'
+
+echo
+echo "=== Root filesystem ==="
+df -hT /
+
+echo
+echo "=== Existing CS2/KUS data ==="
+if sudo test -d /home/steam; then
+  sudo du -sh /home/steam
+else
+  echo "/home/steam does not exist"
+fi
+
+echo
+echo "=== Block devices and filesystems ==="
+sudo lsblk -f
+
+echo
+echo "=== VMware shared-folder status ==="
+findmnt /mnt/hgfs/W || true
+if mountpoint -q /mnt/hgfs/W; then
+  df -hT /mnt/hgfs/W
+else
+  echo "Shared folder /mnt/hgfs/W is not mounted"
+fi
+~~~
+
+خروجی این بلوک را همین‌جا بفرست؛ **در README ذخیره نکن**. بر اساس آن، مسیر نسخهٔ پشتیبان را تعیین می‌کنیم.
+
+پیش از نصب مجدد باید:
+1. از VM خاموش‌شده در VMware یک Snapshot برگشت‌پذیر بگیری یا از پوشهٔ کامل VM روی دیسک دیگری نسخهٔ کپی داشته باشی.
+2. از هر داده‌ای که باید پس از نصب مجدد بماند، به‌خصوص `/home/steam` و فایل‌های شخصی، نسخهٔ پشتیبان خارج از فایل‌سیستمِ قابل‌فرمت تهیه و وجود فایل‌های آن را بررسی کنی.
+3. فقط بعد از تأیید حفاظت از داده‌ها وارد نصب پاک شوی. Snapshot به‌تنهایی جای نسخهٔ پشتیبان مستقل فایل‌های مهم را نمی‌گیرد.
+
+### 0.2 قرارداد اجرای مرحله‌ای
+
+- از این نقطه، فقط **بلوک مرحلهٔ جاری** را کپی و اجرا کن؛ به مراحل بعدی نپر.
+- خروجی دستورها و لاگ‌ها فقط در چت بررسی می‌شوند و در این README ثبت نمی‌شوند.
+- رمز، APP_KEY، Token و فایل‌های محرمانه را در چت یا GitHub قرار نده.
+- در مسیر جدید، تا قبل از تأیید مرحلهٔ جاری، دستور مرحلهٔ بعد اجرا نشود.
+- فعلاً بخش Node در مرحلهٔ 6.3 را اجرا نکن؛ پس از نصب مجدد، Panel از ابتدا ساخته خواهد شد.
+
+---
+
+## 1. نصب Debian 13 از صفر — Console-only
+
+این مرحله از طریق نصاب Debian در VMware انجام می‌شود. **هنوز آن را اجرا نکن**؛ ابتدا مرحلهٔ 0.1 را کامل کن و نسخهٔ پشتیبان را تأیید کن.
 
 ### 1.1 هنگام نصب
 
 1. ISO رسمی Debian 13.x netinst amd64 را از https://www.debian.org/distrib/ بگیر.
-2. در VMware شبکه را Bridged بگذار. برای PoC اولیه 4 vCPU و حدود 6 GiB RAM در نظر بگیر. اندازهٔ دیسک باید برای Base Game و چند instance کافی باشد؛ در VM فعلی فضای آزاد برای دانلود تکراری CS2 کافی نیست.
+2. در VMware شبکه را Bridged بگذار. برای شروع 4 vCPU و حدود 6 GiB RAM در نظر بگیر. ظرفیت دیسک را با توجه به نگهداری داده‌های موجود و بازی/instanceهای آینده تعیین کن؛ هیچ فایل بازی را در مرحلهٔ نصب overwrite نکن.
 3. Hostname: fc-node-01. کاربر عادی مانند fragcityadmin بساز و دسترسی sudo بده.
 4. Desktop Environment را انتخاب نکن؛ SSH server و standard system utilities را انتخاب کن.
 5. پارتیشن‌بندی باید فقط روی دیسک مجازی VMware باشد، نه دیسک فیزیکی Windows.
@@ -73,7 +127,7 @@ sudo systemctl is-active ssh
 
 ## 2. نصب PHP 8.3 و نیازمندی‌های Panel (نصب تازه)
 
-در VM فعلی PHP 8.3، MariaDB، Redis، NGINX و Composer نصب هستند؛ این بخش برای بازسازی است و لازم نیست اکنون دوباره اجرا شود.
+این مرحله پس از نصب پاک Debian Console-only اجرا می‌شود؛ روی سیستم قدیمی پیش از نصب مجدد اجرا نکن.
 
 ### 2.1 Repository برای PHP 8.3
 
@@ -99,7 +153,7 @@ sudo apt install -y \
   mariadb-server redis-server nginx git curl tar unzip
 ~~~
 
-Composer را از https://getcomposer.org/download/ نصب کن و روش بررسی checksum/signature را از همان صفحه دنبال کن؛ checksum قدیمی را ثابت فرض نکن. در VM فعلی Composer 2.10.3 در /usr/local/bin/composer است.
+Composer را از https://getcomposer.org/download/ دریافت کن و روش بررسی checksum/signature را از همان صفحه دنبال کن؛ checksum قدیمی را ثابت فرض نکن.
 
 بررسی:
 
@@ -379,9 +433,9 @@ ssh -N -L 3307:127.0.0.1:3306 fragcityadmin@192.168.1.5
 
 ---
 
-## 5. Docker Engine (تأیید شده؛ روی همین VM دوباره نصب نکن)
+## 5. Docker Engine — نصب روی Debian Console-only
 
-بلوک زیر سابقهٔ روش نصب از repository رسمی است. روی VM فعلی که docker.sources دارد، دوباره اجرا نکن.
+این بلوک را فقط روی Debian تازه و پس از تکمیل مراحل 1 تا 4 اجرا کن. روی سیستم قدیمی پیش از نصب مجدد اجرا نکن.
 
 ~~~bash
 set -eu
@@ -426,20 +480,18 @@ df -h /
 
 ### 6.1 بررسی نسخهٔ Panel
 
-فرمان بررسی محلی:
+پس از تکمیل نصب Panel و ورود به آن، می‌توانی از این فرمان برای بررسی نسخه استفاده کنی. خروجی را در README قرار نده.
 
 ~~~bash
 cd /var/www/pterodactyl
 sudo -u www-data php8.3 artisan p:info
 ~~~
 
-خروجی این فرمان را در README کپی نکن. برای شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده کن. پیش از نصب مجدد Wings، صفحهٔ https://github.com/pterodactyl/wings/releases را برای Release سازگار بررسی کن.
+برای راه‌اندازی Wings در شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده کن و پیش از نصب، Release سازگار را در https://github.com/pterodactyl/wings/releases بررسی کن.
 
-### 6.2 نصب و تأیید باینری Wings v1.13.4 — انجام شده
+### 6.2 نصب باینری Wings
 
-باینری Wings در مسیر موردنظر قرار داده شده است؛ **دوباره دانلود یا روی فایل موجود نصب نکن** مگر اینکه دلیل مشخصی برای تعویض باینری داشته باشیم.
-
-فرمان اجراشده:
+این مرحله بعد از ساخت Panel و قبل از ساخت Node اجرا شود. فرمان نصب در بلوک زیر برای سیستم تازه آماده شده است؛ اگر باینری از قبل وجود داشت، بلوک عمداً متوقف می‌شود تا فایل موجود بدون بررسی بازنویسی نشود.
 
 ~~~bash
 set -eu
@@ -590,21 +642,19 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 
 ## 9. آخرین checkpoint
 
-| بخش | وضعیت |
+| بخش | وضعیت مسیر جدید |
 |---|---|
-| Debian 13، SSH و LAN | محیط پایه آماده است |
-| Panel | نصب شده؛ مشکل فعلی مسیر `/admin` باید عیب‌یابی شود |
-| MariaDB، Redis، PHP-FPM، NGINX | پیکربندی شده‌اند؛ DB/Redis باید روی loopback بمانند |
-| Cache permissions | مرحلهٔ اصلاح مجوز در راهنمای نصب ثبت شده است |
-| Migration/seed و حساب Admin | مراحل نصب در بخش مربوطه مستند شده‌اند |
-| Docker Engine | نصب شده؛ پیش از استفاده، با فرمان‌های بررسی کنترل شود |
-| Wings | باینری در مسیر موردنظر نصب شده است |
-| Node fc-node-01 | هنوز باید از Panel ساخته شود |
-| Wings config/debug/systemd | پس از ساخت Node و تولید config محرمانه انجام شود |
-| CS2 instance | هنوز ساخته نشود؛ Storage/Egg/Volume باید اول طراحی شوند |
-| دامنه/TLS/Port Forwarding عمومی | در این PoC پیکربندی نشده است |
+| هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
+| شروع مجدد نصب | هنوز انجام نشده؛ ابتدا ممیزی و پشتیبان داده‌های موجود |
+| `/home/steam` و فایل‌های CS2/KUS | باید حفظ شوند؛ تا تأیید پشتیبان نصب مجدد ممنوع |
+| Panel فعلی | مسیر قبلی متوقف؛ پس از شروع مجدد دوباره نصب خواهد شد |
+| Docker و Wings فعلی | با نصب مجدد سیستم‌عامل حذف خواهند شد؛ در مراحل جدید نصب شوند |
+| Node و Wings config | فعلاً متوقف؛ پس از نصب تازهٔ Panel و ساخت Node |
+| CS2 instance | هنوز نساز؛ ابتدا Storage/Egg/Volume طراحی شود |
+| دامنه/TLS/Port Forwarding عمومی | فاز بعدی پس از آزمایش LAN |
 | Website/Wallet/Billing | مراحل آینده |
-| `/home/steam` | باید دست‌نخورده بماند |
+
+یادآوری: خروجی اجرای فرمان‌ها، لاگ‌ها، SHAها و خلاصهٔ نتایج آزمون‌ها را به جدول checkpoint یا بخش دیگری از README اضافه نکن. در این سند فقط دستورها و مراحل قابل تکرار نگهداری شوند.
 
 ## منابع رسمی
 
