@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی: ممیزی مرحلهٔ 1.21 پس از reboot با موفقیت بررسی شده است؛** ورود تازه با SSH Key، APT/dpkg، SSH hardening، UFW، NTP، شبکه، RAM/swap/disk و inodeها تأیید شده‌اند. **Chapter 1 فقط یک کار رابط VMware دارد: مرحلهٔ 1.22 Snapshot پایه** (یا اعلام صریح اینکه این نسخه Snapshot پشتیبانی نمی‌کند). بعد از آن، در Chapter 2 ابتدا مخزن PHP 8.3 را فقط بررسی می‌کنیم؛ چون `apt update` قبلاً `packages.sury.org/php trixie` را دیده، مخزن/کلید را کورکورانه دوباره نساز. قبل از نصب NGINX در 2.2، Port Forward موقت TCP 80 را از روتر حذف کن. مدیریت WAN مودم هنوز برای انتشار عمومی/TLS تأیید نشده است.
+> **وضعیت فعلی: Snapshot پایهٔ `debian13-base-ready` طبق گزارش کاربر گرفته شده؛ مراحل 2.1 تا 2.3 طبق لاگ نصب شده‌اند.** PHP 8.3.35، Composer 2.10.3، NGINX، MariaDB، Redis و PHP-FPM نصب شده و چهار سرویس فعال‌اند؛ افزونه‌های لازم PHP هم تأیید شده‌اند. گام بعدی: مرحلهٔ 2.4 برای کنترل سلامت نهایی بسته‌ها/سرویس‌ها؛ پیش از ادامه حتماً مطمئن شو Port Forward موقت TCP 80 در روتر حذف شده است. سپس می‌توانیم به نصب فایل‌های Panel در 3.1 برسیم. WAN management و TLS عمومی هنوز تأیید نشده‌اند.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -789,15 +789,19 @@ ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthe
 
 ## مسیر اجرایی پس از تکمیل Chapter 1
 
-پس از آنکه مراحل **1.21 و 1.22** با معیارهای بالا تمام شدند، Chapter 1 را کامل بدان و به فصل بعد برو. ترتیب اجرا چنین است:
+**Chapter 1:** Snapshot مرحلهٔ 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده و ممیزی/reboot مرحلهٔ 1.21 تأیید شده است.
 
-1. **2.1 — مخزن PHP 8.3:** اجرای بلوک کامل بخش 2.1؛ آخرین `sudo apt update` باید بدون خطا تمام شود.
-2. **2.2 — بسته‌های برنامه‌ای:** PHP 8.3 و افزونه‌های لازم، MariaDB، Redis و NGINX. قبل از اجرا، Port Forward موقت TCP 80 باید از روتر برداشته شده باشد.
-3. **2.3 — Composer و کنترل سرویس‌ها:** بررسی نسخه‌ها، افزونه‌های PHP و سرویس‌ها.
-4. **3.1 — فایل‌های Panel:** فقط روی نصب تازه و پس از بررسی نسخهٔ رسمی انتخاب‌شده. هرگز `.env` موجود را overwrite نکن.
-5. **3.2 — دیتابیس Panel:** ابتدا بررسی وجود دیتابیس/کاربر؛ فقط برای نصب تازه بساز و رمز را در README یا چت قرار نده.
+**Chapter 2:** مراحل 2.1 تا 2.3 طبق لاگ نصب و بررسی شده‌اند:
+- PHP 8.3.35 و افزونه‌های موردنیاز؛
+- Composer 2.10.3، نصب‌کننده با تطبیق SHA-384؛
+- NGINX، MariaDB، Redis و PHP-FPM نصب و `active`؛
+- MariaDB روی `127.0.0.1:3306` و Redis روی loopback.
 
-**نقطهٔ توقف بعدی:** بعد از پایان موفق 3.2، متوقف شو و لاگ‌های مراحل 2.1 تا 3.2 را برای بررسی بفرست. فعلاً Wizardهای 3.3 به بعد، TLS عمومی، Wings، Docker و هرگونه instance/فایل بازی CS2 را اجرا نکن.
+**پیش از گام بعد:** لاگ نشان می‌دهد NGINX اکنون روی `0.0.0.0:80` و `[::]:80` گوش می‌دهد. اگر Port Forward موقت TCP 80 هنوز در مودم/روتر به `192.168.1.7:80` اشاره می‌کند، همین حالا آن rule را disable/delete کن؛ فعلاً صفحهٔ پیش‌فرض NGINX را نباید از اینترنت منتشر کنیم. اگر قبلاً حذفش کرده‌ای، دوباره تغییرش نده.
+
+سپس مرحلهٔ **2.4 — پس‌بررسی سلامت** را اجرا کن. بعد از بررسی لاگ 2.4، مرحلهٔ 3.1 را اجرا می‌کنیم. در نصب تازه، 3.1 فایل‌های نسخهٔ پایدار انتخاب‌شدهٔ Panel را دریافت می‌کند و فقط یک‌بار `APP_KEY` می‌سازد؛ هرگز اجرای 3.1 را روی مسیر دارای `.env` موجود تکرار نکن. مرحلهٔ 3.2 دیتابیس را می‌سازد و بعد از آن متوقف می‌شویم تا لاگ‌ها بازبینی شوند.
+
+**مرحله‌های اجراشده طبق لاگ:** 2.1، 2.2 و 2.3.
 
 ## 2. نصب PHP 8.3 و نیازمندی‌های Panel (نصب تازه)
 
@@ -907,6 +911,69 @@ sudo ss -ltnp | grep -E ':(22|80|443|3306|6379)\b' || true
 MariaDB باید روی 127.0.0.1:3306 و Redis روی loopback بمانند؛ برای این PoC این پورت‌ها را عمومی نکن.
 
 ---
+
+
+### 2.4 پس‌بررسی سلامت پس از نصب
+
+این مرحله فقط‌خواندنی است و پیش از دریافت فایل‌های Panel اجرا می‌شود. بسته‌ها و سرویس‌ها در لاگ قبلی نصب شده‌اند؛ این بررسی سلامت Package Manager، نحو NGINX/PHP-FPM، اتصال محلی دیتابیس/Redis و پورت‌های در حال گوش‌دادن را کنترل می‌کند.
+
+**پیش‌شرط امنیتی:** قبل از اجرا بررسی کن Port Forward موقت TCP 80 در مودم/روتر به Debian حذف شده باشد. چون NGINX در حال حاضر روی پورت 80 گوش می‌دهد و UFW آن را مجاز کرده است، باقی‌ماندن Port Forward می‌تواند صفحهٔ پیش‌فرض NGINX را از اینترنت قابل‌دسترسی کند.
+
+~~~bash
+set -eu
+
+echo "=== Package manager health ==="
+sudo apt-get check
+sudo dpkg --audit
+
+echo
+echo "=== Installed versions ==="
+php8.3 -v
+php8.3 /usr/local/bin/composer --version
+mariadb --version
+redis-server --version
+nginx -v 2>&1
+
+echo
+echo "=== PHP-FPM syntax ==="
+sudo php-fpm8.3 -t
+
+echo
+echo "=== NGINX syntax ==="
+sudo nginx -t
+
+echo
+echo "=== Required services ==="
+sudo systemctl is-enabled nginx mariadb redis-server php8.3-fpm
+sudo systemctl is-active nginx mariadb redis-server php8.3-fpm
+
+echo
+echo "=== MariaDB local socket/query ==="
+sudo mariadb -Nse "SELECT VERSION();"
+
+echo
+echo "=== Redis local health ==="
+redis-cli ping
+
+echo
+echo "=== Local NGINX response ==="
+curl --connect-timeout 5 --max-time 10 -sS -o /dev/null \
+  -w 'HTTP status: %{http_code}\n' http://127.0.0.1/
+
+echo
+echo "=== Listening TCP ports ==="
+sudo ss -ltnp
+~~~
+
+معیار قبولی:
+- `apt-get check` بدون خطا تمام شود و `dpkg --audit` مورد ناقصی گزارش نکند.
+- `php-fpm8.3 -t` و `nginx -t` موفق باشند.
+- هر چهار سرویس `nginx`, `mariadb`, `redis-server`, `php8.3-fpm` هم enabled و هم active باشند.
+- پرس‌وجوی محلی MariaDB یک نسخه برگرداند و Redis پاسخ `PONG` بدهد.
+- درخواست محلی NGINX یک status HTTP برگرداند؛ قبل از نصب Virtual Host، پاسخ صفحهٔ پیش‌فرض روی loopback طبیعی است.
+- MariaDB روی loopback بماند و Redis فقط روی loopback گوش دهد. NGINX روی پورت 80 انتظار می‌رود؛ پورت 443 تا پیش از پیکربندی TLS هنوز ممکن است listener نداشته باشد.
+
+اگر معیار قبولی برقرار نبود، 3.1 را اجرا نکن؛ خروجی خطا/سرویس‌های ناموفق را بفرست. لاگ‌های واقعی را در README ثبت نکن.
 
 ## 3. نصب Pterodactyl Panel — فاز آینده، پیش از اجرا نسخه را بازبینی کن
 
@@ -1439,8 +1506,8 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | ممیزی 1.21 بعد از reboot کامل است، از جمله `df -ih /` با inodeهای 1%؛ گام رابط VMware یعنی Snapshot مرحلهٔ 1.22 هنوز در گفت‌وگو تأیید نشده. بعد از Snapshot، در 2.1 فقط مخزن PHP موجود را تأیید کن؛ مخزن Sury قبلاً در `apt update` دیده شده است. |
-| مراحل پایه | 1.9 تا 1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ مرحلهٔ 1.22 Snapshot هنوز باید انجام و گزارش شود |
+| مرحلهٔ جاری | Chapter 1 کامل است؛ Snapshot `debian13-base-ready` طبق گزارش کاربر گرفته شده. مراحل 2.1–2.3 طبق لاگ کامل‌اند: PHP 8.3.35، Composer 2.10.3، NGINX/MariaDB/Redis/PHP-FPM active. گام بعد 2.4 پس‌بررسی سلامت و تأیید حذف Port Forward موقت TCP 80 است؛ سپس 3.1. |
+| مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
 | IP LAN / رزرو DHCP | آخرین خروجی: `192.168.1.7/24` روی `ens33`، Gateway برابر `192.168.1.1`. رزرو DHCP روتر را پیش از اتکا به IP در Port Forward تأیید کن. |
@@ -1448,7 +1515,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | نصب روی Debian تازه هنوز آغاز نشده |
+| Panel / Docker / Wings | Panel و Docker/Wings هنوز نصب نشده‌اند؛ پیش‌نیازهای Panel در 2.1–2.3 نصب شده‌اند. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
