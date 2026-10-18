@@ -1,8 +1,8 @@
 # FragCity — راهنمای مادرِ Copy/Paste از Debian تا سرورهای CS2
 
-> **این فایل مرجع اجرایی واحد پروژه است.** فرمان‌ها و نتیجه‌های تأییدشده به ترتیب ثبت می‌شوند؛ بعد از هر مرحلهٔ جدید، همین فایل به‌روز خواهد شد. برای اجرای پروژه از صفر، از این سند شروع کن.
+> **این فایل مرجع اجرایی واحد پروژه است.** فقط دستورها، توضیحات، پیش‌نیازها و checkpointهای مرحله‌ای در این سند قرار می‌گیرند. خروجی ترمینال، لاگ واقعی و نتیجهٔ اجرای فرمان‌ها عمداً در README ثبت نمی‌شود؛ خروجی لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. برای اجرای پروژه از صفر، از این سند شروع کن.
 >
-> **آخرین وضعیت: ۱۸ اکتبر ۲۰۲۶.** Pterodactyl Panel نسخهٔ 1.15.1 نصب و ورود از Windows در LAN تأیید شده؛ Docker Engine نسخهٔ 29.9.1 نصب و `hello-world` موفق؛ باینری Wings نسخهٔ 1.13.4 در `/usr/local/bin/wings` نصب و اجرای `--help` و `version` تأیید شده است. مرحلهٔ جاری: ساخت Node در Panel؛ config، اتصال، debug و سرویس systemd هنوز انجام نشده‌اند.
+> **آخرین وضعیت: ۱۸ اکتبر ۲۰۲۶.** Pterodactyl Panel، Docker Engine و باینری Wings در VM موجود نصب شده‌اند. مرحلهٔ جاری: رفع مشکل دسترسی به `/admin`، سپس ساخت Node در Panel؛ config، اتصال، debug و سرویس systemd هنوز تکمیل نشده‌اند.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -14,7 +14,7 @@
 - برای نصب‌های آینده Debian را بدون Desktop Environment نصب کن. در Software selection گزینهٔ Debian desktop environment را بردار و SSH server و standard system utilities را انتخاب کن. مدیریت Panel با مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست.
 - وضعیت VM فعلی: Debian 13/Trixie، VMware، x86_64/amd64، kernel برابر 6.12.113+deb13-amd64، چهار vCPU، حدود 5.6 GiB RAM، IP برابر 192.168.1.5.
 - Panel در http://192.168.1.5 و مسیر /var/www/pterodactyl است. PHP-FPM socket برابر /run/php/php8.3-fpm.sock.
-- Root filesystem برابر 112 GiB و در آخرین snapshot حدود 27 GiB آزاد بود. مسیر /home/steam حدود 71 GiB فایل‌های CS2/KUS دارد. **این مسیر را حذف، جابه‌جا، overwrite یا بدون طراحی mount دستکاری نکن.**
+- مسیر `/home/steam` شامل فایل‌های CS2/KUS موجود است. **این مسیر را حذف، جابه‌جا، overwrite یا بدون طراحی mount دستکاری نکن.** برای ظرفیت دیسک، در هر مرحله مقدار فعلی را با `df -hT /` بررسی کن.
 - تا بررسی مدل Storage/Egg، هیچ سرور بازی تازه‌ای از Egg نساز؛ ممکن است بازی را دوباره دانلود و فضای دیسک را پر کند.
 - فعلاً Port Forwarding عمومی، دامنه و HTTPS نداریم. این PoC فقط در LAN و روی HTTP است.
 
@@ -73,7 +73,7 @@ sudo systemctl is-active ssh
 
 ## 2. نصب PHP 8.3 و نیازمندی‌های Panel (نصب تازه)
 
-در VM فعلی PHP 8.3.35، MariaDB، Redis، NGINX و Composer نصب هستند؛ این بخش برای بازسازی است و لازم نیست اکنون دوباره اجرا شود.
+در VM فعلی PHP 8.3، MariaDB، Redis، NGINX و Composer نصب هستند؛ این بخش برای بازسازی است و لازم نیست اکنون دوباره اجرا شود.
 
 ### 2.1 Repository برای PHP 8.3
 
@@ -122,7 +122,7 @@ MariaDB باید روی 127.0.0.1:3306 و Redis روی loopback بمانند؛ �
 
 ## 3. نصب Pterodactyl Panel 1.15.1 (نصب تازه)
 
-نسخهٔ VM فعلی با خروجی واقعی artisan p:info برابر 1.15.1 تأیید شده. برای بازسازی، صفحهٔ https://github.com/pterodactyl/panel/releases را دوباره بررسی و نسخه را pin کن.
+نسخهٔ نصب‌شدهٔ Panel برابر 1.15.1 است. برای بازسازی، صفحهٔ https://github.com/pterodactyl/panel/releases را دوباره بررسی و نسخه را pin کن.
 
 ### 3.1 دریافت فایل‌ها و Composer
 
@@ -192,7 +192,7 @@ sudo -u www-data php8.3 artisan p:environment:database
 
 ### 3.4 اصلاح مجوز Cache، Migration و مدیر
 
-اصلاح واقعی Cache permission و آزمون موفق:
+اصلاح مجوز Cache برای نصب تازه:
 
 ~~~bash
 set -eu
@@ -211,7 +211,7 @@ sudo -u www-data php8.3 artisan migrate --seed --force
 sudo -u www-data php8.3 artisan p:user:make
 ~~~
 
-هر دو فرمان در نصب فعلی موفق شدند و حساب Administrator ساخته شد. روی نصب فعلی دوباره اجرا نکن مگر دلیل مشخصی وجود داشته باشد.
+این فرمان‌ها فقط در نصب تازه و در نقطهٔ مناسب فرایند اجرا شوند؛ Migration و ساخت Administrator را بی‌دلیل روی نصب فعال تکرار نکن.
 
 بررسی Eggها:
 
@@ -219,7 +219,7 @@ sudo -u www-data php8.3 artisan p:user:make
 sudo mariadb panel -e "SELECT id, name, nest_id FROM eggs WHERE LOWER(name) LIKE '%counter%strike%' OR LOWER(name) LIKE '%cs2%' ORDER BY name;"
 ~~~
 
-نتیجهٔ قبلی: فقط Egg به نام Counter-Strike: Global Offensive، ID برابر 11 و Nest ID برابر 2 دیده شد؛ Egg اختصاصی CS2 هنوز تأیید نشده است.
+فرمان بالا صرفاً برای بررسی فهرست Eggهای همین نصب است. نام یا شناسهٔ Egg را حدس نزن؛ تا زمانی که سازگاری Egg با CS2 تأیید نشده، سرور جدید نساز.
 
 ### 3.5 پیکربندی NGINX برای LAN
 
@@ -292,7 +292,44 @@ sudo systemctl is-active nginx
 curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: 192.168.1.5' http://127.0.0.1/
 ~~~
 
-ورود از Windows به http://192.168.1.5 موفق شد. این فقط LAN/HTTP است.
+پس از فعال‌سازی، دسترسی را از مرورگر Windows بررسی کن. این پیکربندی فقط برای LAN/HTTP است.
+
+### 3.6 عیب‌یابی مسیر `/admin` در LAN
+
+اگر `http://192.168.1.5/admin` باز نمی‌شود، قبل از تغییر تنظیمات Node این بررسی‌های فقط‌خواندنی را روی Debian اجرا کن. خروجی ترمینال را به README اضافه نکن.
+
+~~~bash
+set +e
+
+echo "=== Local HTTP routes ==="
+for path in / /admin /auth/login; do
+  printf '%-14s ' "$path"
+  curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
+    -w 'HTTP=%{http_code} redirect=%{redirect_url}\n' \
+    -H 'Host: 192.168.1.5' "http://127.0.0.1${path}"
+done
+
+echo
+echo "=== Web services ==="
+sudo systemctl is-active nginx php8.3-fpm mariadb redis-server
+
+echo
+echo "=== NGINX configuration syntax ==="
+sudo nginx -t
+
+echo
+echo "=== Registered admin routes ==="
+cd /var/www/pterodactyl
+sudo -u www-data php8.3 artisan route:list --path=admin
+~~~
+
+راهنمای تفسیر برای ادامهٔ عیب‌یابی:
+- اگر مسیر `/` و `/admin` به‌صورت محلی پاسخ HTTP می‌دهند، وب‌سرور دست‌کم درخواست را دریافت می‌کند؛ رفتار مرورگر و نوع redirect را جداگانه بررسی کن.
+- اگر `/admin` پاسخ `500` می‌دهد، خطای Laravel را بررسی کن؛ اگر `502` می‌دهد، NGINX و PHP-FPM را بررسی کن.
+- اگر درخواست محلی سالم است ولی از Windows باز نمی‌شود، ارتباط LAN، IP ماشین و فایروال را بررسی کن.
+- تا پیش از مشخص‌شدن خطا، NGINX را بازنویسی نکن، سرویس‌ها را کورکورانه restart نکن و Node جدید نساز.
+
+
 
 ---
 
@@ -311,7 +348,7 @@ sudo journalctl --disk-usage
 sudo du -sh /var/log /var/lib/docker /var/lib/containerd 2>/dev/null || true
 ~~~
 
-نتیجهٔ ثبت‌شده: root برابر 112 GiB، حدود 80 GiB مصرف، حدود 27 GiB آزاد؛ /home/steam حدود 71 GiB. اعداد با زمان تغییر می‌کنند.
+فضای دیسک با زمان تغییر می‌کند؛ همیشه مقدار فعلی `df -hT /` را پیش از تخصیص فضا ملاک قرار بده. مسیر `/home/steam` را دستکاری نکن.
 
 ### 4.2 لاگ‌ها و سرویس‌ها
 
@@ -322,7 +359,7 @@ sudo journalctl -u nginx -n 80 --no-pager
 sudo journalctl -u php8.3-fpm -n 80 --no-pager
 ~~~
 
-تا وقتی Wings نصب نشده، نبودن service آن طبیعی است.
+وجود باینری Wings به‌تنهایی به معنی ایجاد یا فعال‌بودن سرویس systemd نیست؛ وضعیت سرویس را فقط پس از مرحلهٔ ساخت سرویس بررسی کن.
 
 ### 4.3 اتصال Windows و تونل دیتابیس
 
@@ -369,11 +406,9 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo systemctl enable --now docker
 ~~~
 
-در تلاش ابتدایی HTTP 403 دیده شد؛ تست مجدد endpointهای رسمی هر دو HTTP 200 داد و بسته‌ها نصب شدند.
+پس از نصب یا برای عیب‌یابی، آزمون‌های زیر را اجرا کن. خروجی آن‌ها را به این README اضافه نکن؛ در صورت نیاز به عیب‌یابی، خروجی مرتبط را در گفت‌وگو بفرست.
 
-نتیجهٔ واقعی: Docker version 29.9.1, build dfc520d؛ سرویس ACTIVE؛ docker info نسخهٔ Server برابر 29.9.1 و docker run --rm hello-world موفق بود.
-
-آزمون تکرارپذیر:
+آزمون‌های بررسی:
 
 ~~~bash
 sudo docker --version
@@ -391,27 +426,18 @@ df -h /
 
 ### 6.1 بررسی نسخهٔ Panel
 
-اجراشده:
+فرمان بررسی محلی:
 
 ~~~bash
 cd /var/www/pterodactyl
 sudo -u www-data php8.3 artisan p:info
 ~~~
 
-نتیجهٔ واقعی:
-- Panel Version: 1.15.1
-- Latest Version: error
-- Up-to-Date: Yes
-- URL: http://192.168.1.5
-- Environment production، Debug No، timezone Asia/Tehran
-- Cache/Queue/Session برابر redis
-- DB host برابر 127.0.0.1:3306، database برابر panel، user برابر pterodactyl.
-
-Latest Version: error یعنی این فرمان نتوانست مقدار Latest را دریافت کند؛ به‌تنهایی دلیل خرابی Panel نیست. برای شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده می‌کنیم. صفحهٔ Release رسمی که ۱۸ اکتبر ۲۰۲۶ بررسی شد v1.13.4 را آخرین Release معرفی می‌کرد: https://github.com/pterodactyl/wings/releases .
+خروجی این فرمان را در README کپی نکن. برای شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده کن. پیش از نصب مجدد Wings، صفحهٔ https://github.com/pterodactyl/wings/releases را برای Release سازگار بررسی کن.
 
 ### 6.2 نصب و تأیید باینری Wings v1.13.4 — انجام شده
 
-این گام در ۱۸ اکتبر ۲۰۲۶ اجرا شد؛ **دوباره دانلود یا روی فایل موجود نصب نکن** مگر اینکه دلیل مشخصی برای تعویض باینری داشته باشیم.
+باینری Wings در مسیر موردنظر قرار داده شده است؛ **دوباره دانلود یا روی فایل موجود نصب نکن** مگر اینکه دلیل مشخصی برای تعویض باینری داشته باشیم.
 
 فرمان اجراشده:
 
@@ -435,20 +461,14 @@ sudo install -o root -g root -m 0755 \
 /usr/local/bin/wings --help
 ~~~
 
-خروجی‌های واقعی ثبت‌شده:
-- فایل: ELF 64-bit LSB executable، x86-64، statically linked، stripped.
-- SHA-256: `7e763389bb5d386a7d32ccdd46cffcf1ab9ed697e5c2aca7fe44183b527cd4c0`
-- `sudo /usr/local/bin/wings version`: خروجی `wings vv1.13.4` و Copyright © 2018–2026 Dane Everitt & Contributors.
-- مالکیت و مجوز: `owner=root:root mode=755 size=28299424 path=/usr/local/bin/wings`.
-
-فرمان بررسیِ فقط‌خواندنی برای دفعات بعد:
+فرمان‌های بررسیِ فقط‌خواندنی (خروجی را در README ثبت نکن):
 
 ~~~bash
 sudo /usr/local/bin/wings version
 sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /usr/local/bin/wings
 ~~~
 
-این خروجی‌ها نصب باینری را تأیید می‌کنند، نه اتصال Wings به Panel.
+این فرمان‌ها فقط باینری محلی را بررسی می‌کنند و به‌معنی پیکربندی یا اتصال Wings به Panel نیستند.
 
 ### 6.3 ساخت Node از مرورگر Windows — گام بعدی
 
@@ -464,7 +484,7 @@ echo "=== Root filesystem ==="
 df -hT /
 ~~~
 
-آخرین snapshot ما حدود 27 GiB فضای آزاد داشت، اما قبل از تنظیم Node مقدار فعلی را ملاک بگیر.
+قبل از تنظیم Node، فضای آزاد فعلی را ملاک بگیر.
 
 در مرورگر Windows:
 1. وارد `http://192.168.1.5` شو و مطمئن شو با حساب Administrator وارد شده‌ای.
@@ -572,19 +592,19 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 
 | بخش | وضعیت |
 |---|---|
-| Debian 13، SSH و LAN | انجام شده طبق خروجی‌های ثبت‌شده |
-| Panel 1.15.1 | نصب؛ ورود Windows تأیید شده |
-| MariaDB، Redis، PHP-FPM، NGINX | فعال؛ DB/Redis روی loopback |
-| Cache permissions | اصلاح و تأیید شده |
-| Migration/seed و Admin | موفق |
-| Docker 29.9.1 | نصب؛ daemon active؛ hello-world موفق |
-| Wings v1.13.4 | باینری نصب شده؛ `version` و مالکیت/مجوز تأیید شده |
-| Node fc-node-01 | مرحلهٔ جاری: ساخت در Panel |
-| Wings config/debug/systemd | منتظر Node؛ config محرمانه باید محلی تولید شود |
-| CS2 instance | هنوز ساخته نشده؛ Storage/Egg/Volume مسدودکننده است |
-| دامنه/TLS/Port Forwarding عمومی | انجام نشده |
+| Debian 13، SSH و LAN | محیط پایه آماده است |
+| Panel | نصب شده؛ مشکل فعلی مسیر `/admin` باید عیب‌یابی شود |
+| MariaDB، Redis، PHP-FPM، NGINX | پیکربندی شده‌اند؛ DB/Redis باید روی loopback بمانند |
+| Cache permissions | مرحلهٔ اصلاح مجوز در راهنمای نصب ثبت شده است |
+| Migration/seed و حساب Admin | مراحل نصب در بخش مربوطه مستند شده‌اند |
+| Docker Engine | نصب شده؛ پیش از استفاده، با فرمان‌های بررسی کنترل شود |
+| Wings | باینری در مسیر موردنظر نصب شده است |
+| Node fc-node-01 | هنوز باید از Panel ساخته شود |
+| Wings config/debug/systemd | پس از ساخت Node و تولید config محرمانه انجام شود |
+| CS2 instance | هنوز ساخته نشود؛ Storage/Egg/Volume باید اول طراحی شوند |
+| دامنه/TLS/Port Forwarding عمومی | در این PoC پیکربندی نشده است |
 | Website/Wallet/Billing | مراحل آینده |
-| /home/steam | بدون تغییر حفظ شود |
+| `/home/steam` | باید دست‌نخورده بماند |
 
 ## منابع رسمی
 
