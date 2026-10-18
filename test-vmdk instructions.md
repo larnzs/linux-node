@@ -597,15 +597,34 @@ SCRIPT
 - Hostname برابر `fc-node-01` و IP برابر `192.168.1.9` است؛ `/etc/hosts` نام میزبان را resolve می‌کند.
 - Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال بودند. تست Nginx موفق بود، HTTPS محلی `panel.fragcity.ir` پاسخ HTTP 200 داد، و گواهی‌های Panel/Node بیش از 14 روز تا انقضا داشتند.
 - پورت‌های TCP 80، 443، 8080 و 2022 در حالت LISTEN بودند. MariaDB socket ping و Redis PING موفق بودند. Root filesystem تقریباً 1% مصرف و حدود 253 GB آزاد داشت. خطای سطح بالا در سرویس‌های پایش‌شده طی 15 دقیقهٔ اخیر دیده نشد.
-- تنها WARN اسکریپت این بود که واحد systemd به نام `pteroq.service` پیدا نشد. مستندات رسمی Pterodactyl برای نصب عادی Panel، queue worker و scheduler را به‌عنوان اجزای لازم برای پردازش کارهای پس‌زمینه مستند می‌کند؛ پس قبل از Production باید مشخص کنیم worker یا scheduler جایگزینی فعال است یا واقعاً راه‌اندازی نشده است. citeturn136603search1
+- تنها WARN اسکریپت این بود که واحد systemd به نام pteroq.service پیدا نشد. بررسی بعدی نیز هیچ Queue Worker در حال اجرا، هیچ systemd unit مرتبط و هیچ cron entry برای artisan schedule:run پیدا نکرد. این یعنی Queue/Scheduler به‌احتمال زیاد هنوز پیکربندی نشده‌اند؛ قبل از ساخت سرویس جدید، مسیر واقعی Panel و مقدار غیرمحرمانه QUEUE_CONNECTION را تأیید می‌کنیم. طبق راهنمای رسمی Pterodactyl v1، نصب استاندارد به queue worker و cron برای اجرای schedule:run نیاز دارد: https://docs.pterodactyl.io/v1/panel/getting-started
 - UFW یک قانون ورودی `29001/udp` از Anywhere دارد. چون هنوز سرور CS2 یا Container بازی ساخته نشده، فعلاً آن را حذف نکن؛ ابتدا بررسی کن برنامه‌ای واقعاً روی این پورت UDP گوش می‌دهد و این قانون برای چه منظوری اضافه شده است.
 - اسکریپت نتوانسته مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند. این دو مورد هنوز باید دستی تأیید شوند. خروجی خام ترمینال در این سند ذخیره نشده است.
 
-### گام بعدی — بررسی فقط‌خواندنی Queue/Scheduler و UDP
+### گام بعدی — بررسی فقط‌خواندنی مسیر Panel، Queue/Scheduler و UDP
 
-قبل از نصب سرویس جدید، این بلوک فقط‌خواندنی را اجرا کن؛ هیچ فایلی تغییر نمی‌کند و credentialها چاپ نمی‌شوند:
+نتیجهٔ فعلی نشان می‌دهد هیچ Queue Worker در حال اجرا، هیچ Unit مرتبطی و هیچ cron entry برای artisan schedule:run پیدا نشده است. مستندات رسمی Pterodactyl v1 وجود هر دو سازوکار را برای کارهای پس‌زمینهٔ پنل توضیح می‌دهد: https://docs.pterodactyl.io/v1/panel/getting-started. هنوز Unit یا cron جدید نساز؛ ابتدا مسیر برنامه و تنظیم غیرمحرمانهٔ Queue را از خود VM تأیید کن.
+
+این بلوک فقط‌خواندنی است؛ مقادیر رمز، APP_KEY، پسورد DB یا توکن‌ها را نمایش نمی‌دهد:
 
 ~~~bash
+set +e
+
+echo "=== Candidate Panel paths and version ==="
+for path in /var/www/pterodactyl /var/www/panel /var/www/fragcity-panel; do
+    if [ -f "$path/artisan" ] && [ -f "$path/.env" ]; then
+        echo "Panel files found: $path"
+        sudo -u www-data php "$path/artisan" --version 2>&1
+        echo "Non-secret environment settings:"
+        sudo awk -F= '
+          /^(APP_ENV|QUEUE_CONNECTION|CACHE_DRIVER|CACHE_STORE|REDIS_HOST|REDIS_PORT)=/ {
+            print $1 "=" $2
+          }
+        ' "$path/.env"
+    fi
+done
+
+echo
 echo "=== Queue/worker service units ==="
 systemctl list-unit-files --type=service --no-legend 2>/dev/null |
   grep -Ei 'pteroq|queue|horizon|supervisor' || true
@@ -614,6 +633,11 @@ echo
 echo "=== Running Panel queue processes ==="
 ps -eo pid,user,args |
   grep -E '[a]rtisan queue:work|[a]rtisan horizon' || true
+
+echo
+echo "=== Cron service state ==="
+systemctl is-active cron 2>/dev/null || true
+systemctl is-enabled cron 2>/dev/null || true
 
 echo
 echo "=== Scheduler entries ==="
@@ -633,13 +657,14 @@ echo "=== UFW rules with numbers ==="
 sudo ufw status numbered
 ~~~
 
-خروجی را برای تحلیل بفرست؛ در این مرحله هنوز `pteroq.service` نساز و قانون UDP را هم حذف نکن.
+**نحوهٔ تصمیم‌گیری:**
 
-- `[PASS]` یعنی همان بررسی موفق بوده است.
-- `[WARN]` یعنی موردی نیازمند بررسی است، نه لزوماً خرابی. برای مثال، نبودن `pteroq.service` باید جداگانه بررسی شود؛ صرفاً به‌خاطر این هشدار چیزی نصب نکن.
-- `[FAIL]` یعنی بررسی مهمی ناموفق بوده و علت باید پیش از ادامه مشخص شود.
+- اگر مسیر Panel و QUEUE_CONNECTION مشخص شد، با همان مقدار و مسیر واقعی طراحی و پیکربندی Queue Worker را درست انجام می‌دهیم؛ مقدار را حدس نمی‌زنیم.
+- اگر Scheduler واقعاً وجود ندارد، یک cron job هر دقیقه برای artisan schedule:run طبق مستند رسمی لازم است. فعلاً آن را اضافه نکن تا مسیر تأیید شود.
+- پورت 29001/udp در UFW مجاز است اما Listener پیدا نشده. چون هنوز Instance بازی نداریم، فعلاً قانون را حذف نکن؛ ابتدا کاربرد آن را در تنظیمات allocation/فایروال پروژه روشن می‌کنیم.
+- مقصد Port Forward روتر و Online بودن Node در UI پنل را این فرمان‌ها نمی‌توانند ثابت کنند؛ آن دو مورد باید دستی تأیید شوند.
 
-**محدودیت مهم:** این کد پورت‌های در حال Listen روی Debian را می‌سنجد، اما نمی‌تواند مقصد Port Forward مودم/روتر را اثبات کند. مقصد قوانین موجود TCP 80/443/8080/2022 را در رابط روتر و IP `192.168.1.9` به‌صورت دستی تطبیق بده. وضعیت Online بودن Node را نیز از داخل Panel بررسی کن. اسکریپت گزارشی می‌دهد و خودش چیزی را تعمیر نمی‌کند.
+خروجی را برای تحلیل بفرست. فعلاً pteroq.service نساز و قانون UDP را هم حذف نکن.
 
 ## 11. پایان تست و بازگشت به VM اصلی
 
@@ -697,15 +722,18 @@ sudo ufw status numbered
 - [x] MAC کلون جدید است و DHCP فعلاً IP برابر 192.168.1.9 داده است.
 - [x] hostname داخل Clone به fc-node-01 برگردانده شد؛ /etc/hosts نام میزبان را resolve می‌کند.
 - [x] Health check فقط‌خواندنی نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد.
-- [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx config test و HTTPS محلی Panel موفق بودند.
-- [x] گواهی‌های Panel و Node بیش از 14 روز تا انقضا داشتند؛ پورت‌های TCP 80/443/8080/2022 در حالت LISTEN بودند؛ MariaDB و Redis پاسخ دادند.
-- [ ] بررسی فقط‌خواندنی Queue/Scheduler انجام شود، چون pteroq.service پیدا نشده است.
-- [ ] مشخص شود قانون UFW ورودی 29001/udp برای چه منظوری ایجاد شده و آیا listener واقعی روی آن وجود دارد؛ تا پیش از مشخص‌شدن هدف، قانون را حذف نکن.
-- [ ] در مودم مقصد Port Forwardهای موجود TCP 80/443/8080/2022 به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
-- [ ] دسترسی خارجی به Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
+- [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx test و HTTPS محلی Panel موفق بودند.
+- [x] بررسی‌های بعدی هیچ Queue Worker در حال اجرا، هیچ Unit مرتبط و هیچ Scheduler cron entry پیدا نکردند.
+- [x] قانون ورودی UFW برای 29001/udp وجود دارد، ولی Listener فعالی روی آن پورت پیدا نشده است.
+- [ ] مسیر واقعی Panel، نسخه و مقادیر غیرمحرمانهٔ QUEUE_CONNECTION/Redis را تأیید کن.
+- [ ] بررسی کن cron فعال است و بعد از تأیید مسیر Panel، cron مربوط به artisan schedule:run را پیکربندی کن.
+- [ ] Queue Worker را مطابق مسیر واقعی Panel و تنظیم QUEUE_CONNECTION پیکربندی کن؛ تا پیش از این تأیید، Unit جدید نساز.
+- [ ] مشخص کن UDP 29001 برای چه منظوری باز شده؛ تا قبل از شناخت کاربردش، قانون را حذف نکن.
+- [ ] مقصد Port Forwardهای موجود TCP 80/443/8080/2022 در روتر به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
+- [ ] دسترسی بیرونی Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
 - [ ] دیسک تازه با lsblk و blkid شناسایی شود؛ تا قبل از تأیید فرمت نشود.
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
 - [ ] برای بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). هشدار باقی‌مانده نبودن pteroq.service است؛ مقصد Port Forward و وضعیت Online از UI پنل نیز مستقل از این تست باید تأیید شوند. یک قانون UFW ورودی 29001/udp هم دیده شده که هدف آن هنوز مشخص نیست. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). بررسی بعدی نشان داد Queue Worker و Scheduler cron فعلاً دیده نشدند؛ مسیر واقعی Panel و QUEUE_CONNECTION باید قبل از راه‌اندازی آن‌ها تأیید شود. UFW قانون ورودی 29001/udp دارد ولی Listener فعالی روی این پورت پیدا نشده است. مقصد Port Forward و وضعیت Online از UI پنل باید دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند.
