@@ -1415,30 +1415,71 @@ sudo du -sh /var/log /var/lib/docker /var/lib/containerd 2>/dev/null || true
 
 ### 4.2 لاگ‌ها و سرویس‌ها
 
+این بلوک وضعیت سرویس‌های فصل‌های 2–3 را بررسی می‌کند؛ آن‌ها باید فعال باشند:
+
 ~~~bash
-sudo systemctl is-active nginx mariadb redis-server php8.3-fpm docker
+(
+echo "=== Core web/database services ==="
+sudo systemctl is-active nginx mariadb redis-server php8.3-fpm
+
+echo
+echo "=== Listening sockets ==="
 sudo ss -ltnup
+
+echo
+echo "=== Recent NGINX and PHP-FPM logs ==="
 sudo journalctl -u nginx -n 80 --no-pager
 sudo journalctl -u php8.3-fpm -n 80 --no-pager
+)
 ~~~
+
+**Docker را جداگانه بررسی کن، فقط بعد از اجرای مرحلهٔ نصب Docker در Chapter 5:**
+
+~~~bash
+sudo systemctl is-active docker
+sudo docker info --format 'Server={{.ServerVersion}} Containers={{.Containers}} Images={{.Images}}'
+~~~
+
+پیش از Chapter 5، فعال‌نبودن یا نصب‌نبودن Docker انتظار می‌رود و به‌تنهایی ایراد Panel نیست. پورت‌های Wings یعنی 8080 و SFTP یعنی 2022 تا پیش از نصب و پیکربندی Wings انتظار نمی‌روند. MariaDB روی `127.0.0.1:3306` و Redis روی `127.0.0.1:6379` باید محلی باقی بمانند؛ برای آن‌ها Port Forward عمومی نساز.
 
 وجود باینری Wings به‌تنهایی به معنی ایجاد یا فعال‌بودن سرویس systemd نیست؛ وضعیت سرویس را فقط پس از مرحلهٔ ساخت سرویس بررسی کن.
 
 ### 4.3 اتصال Windows و تونل دیتابیس
 
-از PowerShell:
+**از دستور قدیمیِ دارای `<debian-user>` و `<node-lan-ip>` استفاده نکن.** برای VM فعلی، اتصال SSH باید کلید اختصاصی FragCity را معرفی کند. این دستور را در **Windows PowerShell** اجرا کن؛ نه در Bash دبیان:
 
 ~~~powershell
-ssh <debian-user>@<node-lan-ip>
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$target = "sv1@192.168.1.7"
+
+ssh -v -N `
+  -o IdentitiesOnly=yes `
+  -o PreferredAuthentications=publickey `
+  -o PasswordAuthentication=no `
+  -i $keyPath `
+  -L 3307:127.0.0.1:3306 `
+  $target
 ~~~
 
-برای تونل موقت به MariaDB، پنجره PowerShell را باز نگه دار:
+- اگر آدرس LAN رزروشدهٔ Node عوض شده است، پیش از اجرا `192.168.1.7` را با IP تأییدشدهٔ فعلی جایگزین کن؛ IP را حدس نزن.
+- پنجرهٔ PowerShell را باز نگه دار تا تونل فعال بماند. در صورت درخواست، passphrase کلید SSH را وارد کن؛ هنگام تایپ نمایش داده نمی‌شود. برای بستن تونل، در همان پنجره `Ctrl+C` بزن.
+- در پنجرهٔ دوم PowerShell، اتصال TCP محلی را بررسی کن:
 
 ~~~powershell
-ssh -N -L 3307:127.0.0.1:3306 <debian-user>@<node-lan-ip>
+Test-NetConnection 127.0.0.1 -Port 3307
 ~~~
 
-در کلاینت دیتابیس ویندوز، host برابر 127.0.0.1 و port برابر 3307 است؛ user/password همان حساب دیتابیس. پورت 3306 را در روتر باز نکن.
+مقدار `TcpTestSucceeded : True` یعنی پورت محلی قابل اتصال است. سپس در کلاینت دیتابیس ویندوز وارد کن:
+
+| فیلد | مقدار |
+|---|---|
+| Host | `127.0.0.1` |
+| Port | `3307` |
+| Database | `panel` |
+| Username | `pterodactyl` |
+| Password | رمز فعلی MariaDB که خودت تعیین کرده‌ای |
+
+این تونل به MariaDB محلی Node هدایت می‌شود؛ لازم نیست و **نباید** پورت 3306 را در روتر باز کنی. رمز دیتابیس یا passphrase کلید SSH را در چت یا README ننویس.
 
 ---
 
@@ -1655,7 +1696,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Chapter 1 و مراحل 2.1–2.4 کامل‌اند؛ Panel `v1.15.1` نصب شده و مراحل اولیهٔ setup/database/migration/admin طی شده‌اند. مرحلهٔ 3.5 پیکربندی NGINX برای LAN هنوز تأیید نشده است؛ بلوک NGINX اشتباهاً در Bash paste شده و SSH قطع شده. بعد از اتصال مجدد، بخش عیب‌یابی 3.5 را اجرا کن؛ تا موفق‌شدن `nginx -t` reload یا انتشار عمومی انجام نده. |
+| مرحلهٔ جاری | Panel `v1.15.1` روی `https://panel.fragcity.ir` صفحهٔ ورود را نمایش می‌دهد و پیکربندی NGINX/TLS در استفادهٔ فعلی کار می‌کند. Chapter 4 بررسی دیسک، سرویس‌ها و تونل را پوشش می‌دهد؛ بخش 4.3 اکنون از کلید SSH اختصاصی FragCity و IP LAN فعلی استفاده می‌کند. Docker/Wings هنوز نصب نشده‌اند؛ پس از بازبینی این فصل مرحلهٔ بعد Chapter 5 است. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
@@ -1664,7 +1705,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 | DNS / public IP | رکوردهای عمومی باید پیش از TLS با IPv4 عمومی WAN تطبیق داده شوند |
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | فایل‌های Panel و مراحل اولیهٔ تنظیم آن طی شده‌اند؛ NGINX site configuration/HTTP محلی هنوز در مرحلهٔ 3.5 منتظر بررسی است. Docker/Wings هنوز نصب نشده‌اند. |
+| Panel / Docker / Wings | Panel روی HTTPS به صفحهٔ ورود پاسخ می‌دهد؛ Docker و Wings هنوز نصب/پیکربندی نشده‌اند. |
 | CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
 | Website/Wallet/Billing | فازهای بعدی |
 
