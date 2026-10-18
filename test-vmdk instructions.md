@@ -627,7 +627,7 @@ if [[ "$CURRENT_HOST" != "$EXPECTED_HOST" ]]; then
     exit 1
 fi
 
-if ! ip -o -4 address show | grep -q '192\\.168\\.1\\.9/'; then
+if ! ip -o -4 address show | grep -q '192\.168\.1\.9/'; then
     echo "ERROR: expected IP $EXPECTED_IP is not assigned. Nothing changed."
     exit 1
 fi
@@ -647,7 +647,7 @@ if ! systemctl is-active --quiet cron; then
     exit 1
 fi
 
-QUEUE_CONNECTION="$(awk -F= '$1 == "QUEUE_CONNECTION" {print $2; exit}' "$PANEL_DIR/.env" | tr -d ' "\\047\\r')"
+QUEUE_CONNECTION="$(awk -F= '$1 == "QUEUE_CONNECTION" {print $2; exit}' "$PANEL_DIR/.env" | tr -d ' "\047\r')"
 if [[ "$QUEUE_CONNECTION" != "redis" ]]; then
     echo "ERROR: expected QUEUE_CONNECTION=redis; found a different or empty value. Nothing changed."
     exit 1
@@ -657,11 +657,11 @@ echo "Panel path, PHP configuration, Redis, and Cron preconditions: OK."
 echo
 echo "=== 2. Verify required Artisan commands ==="
 ARTISAN_LIST="$(runuser -u www-data -- /usr/bin/php "$PANEL_DIR/artisan" list --raw 2>/dev/null)"
-if ! printf '%s\\n' "$ARTISAN_LIST" | grep -Eq '^queue:work[[:space:]]'; then
+if ! printf '%s\n' "$ARTISAN_LIST" | grep -Eq '^queue:work[[:space:]]'; then
     echo "ERROR: Artisan command queue:work was not found. Nothing changed."
     exit 1
 fi
-if ! printf '%s\\n' "$ARTISAN_LIST" | grep -Eq '^schedule:run([[:space:]]|$)'; then
+if ! printf '%s\n' "$ARTISAN_LIST" | grep -Eq '^schedule:run([[:space:]]|$)'; then
     echo "ERROR: Artisan command schedule:run was not found. Nothing changed."
     exit 1
 fi
@@ -717,7 +717,7 @@ SCHEDULER_LINE='* * * * * /usr/bin/php /var/www/pterodactyl/artisan schedule:run
 if crontab -l 2>/dev/null | grep -Fq '/var/www/pterodactyl/artisan schedule:run'; then
     echo "A scheduler entry for this Panel already exists; no duplicate added."
 else
-    (crontab -l 2>/dev/null || true; printf '%s\\n' "$SCHEDULER_LINE") | crontab -
+    (crontab -l 2>/dev/null || true; printf '%s\n' "$SCHEDULER_LINE") | crontab -
     echo "Added the scheduler entry to root's crontab."
 fi
 
