@@ -645,19 +645,22 @@ SCRIPT
 5. دیسک تازه را با تطبیق اندازه، type، filesystem و mountpoint شناسایی کن. نام دستگاه را حدس نزن؛ ممکن است /dev/sdb باشد اما تضمینی نیست.
 6. تا وقتی دیسک جدید با اطمینان از دیسک root جدا تشخیص داده و تأیید نشده، هیچ mkfs، partitioning، mount یا ویرایش /etc/fstab اجرا نکن. دستورات formatting عمداً در این سند نیامده‌اند؛ بعد از ارائهٔ خروجی lsblk و blkid دربارهٔ دستگاه واقعی تصمیم می‌گیریم.
 
-## 13. محدودهٔ PoC مربوط به CS2 Shared Base
+## 13. محدودهٔ تست CS2-Egg-Go و Shared Base
 
-این Clone صرفاً محل آزمایش است. هیچ اسکریپت KUS یا Egg نصب بازی را اجرا نکن تا Layout ذخیره‌سازی مشخص شود.
+این Clone صرفاً محل آزمایش است؛ VM اصلی خاموش می‌ماند. طبق تصمیم کاربر در 2026-10-19، ابتدا یک Instance پایه با Egg رسمی K4ryuu و بدون Node daemon تست می‌شود. این ترتیب با مستند رسمی K4ryuu هماهنگ است و می‌تواند حدود 40 GB از Volume معمول Pterodactyl مصرف کند؛ پیش از Start باید فضای آزاد بررسی شود. راهنمای اختصاصی: [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md).
+
+**VMDK دادهٔ دوم همچنان پیش‌نیاز فاز Shared Base است، نه Import کردن Egg.** تا زمانی که دیسک جدید شناسایی و mount نشده، `cs2node`/VPK sync، مسیر مشترک `/srv/cs2-shared` و چند Instance را فعال نکن.
 
 ترتیب آزمون موردنظر:
 
-1. تأیید دیسک داده و انتخاب filesystem/mountpoint.
-2. ساخت Base مرکزی CS2 بدون نوشتن اطلاعات Instance روی آن.
-3. آزمون read-only دسترسی یک Instance به Base.
-4. افزودن فایل‌های خصوصی همان Instance و آزمایش Panel File Manager/SFTP.
-5. ساخت Instance دوم با cfg و addon متفاوت و بررسی عدم نشت تنظیمات.
-6. بررسی قفل Update، Stop/Start، حذف/بازسازی یک Instance، Backup/Restore و Recovery پس از خطا.
-7. اندازه‌گیری فضای مصرفی و زمان نصب/Update؛ سپس تصمیم‌گیری دربارهٔ استفاده از CS2-Egg-Go.
+1. Import کردن Egg و تأیید تنظیمات/Allocation مطابق راهنمای ساخت سرور؛ هنوز چند Instance نساز.
+2. راه‌اندازی اولین Instance مستقل؛ دانلود بازی، بارگذاری Map، دسترسی به Console، اتصال Client و Stop/Start را بررسی کن.
+3. افزودن VMDK داده فقط به Clone؛ با `lsblk` و `blkid` شناسایی کن و قبل از تأیید صریح، فرمت نکن.
+4. انتخاب filesystem و mountpoint برای Shared Base؛ مسیر میزبان باید با Volumeهای Pterodactyl و روش VPK sync سازگار باشد.
+5. نصب و بررسی `cs2node` و ماژول `vpksync` طبق راهنمای K4ryuu؛ تأیید `cs2node doctor` و `cs2node status`.
+6. آزمون read-only دسترسی یک Instance به Base و تأیید اینکه فایل‌های cfg/addons خصوصی باقی می‌مانند.
+7. ساخت Instance دوم با cfg و addon متفاوت؛ بررسی جداسازی فایل‌ها، Update، Stop/Start، Backup/Restore و Recovery.
+8. اندازه‌گیری مصرف دیسک و زمان Update؛ سپس تصمیم‌گیری دربارهٔ Production و مدل storage نهایی.
 
 مراجع فنی برای ادامه:
 - معماری FragCity Multi-Instance: https://github.com/larnzs/FragCity-RawPHPbackend/blob/main/docs/CS2-MULTI-INSTANCE.md
@@ -684,7 +687,8 @@ SCRIPT
 - [x] دسترسی پنل و عملیاتی بودن شبکه طبق تأیید کاربر تأیید شد.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
 - [ ] دیسک تازه با lsblk و blkid شناسایی شود؛ تا قبل از تأیید فرمت نشود.
-- [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
+- [ ] Egg رسمی CS2-Egg-Go طبق [راهنمای ساخت سرور](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) Import و اولین Instance مستقل روی Clone آزمایش شود.
+- [ ] VMDK داده به Clone اضافه و شناسایی شود؛ سپس Shared Base، cs2node و VPK sync طبق راهنمای K4ryuu آزمایش شوند.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را گرفته، IP برابر `192.168.1.9` و hostname برابر `fc-node-01` دارد. Health check اولیهٔ محلی 24 PASS / 1 WARN / 0 FAIL بود. PHP CLI/Artisan، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis و Cron تأیید شده‌اند. Queue Worker و Scheduler اکنون روی Clone راه‌اندازی و تأیید شده‌اند: `pteroq.service` برابر `active` و `enabled` است و خط Scheduler در crontab ریشه وجود دارد. هنگام اجرای `systemd-analyze verify` هشدار جداگانه‌ای دربارهٔ مسیر قدیمی `PIDFile` در `/etc/systemd/system/wings.service` زیر `/var/run/` دیده شد؛ این هشدار مانع فعال‌شدن `pteroq.service` نشد و فایل Wings باید جداگانه بررسی شود، نه اینکه کورکورانه تغییر کند. پورت `29001/udp` برای CS2 آینده باز می‌ماند و نباید تغییر کند. طبق تأیید کاربر، شبکه و پنل عملیاتی هستند و بررسی دسترسی پنل/شبکه تکمیل‌شده است. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با `lsblk`/`blkid` فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. چون دو دیسک مستقل‌اند، Queue Worker/Scheduler و هر تغییر دیگر باید قبل از بازگشت جداگانه روی VMDK اصلی اعمال شود.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را گرفته، IP برابر `192.168.1.9` و hostname برابر `fc-node-01` دارد. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. Queue Worker و Scheduler روی Clone فعال/تأیید شده‌اند؛ `pteroq.service` هم `active` و هم `enabled` است و خط Scheduler در crontab ریشه وجود دارد. هشدار جداگانهٔ `systemd-analyze verify` دربارهٔ مسیر قدیمی `PIDFile` در `/etc/systemd/system/wings.service` زیر `/var/run/` هنوز برای بررسی مستقل باقی است و مانع فعال‌شدن Queue Worker نشده است. پورت `29001/udp` برای تست CS2 رزرو می‌ماند و نباید قانون UFW مربوط به آن را تغییر داد. طبق انتخاب فعلی، گام بعد Import Egg رسمی K4ryuu و ساخت اولین Instance مستقل روی Clone مطابق `server-creation instruction.md` است؛ پیش از Start باید 40 GB فضای آزاد بررسی شود. هنوز CS2 Instance ساخته نشده است. VMDK دادهٔ دوم را فقط به Clone اضافه کن و با `lsblk`/`blkid` بشناس؛ پیش از شناسایی قطعی فرمت نکن. نصب `cs2node`، VPK sync، Shared Base و چند Instance تا آماده‌شدن Storage مستقل عقب می‌ماند. VM اصلی تا پایان آزمایش خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. هر تغییر مربوط به Queue/Scheduler نیز پیش از بازگشت باید جداگانه روی VMDK اصلی اعمال شود.
