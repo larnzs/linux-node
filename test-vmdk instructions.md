@@ -601,58 +601,142 @@ SCRIPT
 - قانون ورودی `29001/udp` در UFW عمداً برای سرور CS2 آینده باز نگه داشته شده است؛ بنا به تصمیم کاربر، آن را حذف، تغییر یا دوباره عیب‌یابی نکن.
 - اسکریپت نتوانسته مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند. این دو مورد هنوز باید دستی تأیید شوند. خروجی خام ترمینال در این سند ذخیره نشده است.
 
-### قدم بعدی — پیش‌بررسی PHP CLI برای Queue Worker و Scheduler
+### قدم بعدی — راه‌اندازی Queue Worker و Scheduler روی Clone
 
-مسیر پنل و تنظیمات غیرمحرمانه مشخص شده‌اند: \`/var/www/pterodactyl\`، Laravel 12.64.0، \`QUEUE_CONNECTION=redis\` و Redis فعال است. Cron نیز فعال/enable گزارش شده، اما هیچ cron entry برای \`artisan schedule:run\` و هیچ Queue Worker یا service unit مرتبط پیدا نشد.
+پیش‌بررسی 2026-10-18 موفق بود: PHP CLI در /usr/bin/php و نسخه 8.3.35 است؛ اجرای Artisan به‌عنوان www-data نسخه Laravel 12.64.0 را برمی‌گرداند؛ فرمان‌های queue:work و schedule:run موجودند؛ QUEUE_CONNECTION=redis و سرویس‌های Redis و Cron فعال‌اند. هیچ pteroq.service، Queue Worker یا Scheduler cron entry قبلی پیدا نشد.
 
-طبق مستند رسمی Pterodactyl v1، Queue Worker باید با \`queue:work\` اجرا شود و scheduler با اجرای هر دقیقهٔ \`artisan schedule:run\` فعال شود: https://docs.pterodactyl.io/v1/panel/getting-started. پیش از ساخت service یا cron، فقط PHP CLI و دسترسی به Artisan را تأیید می‌کنیم.
+این مرحله فقط روی Clone با hostname برابر fc-node-01 و IP برابر 192.168.1.9 اجرا می‌شود؛ VM اصلی باید خاموش بماند. پورت 29001/udp عمداً برای CS2 آینده باز است و در این تغییر دست‌نخورده می‌ماند.
 
-این بلوک فقط‌خواندنی است و هیچ فایل یا سرویسی را تغییر نمی‌دهد:
+دستور زیر idempotent نوشته شده است: قبل از تغییر hostname/IP، مسیر Panel، Redis، Cron، تنظیم Queue و دستورات Artisan را بررسی می‌کند؛ از crontab فعلی root نسخهٔ محلی با دسترسی محدود می‌گیرد؛ اگر Unit موجودی با محتوای متفاوت پیدا کند، آن را بازنویسی نمی‌کند.
 
 ~~~bash
-cd /var/www/pterodactyl || exit 1
+sudo bash <<'SETUP'
+set -Eeuo pipefail
 
-echo "=== PHP selected by PATH ==="
-command -v php
-php -v | head -n 2
+EXPECTED_HOST="fc-node-01"
+EXPECTED_IP="192.168.1.9"
+PANEL_DIR="/var/www/pterodactyl"
+UNIT_PATH="/etc/systemd/system/pteroq.service"
+EXPECTED_EXEC="/usr/bin/php /var/www/pterodactyl/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3"
+
+echo "=== 1. Guard checks: this must be the temporary Clone ==="
+
+CURRENT_HOST="$(hostnamectl --static)"
+if [[ "$CURRENT_HOST" != "$EXPECTED_HOST" ]]; then
+    echo "ERROR: expected hostname $EXPECTED_HOST, found $CURRENT_HOST. Nothing changed."
+    exit 1
+fi
+
+if ! ip -o -4 address show | grep -q '192\\.168\\.1\\.9/'; then
+    echo "ERROR: expected IP $EXPECTED_IP is not assigned. Nothing changed."
+    exit 1
+fi
+
+if [[ ! -f "$PANEL_DIR/artisan" || ! -f "$PANEL_DIR/.env" ]]; then
+    echo "ERROR: Panel files were not found at $PANEL_DIR. Nothing changed."
+    exit 1
+fi
+
+if ! systemctl is-active --quiet redis-server; then
+    echo "ERROR: redis-server is not active. Nothing changed."
+    exit 1
+fi
+
+if ! systemctl is-active --quiet cron; then
+    echo "ERROR: cron is not active. Nothing changed."
+    exit 1
+fi
+
+QUEUE_CONNECTION="$(awk -F= '$1 == "QUEUE_CONNECTION" {print $2; exit}' "$PANEL_DIR/.env" | tr -d ' "\\047\\r')"
+if [[ "$QUEUE_CONNECTION" != "redis" ]]; then
+    echo "ERROR: expected QUEUE_CONNECTION=redis; found a different or empty value. Nothing changed."
+    exit 1
+fi
+echo "Panel path, PHP configuration, Redis, and Cron preconditions: OK."
 
 echo
-echo "=== PHP at the official service path ==="
-if [ -x /usr/bin/php ]; then
-    readlink -f /usr/bin/php
-    /usr/bin/php -v | head -n 2
+echo "=== 2. Verify required Artisan commands ==="
+ARTISAN_LIST="$(runuser -u www-data -- /usr/bin/php "$PANEL_DIR/artisan" list --raw 2>/dev/null)"
+if ! printf '%s\\n' "$ARTISAN_LIST" | grep -Eq '^queue:work[[:space:]]'; then
+    echo "ERROR: Artisan command queue:work was not found. Nothing changed."
+    exit 1
+fi
+if ! printf '%s\\n' "$ARTISAN_LIST" | grep -Eq '^schedule:run([[:space:]]|$)'; then
+    echo "ERROR: Artisan command schedule:run was not found. Nothing changed."
+    exit 1
+fi
+echo "queue:work and schedule:run: OK."
+
+echo
+echo "=== 3. Install the Pterodactyl Queue Worker unit ==="
+
+if [[ -f "$UNIT_PATH" ]]; then
+    if grep -Fq "ExecStart=$EXPECTED_EXEC" "$UNIT_PATH"; then
+        echo "Matching pteroq.service already exists; keeping its content."
+    else
+        echo "ERROR: $UNIT_PATH already exists but differs from the expected worker unit."
+        echo "No unit file was overwritten. Inspect it before continuing."
+        exit 1
+    fi
 else
-    echo "ERROR: /usr/bin/php does not exist or is not executable."
+    cat > "$UNIT_PATH" <<'UNIT'
+[Unit]
+Description=Pterodactyl Queue Worker
+After=redis-server.service
+StartLimitIntervalSec=180
+StartLimitBurst=30
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/pterodactyl
+Restart=always
+ExecStart=/usr/bin/php /var/www/pterodactyl/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    chmod 0644 "$UNIT_PATH"
+    echo "Created $UNIT_PATH"
+fi
+
+systemd-analyze verify "$UNIT_PATH"
+systemctl daemon-reload
+systemctl enable --now pteroq.service
+
+echo
+echo "=== 4. Add the Panel scheduler to root's crontab ==="
+
+ROOT_CRONTAB_BACKUP="/root/root-crontab-before-pterodactyl-scheduler-$(date +%Y%m%d-%H%M%S)"
+crontab -l > "$ROOT_CRONTAB_BACKUP" 2>/dev/null || true
+chmod 0600 "$ROOT_CRONTAB_BACKUP"
+echo "Current root crontab backup: $ROOT_CRONTAB_BACKUP"
+
+SCHEDULER_LINE='* * * * * /usr/bin/php /var/www/pterodactyl/artisan schedule:run >> /dev/null 2>&1'
+if crontab -l 2>/dev/null | grep -Fq '/var/www/pterodactyl/artisan schedule:run'; then
+    echo "A scheduler entry for this Panel already exists; no duplicate added."
+else
+    (crontab -l 2>/dev/null || true; printf '%s\\n' "$SCHEDULER_LINE") | crontab -
+    echo "Added the scheduler entry to root's crontab."
 fi
 
 echo
-echo "=== Artisan as the web application user ==="
-sudo -u www-data /usr/bin/php /var/www/pterodactyl/artisan --version
-
+echo "=== 5. Verify the service and scheduled entry ==="
+systemctl is-enabled pteroq.service
+systemctl is-active pteroq.service
+systemctl status pteroq.service --no-pager -l
 echo
-echo "=== Required Artisan commands ==="
-sudo -u www-data /usr/bin/php /var/www/pterodactyl/artisan list --raw 2>/dev/null |
-  grep -E '^(queue:work|schedule:run)([[:space:]]|$)' || true
-
+crontab -l | grep -F '/var/www/pterodactyl/artisan schedule:run'
 echo
-echo "=== Cron service ==="
-systemctl is-active cron
-systemctl is-enabled cron
-
-echo
-echo "=== Existing scheduler entries only ==="
-sudo crontab -l 2>/dev/null |
-  grep -F 'artisan schedule:run' || true
-sudo -u www-data crontab -l 2>/dev/null |
-  grep -F 'artisan schedule:run' || true
-sudo grep -R -H 'artisan schedule:run' /etc/cron.d /etc/crontab 2>/dev/null || true
+echo "Queue Worker and Scheduler setup completed on this Clone only."
+echo "Keep the original VM powered off during this test."
+SETUP
 ~~~
 
-اگر \`/usr/bin/php\` معتبر باشد، Artisan را به‌عنوان \`www-data\` اجرا کند و هر دو command یعنی \`queue:work\` و \`schedule:run\` دیده شوند، قدم بعد ساخت \`pteroq.service\` و افزودن scheduler cron خواهد بود. فعلاً هیچ سرویس یا cron جدیدی نساز.
+اگر دستور تا انتها موفق شد، بایستی وضعیت pteroq برابر active/enabled شود و crontab شامل یک خط schedule:run باشد. Cron آن خط را در دقیقهٔ بعد اجرا می‌کند؛ لازم نیست Cron را Restart کنی.
 
-**پورت 29001/udp:** طبق تصمیم کاربر، این پورت برای CS2 رزرو شده است و نباید حذف یا تغییر کند؛ در این مرحله هیچ بررسی دیگری روی آن لازم نیست.
-
-خروجی این پیش‌بررسی را بفرست تا unit و cron را با مسیر و PHP تأییدشده تنظیم کنیم.
+اگر اسکریپت خطا داد، دستورات را دستی تکرار یا Unit را بازنویسی نکن؛ متن خطا و وضعیت سرویس را بفرست. تا پایان تست، VM اصلی خاموش بماند. این تغییرات فقط در دیسک Clone ثبت می‌شوند و هنگام بازگشت به VM اصلی باید همان تنظیمات را جداگانه آنجا نیز اعمال کنیم.
 
 ## 11. پایان تست و بازگشت به VM اصلی
 
@@ -712,10 +796,11 @@ sudo grep -R -H 'artisan schedule:run' /etc/cron.d /etc/crontab 2>/dev/null || t
 - [x] Health check فقط‌خواندنی نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد.
 - [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx test و HTTPS محلی Panel موفق بودند.
 - [x] مسیر Panel برابر /var/www/pterodactyl، نسخه Laravel برابر 12.64.0، QUEUE_CONNECTION برابر redis و Cron فعال است.
+- [x] PHP CLI در /usr/bin/php نسخه 8.3.35 است؛ www-data می‌تواند Artisan را اجرا کند و queue:work و schedule:run موجودند.
 - [x] هیچ Queue Worker در حال اجرا و هیچ Scheduler cron entry برای artisan schedule:run پیدا نشد.
 - [x] قانون UFW ورودی 29001/udp عمداً برای سرور CS2 آینده باز است؛ طبق تصمیم کاربر آن را تغییر نده.
-- [ ] PHP CLI در /usr/bin/php و دسترسی www-data به Artisan را پیش‌بررسی کن.
-- [ ] پس از تأیید PHP/Artisan، pteroq.service و cron مربوط به artisan schedule:run را طبق راهنمای رسمی Pterodactyl ایجاد/فعال کن.
+- [ ] اسکریپت بخش 10 برای ساخت pteroq.service و افزودن Scheduler cron روی Clone اجرا شود.
+- [ ] تأیید شود pteroq.service فعال/enabled است و خط schedule:run در crontab root وجود دارد.
 - [ ] مقصد Port Forwardهای موجود TCP 80/443/8080/2022 در روتر به 192.168.1.9 تأیید شود؛ health check این مورد را اثبات نمی‌کند.
 - [ ] دسترسی بیرونی Panel و Online بودن Node در UI پنل جداگانه تأیید شود.
 - [ ] VMDK دادهٔ دوم فقط به Clone اضافه شود.
@@ -723,4 +808,4 @@ sudo grep -R -H 'artisan schedule:run' /etc/cron.d /etc/crontab 2>/dev/null || t
 - [ ] آزمون CS2-Egg-Go و Shared Base روی Clone اجرا شود.
 - [ ] برای بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). مسیر Panel و QUEUE_CONNECTION=redis مشخص است؛ Cron فعال است ولی Scheduler entry و Queue Worker پیدا نشده‌اند. قدم بعد فقط پیش‌بررسی PHP CLI و Artisan است و سپس worker/scheduler پیکربندی می‌شوند. پورت 29001/udp به خواست کاربر برای CS2 آینده باز می‌ماند و نباید تغییر کند. مقصد Port Forward و Online بودن Node در UI پنل هنوز باید دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند.
+**آخرین checkpoint:** Clone موقتاً جای VM اصلی را می‌گیرد، با IP برابر 192.168.1.9 و hostname برابر fc-node-01. Health check محلی موفق بود (24 PASS / 1 WARN / 0 FAIL). PHP CLI/Artisan پیش‌بررسی شدند؛ مسیر Panel و QUEUE_CONNECTION=redis مشخص است، Redis و Cron فعال‌اند، اما Queue Worker و Scheduler cron هنوز باید با اسکریپت بخش 10 روی Clone راه‌اندازی و تأیید شوند. پورت 29001/udp بنا به تصمیم کاربر برای CS2 آینده باز می‌ماند و نباید تغییر کند. مقصد Port Forward و Online بودن Node در UI پنل باید دستی تأیید شوند. هنوز هیچ CS2 Base/Instance نصب نشده و دیسک تازه نباید پیش از شناسایی با lsblk/blkid فرمت شود. VM اصلی تا پایان تست خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. هر تغییری که روی Clone اعمال می‌شود، قبل از بازگشت باید جداگانه روی VM اصلی نیز اعمال شود، چون این دو دیسک مستقل‌اند.
