@@ -1743,7 +1743,27 @@ sudo ufw status
 )
 ~~~
 
-توجه: `getent` مسیر محلی سیستم را هم بررسی می‌کند؛ اگر خروجی `127.0.1.1` باشد، معمولاً از نگاشت میزبان در `/etc/hosts` آمده و **اثبات‌کنندهٔ رکورد عمومی DNS نیست**. برای همین در بلوک بالا پاسخ DNS عمومی را از طریق Google DNS-over-HTTPS هم پرس‌وجو می‌کنیم. مقدار A عمومی برای `fc-node-01.fragcity.ir` باید با IP عمومی فعلی Node مطابقت داشته باشد؛ پاسخ `panel.fragcity.ir` فقط برای مقایسه است. خروجی DNS را با IPv4 عمومی و مقصد رکورد دامنه مقایسه کن. پیش از صدور گواهی، تأیید کن که رکورد عمومی `fc-node-01.fragcity.ir` به مقصد درست می‌رسد و درخواست HTTP-01 از اینترنت به همین Debian می‌رسد. برای روش HTTP-01 باید TCP پورت 80 از روتر به IP LAN فعلی Node هدایت شود و UFW هم اجازهٔ آن را داشته باشد. **صرف بازشدن پنل روی HTTPS این دو مورد را ثابت نمی‌کند.** اگر DNS به Cloudflare یا پراکسی دیگری اشاره می‌کند، این تفاوت را قبل از صدور گواهی مشخص کن.
+توجه: `getent` مسیر محلی سیستم را هم بررسی می‌کند؛ اگر خروجی `127.0.1.1` باشد، معمولاً از نگاشت میزبان در `/etc/hosts` آمده و **اثبات‌کنندهٔ رکورد عمومی DNS نیست**.
+
+اگر درخواست `curl` به `dns.google` با خطای `(35) Recv failure: Connection reset by peer` تمام شد، یعنی اتصال HTTPS به آن سرویس DNS-over-HTTPS reset شده است؛ این **نه پاسخ DNS است و نه اثبات نبودن رکورد**. در این حالت، بررسی زیر را از **Windows PowerShell جدا از SSH** اجرا کن تا resolver پیش‌فرض ویندوز و سپس resolver عمومی Cloudflare را مقایسه کنیم:
+
+~~~powershell
+$names = @("fc-node-01.fragcity.ir", "panel.fragcity.ir")
+
+foreach ($name in $names) {
+    Write-Host ""
+    Write-Host "=== Default DNS resolver: $name ==="
+    Resolve-DnsName -Name $name -Type A -ErrorAction Continue |
+        Select-Object Name, Type, IPAddress
+
+    Write-Host ""
+    Write-Host "=== Cloudflare DNS (1.1.1.1): $name ==="
+    Resolve-DnsName -Name $name -Type A -Server 1.1.1.1 -DnsOnly -ErrorAction Continue |
+        Select-Object Name, Type, IPAddress
+}
+~~~
+
+اگر پرس‌وجوی `1.1.1.1` timeout شد، فقط همان پرس‌وجوی مستقیم قابل‌دسترسی نبوده؛ خروجی را بفرست تا resolver دیگری یا روش کنترل‌شدهٔ دیگری را انتخاب کنیم. مقدار A عمومی برای `fc-node-01.fragcity.ir` باید با IPv4 عمومی فعلی Node مطابقت داشته باشد؛ پاسخ `panel.fragcity.ir` فقط برای مقایسه است. خروجی DNS را با IPv4 عمومی و مقصد رکورد دامنه مقایسه کن. پیش از صدور گواهی، تأیید کن که رکورد عمومی `fc-node-01.fragcity.ir` به مقصد درست می‌رسد و درخواست HTTP-01 از اینترنت به همین Debian می‌رسد. برای روش HTTP-01 باید TCP پورت 80 از روتر به IP LAN فعلی Node هدایت شود و UFW هم اجازهٔ آن را داشته باشد. **صرف بازشدن پنل روی HTTPS این دو مورد را ثابت نمی‌کند.** اگر DNS به Cloudflare یا پراکسی دیگری اشاره می‌کند، این تفاوت را قبل از صدور گواهی مشخص کن.
 
 اگر DNS و دسترسی ورودی صحیح‌اند و `certbot certificates` گواهی معتبر موجودی برای نام Node نشان نمی‌دهد، دستور زیر را اجرا کن:
 
