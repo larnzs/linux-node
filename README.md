@@ -1767,6 +1767,47 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 
 پیش از انتشار عمومیِ پورت‌های Wings/SFTP، طراحی Firewall و Router/VMware NAT را جداگانه بررسی کن.
 
+
+### 6.8 بازکردن Firewall و Port Forward برای Wings/SFTP — گام جاری
+
+از بررسی اتصال مشخص شد Wings روی پورت‌های TCP `8080` و `2022` در حال گوش‌دادن است. پاسخ HTTP `401` به درخواست بدون Authorization روی `https://fc-node-01.fragcity.ir:8080/` نشان می‌دهد endpoint TLS پاسخ داده و درخواست بدون اعتبارنامه پذیرفته نشده است؛ چون نام Node ممکن است به‌خاطر `/etc/hosts` روی خود VM resolve شود، این تست به‌تنهایی دسترسی عمومی را اثبات نمی‌کند.
+
+#### 6.8.1 اجازهٔ ورودی در UFW — در Debian
+
+~~~bash
+sudo ufw allow 8080/tcp
+sudo ufw allow 2022/tcp
+sudo ufw status numbered
+sudo ss -ltnp | grep -E ':(8080|2022)\b'
+~~~
+
+- TCP `8080`: Wings API با HTTPS؛ پنل و مرورگر برای ارتباط با Node از آن استفاده می‌کنند.
+- TCP `2022`: SFTP برای دسترسی به فایل‌های سرور.
+- این قوانین فقط فایروال Debian را تنظیم می‌کنند؛ به‌تنهایی Port Forward روتر ایجاد نمی‌کنند.
+
+#### 6.8.2 Port Forward — در روتر
+
+ابتدا IP فعلی Node را روی Debian با `ip -4 -br address` شناسایی کن و رزرو DHCP را در روتر تأیید کن. سپس دو قانون **TCP** بساز و مقصد را به همان IP رزروشده قرار بده:
+
+| پورت ورودی WAN | IP مقصد LAN | پورت مقصد | پروتکل | کاربرد |
+|---:|---|---:|---|---|
+| 8080 | IP رزروشدهٔ Node | 8080 | TCP | Wings API / HTTPS |
+| 2022 | IP رزروشدهٔ Node | 2022 | TCP | SFTP |
+
+این پورت‌ها را به پنل مدیریت مودم هدایت نکن. برای این دو سرویس UDP لازم نیست. پورت‌های بازی را فعلاً باز نکن؛ آن‌ها پس از تعیین Allocationهای اولین Instance جداگانه طراحی می‌شوند. پورت‌های SSH `22`، MariaDB `3306` و Redis `6379` را برای دسترسی عمومی باز نکن.
+
+#### 6.8.3 آزمون از بیرون شبکه و بررسی وضعیت Node
+
+پس از ذخیرهٔ قوانین روتر، از دستگاهی خارج از LAN (مثلاً گوشی با Wi-Fi خاموش و دیتای موبایل روشن) مرورگر را به آدرس زیر ببر:
+
+~~~text
+https://fc-node-01.fragcity.ir:8080/
+~~~
+
+پاسخ `401 Unauthorized` با گواهی معتبر برای درخواست بدون ورود، به‌تنهایی خطا نیست و نشان می‌دهد endpoint پاسخ داده است. Timeout یا ناتوانی در اتصال، نیازمند بررسی IP مقصد، Port Forward، UFW و دسترسی WAN است. اگر اتصال عمومی موفق شد، صفحهٔ **Admin → Nodes → fc-node-01** را refresh کن و وضعیت Node را بررسی کن.
+
+تست از داخل همان LAN ممکن است به‌دلیل نداشتن NAT loopback در روتر، نتیجهٔ گمراه‌کننده بدهد؛ برای سنجش Port Forward از شبکهٔ خارجی تست کن. راهنمای رسمی: https://docs.pterodactyl.io/v1/panel/troubleshooting
+
 ---
 
 ## 7. Storage و CS2/KUS — preflight پیش از اولین Instance
@@ -1775,7 +1816,7 @@ Wings و سرویس systemd راه‌اندازی شده‌اند. **فعلاً 
 
 سبک‌بودن Debian Console-only ممکن است سربار سیستم‌عامل را نسبت به Desktop کاهش دهد، اما به‌تنهایی تضمین نمی‌کند مشکل slow frame در CS2 برطرف شود. بعداً باید baseline سرور را با بار کنترل‌شده بسنجیم و مشخص کنیم slow frame به server timing اشاره دارد یا FPS/frametime کلاینت.
 
-### 7.1 بررسی فضای ذخیره‌سازی — گام جاری
+### 7.1 بررسی فضای ذخیره‌سازی — مرحلهٔ بعد از تأیید اتصال Node
 
 این مرحله فقط اطلاعات دیسک و مسیرهای موجود را می‌خواند؛ چیزی نصب، دانلود، پاک یا جابه‌جا نمی‌کند. در SSH دبیان اجرا کن:
 
@@ -1870,7 +1911,7 @@ fi
 |---|---|
 | هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
 | نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | آزمون foreground Wings موفق بوده و سرویس systemd با enable و active پیکربندی شده است. گام جاری 7.1: بررسی فقط‌خواندنی filesystem، `/home/steam`، Docker و مسیرهای Storage Pterodactyl؛ تا تصمیم Storage و تأیید سازگاری Egg، Instance بازی نساز. وضعیت Online را در صفحه Node پنل کنترل کن. |
+| مرحلهٔ جاری | آزمون foreground Wings موفق بوده و سرویس systemd با enable و active پیکربندی شده است. گام جاری 6.8: اجازه‌دادن TCP 8080/2022 در UFW و Port Forward این دو پورت به IP رزروشدهٔ Node؛ سپس تأیید Online بودن Node. پیش از تأیید اتصال، سرور بازی نساز. |
 | مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
 | Hostname | `fc-node-01` |
 | Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
