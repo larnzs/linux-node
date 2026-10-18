@@ -1107,7 +1107,48 @@ SHOW GRANTS FOR 'pterodactyl'@'127.0.0.1';
 EXIT;
 ~~~
 
-رمز را در سند نگذار. اگر user از قبل وجود دارد، برای تعویض رمز از ALTER USER استفاده کن، نه CREATE USER.
+رمز را در سند نگذار. اگر user از قبل وجود دارد، برای تعویض رمز از **ALTER USER** استفاده کن، نه **CREATE USER**.
+
+#### تغییر رمز حساب MariaDB موجود (در صورت نیاز)
+
+این فرمان‌ها را در ترمینال SSH دبیان اجرا کن و رمز نمونه را فقط در محیط خودت جایگزین کن. از رمز واقعی در چت یا README استفاده نکن:
+
+~~~bash
+sudo env MYSQL_HISTFILE=/dev/null mariadb
+~~~
+
+داخل prompt مربوط به MariaDB:
+
+~~~sql
+ALTER USER 'pterodactyl'@'127.0.0.1'
+IDENTIFIED BY 'PUT_YOUR_NEW_PASSWORD_HERE';
+
+SHOW GRANTS FOR 'pterodactyl'@'127.0.0.1';
+EXIT;
+~~~
+
+**ALTER USER** رمز حساب موجود را عوض می‌کند؛ دیتابیس را حذف یا دوباره ایجاد نکن. لازم نیست پس از آن **FLUSH PRIVILEGES** اجرا شود. رمز جدید را در Password Manager نگه دار.
+
+#### تونل مدیریتی MariaDB از Windows PowerShell
+
+برای اتصال ابزار GUI روی ویندوز به MariaDB محلی دبیان، فرمان زیر را در **Windows PowerShell** اجرا کن. این تونل پورت محلی ویندوز **3307** را به **127.0.0.1:3306** روی سرور هدایت می‌کند:
+
+~~~powershell
+$keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
+$target = "sv1@192.168.1.7"
+
+ssh -v -N -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath -L 3307:127.0.0.1:3306 $target
+~~~
+
+- پنجرهٔ PowerShell را تا زمانی که اتصال دیتابیس لازم است باز نگه دار؛ بستن آن تونل را قطع می‌کند.
+- در ابزار دیتابیس روی ویندوز از Host برابر **127.0.0.1**، Port برابر **3307**، Database برابر **panel** و Username برابر **pterodactyl** استفاده کن؛ رمز همان رمز جدید دیتابیس است.
+- در یک پنجرهٔ PowerShell جداگانه می‌توانی بررسی کنی:
+
+~~~powershell
+Test-NetConnection 127.0.0.1 -Port 3307
+~~~
+
+اگر خروجی **TcpTestSucceeded : True** بود، پورت محلی قابل اتصال است؛ اتصال به خود دیتابیس با اطلاعات ورود را هم آزمایش کن. این روش به SSH در شبکهٔ LAN متکی است؛ پورت MariaDB را برای دسترسی عمومی روتر باز نکن.
 
 ### 3.3 Wizardهای Panel
 
