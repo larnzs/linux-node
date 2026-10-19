@@ -1,6 +1,8 @@
 # راهنمای آموزشی Full Clone و VMDK در VMware Workstation
 
-این راهنما نحوهٔ ساخت Full Clone آزمایشی از یک Debian Node موجود، تست شبکه و Wings، افزودن دیسک مجزا به Clone و بازگشت امن به VM اصلی را آموزش می‌دهد.
+این راهنما ساخت Full Clone آزمایشی، بررسی شبکه و Wings، افزودن دیسک مجزا به Clone و بازگشت امن به VM اصلی را آموزش می‌دهد. این Runbook فقط برای **Clone موقت جایگزین VM اصلی** است؛ برای Node دوم مستقل، Clone هویت‌دار را هم‌زمان روشن نکن.
+
+**قبل از اجرا:** هر placeholder مثل `<NODE_HOSTNAME>`، `<NODE_LAN_IP>`، `<CLONE_LAN_IP>` و `<NODE_FQDN>` را با مقدار واقعی محیط خودت جایگزین کن. اگر حتی یک placeholder داخل دستور باقی مانده است، بلوک را اجرا نکن. نام VM، IP، دامنه و مسیر فایل روی هر میزبان ممکن است متفاوت باشد.
 
 **قانون ایمنی:** همهٔ تغییراتی که در این سند برای Clone نوشته شده‌اند فقط روی Clone اجرا می‌شوند. VM اصلی و Clone با هویت مشترک نباید هم‌زمان روشن باشند. قبل از Partition/Format/Mount هر دیسک، هویت آن را از روی lsblk و blkid تأیید کن؛ هیچ‌وقت اسم /dev/sdb یا هر دستگاه دیگری را حدس نزن.
 
@@ -8,18 +10,18 @@
 
 ## 1. مقادیر محیطی و شناسایی VM اصلی
 
-قبل از Clone این موارد را از VMware، Debian و روتر یادداشت کن. ستون آخر نمونهٔ فعلی FragCity است؛ اگر محیط دیگری داری، فقط از مقادیر واقعی خودت استفاده کن.
+قبل از Clone این موارد را از VMware، Debian و روتر یادداشت کن. جدول را پیش از اجرا با مقادیر واقعی محیط خودت تکمیل کن.
 
 | مورد | روش شناسایی | نمونهٔ FragCity |
 |---|---|---|
 | فایل VMX اصلی | VM Settings / Open VM directory در VMware | زیر %USERPROFILE%\\Documents\\Virtual Machines\\... |
 | محل فایل VMDK اصلی | از فایل VMX و مسیر Hard Disk در تنظیمات VMware | یک مسیر اختصاصی روی درایو D |
-| نام Clone | نام یکتا در VMware | fc-node-01-clone |
-| محل Clone | پوشهٔ جدا از VM اصلی با فضای آزاد کافی | D:\\FragCity-VMs\\fc-node-01-clone\\ |
-| Hostname مورد انتظار Node | نامی که در سرویس‌ها و DNS فعلی تنظیم شده | fc-node-01 |
-| IP داخلی VM اصلی | DHCP reservation و IP داخل Debian | 192.168.1.7 |
-| IP داخلی Clone | DHCP reservation برای MAC جدید Clone | 192.168.1.9 |
-| Node FQDN | DNS و TLS موجود | fc-node-01.fragcity.ir |
+| نام Clone | نام یکتا در VMware | `<CLONE_VM_NAME>` |
+| محل Clone | پوشهٔ مجزا روی درایوی با فضای آزاد کافی | `<CLONE_VM_DIR>` |
+| Hostname نهایی Node | همان نام میزبان تنظیم‌شده برای VM اصلی جایگزین‌شونده | `<NODE_HOSTNAME>` |
+| IP داخلی VM اصلی | از DHCP reservation و کنسول Debian | `<NODE_LAN_IP>` |
+| IP داخلی Clone | DHCP reservation برای MAC جدید Clone | `<CLONE_LAN_IP>` |
+| Node FQDN | رکورد DNS/TLS معتبر Node | `<NODE_FQDN>` |
 | دیسک دادهٔ جدید | ابتدا در VMware اضافه شود، سپس داخل Debian شناسایی شود | هنوز اختیاری/اضافه‌نشده |
 
 **پیش از ادامه:** مشخص کن هدفت کدام است:
@@ -41,7 +43,7 @@ Get-PSDrive -PSProvider FileSystem |
 
 پیش از ساخت Full Clone، فضای آزاد واقعی درایوی را که مقصد Clone و VMDK داده روی آن قرار می‌گیرند بررسی کن. برای دیسک‌های thin/growable، فضای مصرفی فعلی VMDK در Explorer با ظرفیت مجازی آن برابر نیست؛ فضای آزاد میزبان باید برای رشد آینده کافی باشد.
 
-برای پیدا کردن فایل‌های مرتبط در ریشهٔ D:
+برای جست‌وجوی فایل‌های مرتبط در یک درایو دلخواه:
 
 ~~~powershell
 Get-ChildItem D:\ -Force |
@@ -58,7 +60,7 @@ Get-ChildItem D:\ -Force |
     Format-Table -AutoSize
 ~~~
 
-فایل تنظیمات .vmx در این نصب روی C قرار دارد و فایل VMDK در D؛ بنابراین از Explorer فقط فایل VMDK را کپی نکن. از قابلیت Full Clone خود VMware استفاده کن.
+مسیرهای VMX و VMDK را از تنظیمات VMware یا **Open VM Directory** پیدا کن. از Explorer فقط فایل VMDK را کپی نکن؛ از قابلیت Full Clone خود VMware استفاده کن.
 
 ## 3. خاموش‌کردن تمیز VM اصلی
 
@@ -80,11 +82,11 @@ sudo systemctl poweroff
 
 در VMware Workstation:
 
-1. VM اصلی **Debian 13.x 64 bit cmd** را انتخاب کن.
+1. VM اصلی Debian را که می‌خواهی Clone کنی انتخاب کن.
 2. از مسیر **VM → Manage → Clone** وارد Clone Wizard شو.
 3. در منبع، **The current state in the virtual machine** را انتخاب کن.
 4. در نوع Clone، حتماً **Create a full clone** را انتخاب کن؛ **Linked Clone** مناسب این آزمون نیست، چون به دیسک مبدأ وابسته می‌ماند.
-5. نام Clone را یکتا انتخاب کن؛ برای محیط مرجع این ریپو، **fc-node-01-clone** است.
+5. نام Clone را یکتا انتخاب کن؛ مثلاً نامی که به‌وضوح نشان دهد این ماشین یک Clone آزمایشی است.
 6. محل را **D:\FragCity-VMs** انتخاب کن. اگر پوشه وجود ندارد، ابتدا آن را در File Explorer ایجاد کن. فایل‌های Clone باید زیر پوشهٔ مستقل خودشان باشند.
 7. تنظیمات را بازبینی کن و **Finish** را بزن. منتظر پایان کامل Clone بمان.
 
@@ -92,7 +94,7 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 
 ## 5. اولین بوت و هدف این Clone
 
-در اولین بوت، Network Adapter را قطع کن و اگر VMware پرسید، گزینهٔ **I Copied It** را انتخاب کن. بعد از اینکه Debian بالا آمد، شبکه را دوباره متصل کن و برای MAC جدید Clone یک DHCP reservation اختصاصی بساز. در نمونهٔ FragCity، IP آن 192.168.1.9 است؛ برای محیط خودت IP ثبت‌شده در جدول بخش 1 را استفاده کن.
+در اولین بوت، Network Adapter را قطع کن و اگر VMware پرسید، گزینهٔ **I Copied It** را انتخاب کن. بعد از اینکه Debian بالا آمد، شبکه را دوباره متصل کن و برای MAC جدید Clone یک DHCP reservation اختصاصی بساز. IP جدید Clone را از DHCP reservation خودت بردار و در جدول بخش 1 ثبت کن.
 
 **تصمیم این سناریو:** این Clone یک Node آزمایشی تازه و مستقل در Pterodactyl نیست؛ قرار است موقتاً جای VM اصلی را بگیرد. تا پایان تست، VM اصلی کاملاً خاموش می‌ماند و فقط Clone روشن خواهد بود. بنابراین باید همان Panel، پایگاه‌داده، تنظیمات Wings، Nginx، PHP-FPM، MariaDB، Redis و گواهی‌های فعلی در Clone کار کنند.
 
@@ -101,10 +103,10 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 ## 6. قوانین ایمنی تا پایان تست
 
 1. VM اصلی روشن نشود؛ هیچ‌وقت دو کپی را هم‌زمان روشن نکن.
-2. در نمونهٔ FragCity، 192.168.1.9 آدرس Clone و 192.168.1.7 آدرس اصلی است؛ در محیط دیگر فقط آدرس‌های تأییدشده در جدول بخش 1 را استفاده کن.
+2. IP اصلی و IP Clone را از جدول بخش 1 بردار؛ فقط آدرس‌های تأییدشدهٔ همان شبکه را استفاده کن.
 3. تنظیمات Panel و Wings در Clone را نگه می‌داریم؛ فقط hostname را به مقدار اصلی برمی‌گردانیم و Wings را پس از اصلاح Port Forwardها دوباره فعال می‌کنیم.
 4. DNS عمومی و گواهی‌های فعلی را تغییر نده، مگر اینکه IP عمومی WAN واقعاً عوض شده باشد.
-5. Port Forwardهای موجود را duplicate نکن. در زمان استفاده از Clone، مقصد قوانین مربوط به این VM را از IP اصلی به IP Clone تغییر بده؛ در پایان تست مقصدها را برگردان. از جدول مقادیر بخش 1 استفاده کن.
+5. Port Forwardهای موجود را duplicate نکن. در زمان استفاده از Clone، مقصد قوانین مربوط به این VM را از `<NODE_LAN_IP>` به `<CLONE_LAN_IP>` تغییر بده؛ در پایان تست مقصدها را برگردان.
 6. برای این مرحله فقط پورت‌های فعلی را مدیریت کن: TCP 80/443 برای Panel، TCP 8080 برای Wings API، TCP 2022 برای SFTP. چون هنوز CS2 Instance نداریم، پورت بازی اضافه نکن.
 7. برای MAC جدید Clone در روتر DHCP reservation بساز؛ IP باید با جدول بخش 1 و قواعد شبکهٔ خودت سازگار باشد.
 
@@ -117,11 +119,11 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 مقادیر زیر نمونهٔ FragCity هستند؛ پیش از اجرای اسکریپت آن‌ها را با مقادیر واقعی جدول بخش 1 هماهنگ کن.
 
 ~~~bash
-TARGET_IP="192.168.1.9"                     # IP فعلی Clone
-TARGET_HOST="fc-node-01"                    # Hostname نهایی
-TARGET_FQDN="fc-node-01.fragcity.ir"        # FQDN نهایی
-CLONE_OLD_HOST="fc-node-01-test"             # Hostname موقتی Clone
-CLONE_OLD_FQDN="fc-node-01-test.fragcity.ir" # FQDN قبلی، اگر در /etc/hosts وجود دارد
+TARGET_IP="<CLONE_LAN_IP>"                     # IP فعلی Clone
+TARGET_HOST="<NODE_HOSTNAME>"                    # Hostname نهایی
+TARGET_FQDN="<NODE_FQDN>"        # FQDN نهایی
+CLONE_OLD_HOST="<CLONE_TEMP_HOSTNAME>"             # Hostname موقتی Clone
+CLONE_OLD_FQDN="<CLONE_TEMP_FQDN>" # FQDN قبلی، اگر در /etc/hosts وجود دارد
 
 printf 'Clone IP: %s\nTarget hostname: %s\nTarget FQDN: %s\n' \
   "$TARGET_IP" "$TARGET_HOST" "$TARGET_FQDN"
@@ -148,11 +150,11 @@ grep -nE '127[.]0[.]1[.]1|fc-node|test' /etc/hosts || true
 sudo bash <<'SCRIPT'
 set -Eeuo pipefail
 
-TARGET_IP="192.168.1.9"
-TARGET_HOST="fc-node-01"
-TARGET_FQDN="fc-node-01.fragcity.ir"
-CLONE_OLD_HOST="fc-node-01-test"
-CLONE_OLD_FQDN="fc-node-01-test.fragcity.ir"
+TARGET_IP="<CLONE_LAN_IP>"
+TARGET_HOST="<NODE_HOSTNAME>"
+TARGET_FQDN="<NODE_FQDN>"
+CLONE_OLD_HOST="<CLONE_TEMP_HOSTNAME>"
+CLONE_OLD_FQDN="<CLONE_TEMP_FQDN>"
 
 if ! ip -o -4 address show |
      awk '{split($4,a,"/"); print a[1]}' |
@@ -263,10 +265,10 @@ SCRIPT
 
 | پورت ورودی | پروتکل | مقصد قبلی در نمونه | مقصد Clone در نمونه |
 |---|---|---|---|
-| 80 | TCP | 192.168.1.7 | 192.168.1.9 |
-| 443 | TCP | 192.168.1.7 | 192.168.1.9 |
-| 8080 | TCP | 192.168.1.7 | 192.168.1.9 |
-| 2022 | TCP | 192.168.1.7 | 192.168.1.9 |
+| 80 | TCP | <NODE_LAN_IP> | <CLONE_LAN_IP> |
+| 443 | TCP | <NODE_LAN_IP> | <CLONE_LAN_IP> |
+| 8080 | TCP | <NODE_LAN_IP> | <CLONE_LAN_IP> |
+| 2022 | TCP | <NODE_LAN_IP> | <CLONE_LAN_IP> |
 
 قبل از تغییر، جدول واقعی روتر را ببین و فقط قوانین همین سرویس‌ها را ویرایش کن. قوانین مربوط به میزبان دیگر را تغییر نده و Rule تکراری برای همان پورت عمومی نساز.
 
@@ -301,10 +303,10 @@ sudo systemctl enable --now wings
 sudo systemctl status wings --no-pager
 ~~~
 
-سپس از https://panel.fragcity.ir وارد Panel شو و وضعیت Node را بررسی کن. برای بررسی پاسخ HTTPS:
+سپس از آدرس `https://<PANEL_FQDN>` وارد Panel شو و وضعیت Node را بررسی کن؛ پیش از استفاده مقدار placeholder را با FQDN واقعی جایگزین کن. برای بررسی پاسخ HTTPS:
 
 ~~~bash
-curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.fragcity.ir/
+curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://<PANEL_FQDN>/
 ~~~
 
 پاسخ 200 یا redirect مانند 301/302 می‌تواند نشان دهد وب‌سرور پاسخ داده است؛ وضعیت Node را جداگانه در Panel بررسی کن. اگر Panel باز نشد، قبل از reinstall کردن سرویس‌ها مقصد Port Forward، Nginx و PHP-FPM را بررسی کن. لاگ‌ها را در README ذخیره نکن.
@@ -317,7 +319,7 @@ curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://panel.frag
 
 بررسی‌ها شامل hostname و IP، مسیر پیش‌فرض، سرویس‌های systemd، syntax تنظیمات Nginx، پاسخ HTTPS محلی Panel، اعتبار زمانی گواهی‌ها، پورت‌های TCP در حال Listen، بررسی پایه MariaDB و Redis، وضعیت Docker و مصرف دیسک، وضعیت UFW و تعداد خطاهای سطح بالا در ۱۵ دقیقه اخیر است. لاگ خام و credentialها چاپ یا ذخیره نمی‌شوند.
 
-در SSH متصل به Clone، کل بلوک زیر را یک‌جا کپی و اجرا کن. متن طولانی است؛ مطمئن شو خط آخر `SCRIPT` هم کپی شده است:
+قبل از اجرا، مقادیر EXPECTED_HOST، EXPECTED_IP، PANEL_FQDN، NODE_FQDN و دو پورت Wings را در اسکریپت با مقادیر واقعی جایگزین کن. اسکریپت اگر placeholder باقی مانده باشد متوقف می‌شود. سپس در SSH متصل به Clone کل بلوک را یک‌جا کپی و اجرا کن؛ خط آخر `SCRIPT` را هم کپی کن.
 
 ~~~bash
 sudo bash <<'SCRIPT'
@@ -335,8 +337,26 @@ sudo bash <<'SCRIPT'
 set -uo pipefail
 export LC_ALL=C
 
-EXPECTED_HOST="fc-node-01"  # Replace with the actual Clone hostname
-EXPECTED_IP="192.168.1.9"    # Replace with the actual Clone LAN IPv4
+EXPECTED_HOST="<NODE_HOSTNAME>" # Replace with the final hostname expected inside the replacement Clone
+EXPECTED_IP="<CLONE_LAN_IP>"    # Replace with the Clone's reserved LAN IPv4
+PANEL_FQDN="<PANEL_FQDN>"       # Replace with the real Panel FQDN
+NODE_FQDN="<NODE_FQDN>"         # Replace with the real Node FQDN
+WINGS_API_PORT="8080"           # Adjust if the Panel/Wings config uses another API port
+WINGS_SFTP_PORT="2022"          # Adjust if Wings uses another SFTP port
+
+for value in "$EXPECTED_HOST" "$EXPECTED_IP" "$PANEL_FQDN" "$NODE_FQDN"; do
+    if [[ -z "$value" || "$value" == *'<'* || "$value" == *'>'* ]]; then
+        echo "STOP: replace all hostname/IP/FQDN placeholders before running this checker."
+        exit 2
+    fi
+done
+
+for port in "$WINGS_API_PORT" "$WINGS_SFTP_PORT"; do
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+        echo "STOP: Wings ports must be valid TCP port numbers."
+        exit 2
+    fi
+done
 
 PASS_COUNT=0
 WARN_COUNT=0
@@ -397,12 +417,12 @@ else
     fail "No default route found."
 fi
 
-printf '\nDNS resolution for panel.fragcity.ir:\n'
-if getent ahosts panel.fragcity.ir >/dev/null 2>&1; then
-    getent ahosts panel.fragcity.ir | head -n 3
+printf '\nDNS resolution for <PANEL_FQDN>:\n'
+if getent ahosts <PANEL_FQDN> >/dev/null 2>&1; then
+    getent ahosts <PANEL_FQDN> | head -n 3
     pass "Panel domain resolves through the system resolver."
 else
-    fail "panel.fragcity.ir did not resolve from this VM."
+    fail "<PANEL_FQDN> did not resolve from this VM."
 fi
 
 section "3. Main systemd services"
@@ -461,14 +481,14 @@ else
 fi
 
 if command -v curl >/dev/null 2>&1; then
-    panel_code="$(curl --resolve panel.fragcity.ir:443:127.0.0.1 \
+    panel_code="$(curl --resolve <PANEL_FQDN>:443:127.0.0.1 \
         --connect-timeout 4 --max-time 10 \
         --silent --show-error --output /dev/null \
         --write-out '%{http_code}' \
-        https://panel.fragcity.ir/ 2>/dev/null || true)"
+        https://<PANEL_FQDN>/ 2>/dev/null || true)"
 
     if [[ "$panel_code" =~ ^[23][0-9][0-9]$ ]]; then
-        pass "Local HTTPS virtual host for panel.fragcity.ir replied with HTTP $panel_code."
+        pass "Local HTTPS virtual host for <PANEL_FQDN> replied with HTTP $panel_code."
     elif [[ "$panel_code" =~ ^[45][0-9][0-9]$ ]]; then
         warn "Local HTTPS virtual host replied with HTTP $panel_code; inspect the Panel response."
     else
@@ -481,8 +501,8 @@ fi
 section "5. TLS certificate files"
 
 for cert in \
-    /etc/letsencrypt/live/panel.fragcity.ir/fullchain.pem \
-    /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem
+    /etc/letsencrypt/live/<PANEL_FQDN>/fullchain.pem \
+    /etc/letsencrypt/live/<NODE_FQDN>/fullchain.pem
 do
     if [[ -r "$cert" ]] && command -v openssl >/dev/null 2>&1; then
         printf '%s: ' "$cert"
@@ -503,7 +523,7 @@ section "6. Local listening TCP ports"
 ss -lntp 2>/dev/null || true
 echo
 echo "Expected service ports:"
-for port in 80 443 8080 2022; do
+for port in 80 443 "$WINGS_API_PORT" "$WINGS_SFTP_PORT"; do
     if ss -lnt 2>/dev/null | awk -v p=":$port" '$4 ~ (p "$") {found=1} END {exit !found}'; then
         pass "A TCP listener exists on port $port."
     else
@@ -600,7 +620,7 @@ echo "Important manual checks this script cannot prove:"
 echo "  - Router Port Forward rules target the Clone IP entered in section 1."
 echo "  - The Panel shows the Node online in its UI."
 echo "  - The original VM remains powered off."
-echo "  - CS2 Base/instances are not installed yet; identify the second VMDK before formatting."
+echo "  - This checker does not install CS2 or verify its Shared Base; inspect those separately before storage changes."
 echo
 echo "This script is read-only; it does not fix any reported issue."
 
@@ -618,7 +638,7 @@ SCRIPT
 وقتی تست تمام شد:
 
 1. در Clone دستور sudo systemctl poweroff را اجرا کن و در VMware مطمئن شو وضعیت **Powered Off** است.
-2. مقصد Port Forwardهای سرویس‌هایی را که در بخش 8 به Clone منتقل کرده‌ای، از آدرس Clone به IP اصلی ثبت‌شده در جدول بخش 1 برگردان. در نمونهٔ FragCity، 192.168.1.9 آدرس Clone و 192.168.1.7 آدرس اصلی است.
+2. مقصد Port Forwardهای سرویس‌هایی را که در بخش 8 به Clone منتقل کرده‌ای، از آدرس Clone به IP اصلی ثبت‌شده در جدول بخش 1 برگردان. در نمونهٔ FragCity، <CLONE_LAN_IP> آدرس Clone و <NODE_LAN_IP> آدرس اصلی است.
 3. فقط پس از خاموش‌شدن کامل Clone، VM اصلی را روشن کن.
 4. روی VM اصلی، IP واقعی آن و دسترسی SSH/Panel/Wings را بررسی کن.
 
