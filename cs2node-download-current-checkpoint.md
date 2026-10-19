@@ -60,8 +60,7 @@ sudo find "$BASE" -xdev -type f -printf '%s\t%p\n' 2>/dev/null |
 
 echo
 echo "=== Steam log files ==="
-sudo find /root/Steam/logs -maxdepth 1 -type f \\
-  -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort
+sudo find /root/Steam/logs -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort
 
 for log in /root/Steam/logs/content_log.txt /root/Steam/logs/stderr.txt /root/Steam/logs/connection_log.txt; do
   if sudo test -f "$log"; then
