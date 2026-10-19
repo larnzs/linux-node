@@ -733,7 +733,9 @@ sudo reboot
 
  ظاهر شد، داخل Debian هستی و می‌توانی بخش «ج) پس از ورود تازه، بررسی نهایی روی Debian» را اجرا کنی.
 
-دستور سادهٔ `ssh sv1@192.168.1.7` ممکن است شکست بخورد، چون کلید `id_ed25519_fragcity` را صریحاً معرفی نمی‌کند. پس از غیرفعال‌کردن PasswordAuthentication، باید کلید درست را ارائه دهی. همچنین `sv1` نام کاربری است؛ `fc-node-01` نام میزبان است، نه نام حساب.
+دستور سادهٔ `$LinuxUser = Read-Host "Linux non-root username"
+$NodeIp = Read-Host "Node LAN IPv4"
+ssh "$LinuxUser@$NodeIp"` ممکن است شکست بخورد، چون کلید `id_ed25519_fragcity` را صریحاً معرفی نمی‌کند. پس از غیرفعال‌کردن PasswordAuthentication، باید کلید درست را ارائه دهی. همچنین `sv1` نام کاربری است؛ `fc-node-01` نام میزبان است، نه نام حساب.
 
 
 **ج) پس از ورود تازه، بررسی نهایی روی Debian:**
@@ -779,7 +781,7 @@ sudo ss -ltnp
 ~~~
 
 **معیار قبولی مرحلهٔ 1.21:**
-- ورود جدید با کلید SSH پس از reboot موفق باشد؛ `hostname -f` برابر `fc-node-01.fragcity.ir` باشد.
+- ورود جدید با کلید SSH پس از reboot موفق باشد؛ `hostname -f` با FQDN تعریف‌شده در جدول 0.3 مطابقت داشته باشد.
 - `sudo apt-get check` بدون خطا تمام شود و `sudo dpkg --audit` مورد ناقصی گزارش نکند.
 - سرویس SSH فعال، پیکربندی آن معتبر، ورود root و احراز هویت SSH با رمز غیرفعال، و احراز هویت کلیدی فعال بماند.
 - UFW فعال بماند؛ timezone برابر `UTC` و وضعیت `NTPSynchronized=yes` باشد؛ IP/route و فضای دیسک منطقی باشند.
@@ -1330,7 +1332,7 @@ sudo journalctl -u pteroq.service -n 80 --no-pager
 
 ### 3.5 پیکربندی NGINX برای LAN
 
-**بلوک NGINX زیر را به‌عنوان فرمان Bash اجرا نکن.** محتوای آن باید داخل فایل `/etc/nginx/sites-available/pterodactyl.conf` ذخیره شود. ابتدا در SSH دبیان این فرمان را اجرا کن:
+**بلوک NGINX زیر را به‌عنوان فرمان Bash اجرا نکن.** محتوای آن باید داخل فایل `/etc/nginx/sites-available/pterodactyl.conf` ذخیره شود. قبل از ذخیره، مقدار نمونهٔ `server_name` را با Panel FQDN از جدول 0.3 جایگزین کن. ابتدا در SSH دبیان این فرمان را اجرا کن:
 
 ~~~bash
 sudo nano /etc/nginx/sites-available/pterodactyl.conf
@@ -1485,30 +1487,39 @@ sudo -u www-data php8.3 artisan route:list --path=admin
 
 ### 3.7 صدور TLS برای Panel و Node — راهنمای مرجع
 
-برای FragCity دو hostname جدا داریم و هرکدام گواهی TLS مناسب خودش را لازم دارد:
+برای Pterodactyl، Panel و Wings دو FQDN جدا دارند و هرکدام باید گواهی معتبری برای نام خودش داشته باشد. مقادیر زیر فقط نمونه‌اند؛ پیش از هر بلوک آن‌ها را با دامنه‌های جدول 0.3 عوض کن.
 
-- Panel مشتری/ادمین: panel.fragcity.ir
-- Node و Wings: fc-node-01.fragcity.ir
-
-**گواهی Panel به‌تنهایی گواهی Node را ایجاد نمی‌کند.** اگر Wings روی مسیر گواهی Node تنظیم شده باشد ولی آن گواهی صادر نشده باشد، Wings با خطای missing fullchain.pem متوقف می‌شود. این راهنما هر دو گواهی و بازیابی همان خطا را پوشش می‌دهد.
-
-**پیش‌شرط شبکه:** Panel در LAN سالم باشد؛ رابط مدیریت روتر از WAN قابل دسترسی نباشد؛ DNS عمومی برای hostname موردنظر به IP عمومی فعلی اشاره کند؛ و Port Forward ورودی TCP 80/443 (برای این VM) به IP LAN رزروشدهٔ Node هدایت شود. اگر WAN پشت CGNAT/NAT بالادستی است، پیش از صدور گواهی مسیر ورودی را حل کن. هیچ Port Forward عمومی برای SSH 22، MariaDB 3306 یا Redis 6379 ایجاد نکن. Wings/SFTP ports را هم تا بعد از آزمون و بازبینی firewall عمومی نکن.
+پیش‌شرط‌ها:
+- FQDNهای Panel و Node به IPv4 عمومی قابل‌استفاده اشاره کنند؛ IP خصوصی LAN نباید در DNS عمومی قرار گیرد.
+- پورت TCP 80 از روتر به IP LAN رزروشدهٔ Node هدایت شود تا روش HTTP-01 کار کند.
+- رابط مدیریتی خود روتر از WAN غیرفعال باشد.
+- اگر پشت CGNAT/Double NAT هستی، پیش از صدور عمومی گواهی، مسیر ورودی را حل کن.
 
 #### 3.7.1 گواهی Panel
 
 ~~~bash
 set -eu
+PANEL_FQDN="panel.fragcity.ir"  # Replace with the real Panel FQDN
+
+if [[ "$PANEL_FQDN" == *REPLACE* || "$PANEL_FQDN" == "" ]]; then
+  echo "STOP: set PANEL_FQDN first."
+  exit 1
+fi
+
 sudo apt install -y certbot python3-certbot-nginx
 sudo /usr/sbin/nginx -t
-sudo certbot --nginx --redirect -d panel.fragcity.ir
+sudo certbot --nginx --redirect -d "$PANEL_FQDN"
 ~~~
 
-در prompt مربوط به Certbot، ایمیل مدیریتی خودت را وارد کن؛ آن را در README یا چت ننویس. سپس URL برنامه را به HTTPS تغییر بده و Cache را بازسازی کن:
+در prompt مربوط به Certbot، ایمیل مدیریتی خودت را وارد کن؛ آن را در README یا چت ننویس. پس از صدور موفق گواهی، آدرس برنامه را به HTTPS تغییر بده و cache را بازسازی کن:
 
 ~~~bash
 set -eu
-sudo sed -i -E 's#^APP_URL=.*#APP_URL=https://panel.fragcity.ir#' /var/www/pterodactyl/.env
-cd /var/www/pterodactyl
+PANEL_FQDN="panel.fragcity.ir"  # Use the same FQDN for which Certbot issued the certificate
+PANEL_DIR="/var/www/pterodactyl"
+
+sudo sed -i -E "s#^APP_URL=.*#APP_URL=https://$PANEL_FQDN#" "$PANEL_DIR/.env"
+cd "$PANEL_DIR"
 sudo -u www-data php8.3 artisan config:clear
 sudo -u www-data php8.3 artisan cache:clear
 sudo -u www-data php8.3 artisan view:clear
@@ -1521,21 +1532,23 @@ sudo systemctl reload nginx
 
 ~~~bash
 set -eu
-curl -fsSI --max-time 15 https://panel.fragcity.ir/
+PANEL_FQDN="panel.fragcity.ir"  # Replace with your real Panel FQDN
+curl -fsSI --max-time 15 "https://$PANEL_FQDN/"
 sudo certbot certificates
 sudo certbot renew --dry-run
 ~~~
 
 #### 3.7.2 گواهی جداگانهٔ Node/Wings
 
-گواهی `panel.fragcity.ir` جای گواهی `fc-node-01.fragcity.ir` را نمی‌گیرد. برای صدور و تمدید گواهی Node با روش HTTP-01، رکورد A عمومی باید به IPv4 عمومی فعلی اشاره کند و TCP 80 از روتر به IP LAN رزروشدهٔ همین VM برسد.
+گواهی Panel جای گواهی Node را نمی‌گیرد. در هر سه بلوک زیر، `NODE_FQDN` را با نامی که در Panel برای Node وارد کرده‌ای برابر نگه دار.
 
 **بررسی DNS عمومی — در Windows PowerShell، نه SSH:**
 
 ~~~powershell
-$names = @("fc-node-01.fragcity.ir", "panel.fragcity.ir")
+$PanelFqdn = Read-Host "Panel FQDN"
+$NodeFqdn = Read-Host "Node/Wings FQDN"
 
-foreach ($name in $names) {
+foreach ($name in @($PanelFqdn, $NodeFqdn)) {
     Resolve-DnsName -Name $name -Type A -ErrorAction Continue |
         Select-Object Name, Type, IPAddress
     Resolve-DnsName -Name $name -Type A -Server 1.1.1.1 -DnsOnly -ErrorAction Continue |
@@ -1543,34 +1556,44 @@ foreach ($name in $names) {
 }
 ~~~
 
-پاسخ هر دو resolver را با IPv4 عمومی فعلی مقایسه کن. `getent ahostsv4` روی Debian ممکن است از نگاشت محلی `/etc/hosts` تأثیر بگیرد؛ برای تأیید DNS عمومی از بلوک PowerShell بالا استفاده کن. اگر مسیر DNS-over-HTTPS از Debian در دسترس نبود، به‌جای آن همین بررسی PowerShell را اجرا کن.
+پاسخ هر دو resolver را با IPv4 عمومی فعلی مقایسه کن. اگر جواب‌ها با IP عمومی مطابقت ندارند، قبل از صدور گواهی DNS را اصلاح کن. برای DNS عمومی از `Resolve-DnsName` استفاده کن؛ `getent` روی Debian ممکن است از `/etc/hosts` تأثیر بگیرد.
 
-**صدور گواهی Node — در Debian، فقط وقتی DNS و Port Forward درست‌اند و گواهی Node هنوز وجود ندارد:**
-
-~~~bash
-sudo certbot certonly --nginx -d fc-node-01.fragcity.ir
-~~~
-
-**بررسی فایل‌ها و تمدید خودکار:**
+**صدور گواهی Node — در Debian، فقط پس از تأیید DNS و Port Forward:**
 
 ~~~bash
 set -eu
-sudo test -s /etc/letsencrypt/live/panel.fragcity.ir/fullchain.pem
-sudo test -s /etc/letsencrypt/live/panel.fragcity.ir/privkey.pem
-sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem
-sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem
-sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem -noout -checkhost fc-node-01.fragcity.ir
-sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem -noout -checkend 0
+NODE_FQDN="fc-node-01.fragcity.ir"  # Replace with the real Node FQDN
+if [[ "$NODE_FQDN" == *REPLACE* || "$NODE_FQDN" == "" ]]; then
+  echo "STOP: set NODE_FQDN first."
+  exit 1
+fi
+
+sudo certbot certonly --nginx -d "$NODE_FQDN"
+~~~
+
+**بررسی گواهی‌ها و تمدید خودکار:**
+
+~~~bash
+set -eu
+PANEL_FQDN="panel.fragcity.ir"          # Replace with the real Panel FQDN
+NODE_FQDN="fc-node-01.fragcity.ir"      # Replace with the real Node FQDN
+PANEL_CERT="/etc/letsencrypt/live/$PANEL_FQDN"
+NODE_CERT="/etc/letsencrypt/live/$NODE_FQDN"
+
+sudo test -s "$PANEL_CERT/fullchain.pem"
+sudo test -s "$PANEL_CERT/privkey.pem"
+sudo test -s "$NODE_CERT/fullchain.pem"
+sudo test -s "$NODE_CERT/privkey.pem"
+sudo openssl x509 -in "$NODE_CERT/fullchain.pem" -noout -checkhost "$NODE_FQDN"
+sudo openssl x509 -in "$NODE_CERT/fullchain.pem" -noout -checkend 0
 sudo certbot renew --dry-run
 ~~~
 
-اگر فایل گواهی Node وجود ندارد، به بخش صدور بالا برگرد. اگر فایل‌ها وجود دارند ولی Wings باز هم خطای TLS داد، مسیرهای گواهی را با تنظیمات Node تطبیق بده؛ فایل خالی نساز، symlink دستی ایجاد نکن و محتوای محرمانهٔ `/etc/pterodactyl/config.yml` را منتشر نکن.
+اگر مسیر گواهی موجود نیست، فرمان صدور همان FQDN را بررسی کن. اگر Certbot به‌دلیل گواهی تکراری مسیر دیگری مثل `-0001` ساخته است، مسیر واقعی را از خروجی `sudo certbot certificates` بردار؛ فایل خالی نساز و symlink دستی ایجاد نکن.
 
-منابع:
+منابع رسمی:
 - https://certbot.eff.org/instructions?ws=nginx
 - https://docs.pterodactyl.io/v1/guides/tutorials/ssl-certificates
-
----
 
 ## 4. بررسی منابع و عیب‌یابی
 
@@ -1770,7 +1793,7 @@ sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /usr/local/bin/wings
 
 ### 6.3 پیش‌بررسی DNS/TLS و ساخت Node از مرورگر Windows
 
-این مرحله از مرورگر Windows انجام می‌شود؛ داخل Debian فرمانی برای ساخت Node لازم نیست.
+این مرحله از مرورگر Windows انجام می‌شود؛ داخل Debian فرمانی برای ساخت Node لازم نیست. قبل از اجرا، Panel FQDN و Node FQDN را از جدول 0.3 بردار و همهٔ نام‌های نمونه در فرم/آدرس‌های مرورگر را با آن‌ها تطبیق بده.
 
 **اول فضای فعلی را فقط بررسی کن** (بدون تغییر فایل‌ها):
 
