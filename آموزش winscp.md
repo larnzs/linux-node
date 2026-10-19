@@ -45,15 +45,18 @@ if ([string]::IsNullOrWhiteSpace($SshPortText)) {
     $SshPort = $parsedPort
 }
 
-$keyPath = Join-Path $env:USERPROFILE ".ssh\\$KeyFileName"
+$keyPath = Join-Path $env:USERPROFILE ".ssh\$KeyFileName"
 if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) {
     throw "Private key file not found: $keyPath"
 }
 
 $target = "$LinuxUser@$ServerIp"
 ssh -p $SshPort -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
-~~~bash
+~~~
 exit
+اگر فرمان بالا موفق شد، اتصال آزمایشی SSH برقرار است. برای خروج از نشست تعاملی لینوکس بنویس:
+
+~~~bash
 ~~~
 
 ## 3. نصب WinSCP
@@ -89,7 +92,7 @@ exit
    اگر انتخاب‌گر فایل متغیر محیطی را قبول نکرد، مسیر کامل ویندوز را انتخاب کن. شکل مسیر معمولاً به این صورت است:
 
    ~~~text
-   C:\Users\<WindowsUser>\.ssh\<YourPrivateKey>
+   C:\Users\<WindowsUser>\.ssh\<PrivateKeyFile>
    ~~~
 
    برای پیدا کردن مسیر دقیق می‌توانی در PowerShell اجرا کنی:
@@ -98,8 +101,8 @@ exit
    $env:USERPROFILE
    ~~~
 
-4. WinSCP معمولاً برای احراز هویت با فایل کلید خصوصی، قالب **PuTTY Private Key (.ppk)** می‌خواهد. اگر فایل فعلی در قالب OpenSSH باشد، ممکن است WinSCP پیشنهاد تبدیل آن را بدهد. تبدیل را تأیید کن و نسخه تبدیل‌شده را با نامی مانند **<YourPrivateKey>.ppk** ذخیره کن.
-5. فایل اصلی **<YourPrivateKey>** را نگه دار و روی آن بازنویسی نکن. در WinSCP فایل **.ppk** تبدیل‌شده را انتخاب کن.
+4. WinSCP معمولاً برای احراز هویت با فایل کلید خصوصی، قالب **PuTTY Private Key (.ppk)** می‌خواهد. اگر فایل فعلی در قالب OpenSSH باشد، ممکن است WinSCP پیشنهاد تبدیل آن را بدهد. تبدیل را تأیید کن و نسخه تبدیل‌شده را با نامی مانند **<PrivateKeyFile>.ppk** ذخیره کن.
+5. فایل اصلی **<PrivateKeyFile>** را نگه دار و روی آن بازنویسی نکن. در WinSCP فایل **.ppk** تبدیل‌شده را انتخاب کن.
 6. اگر برای کلید خصوصی Passphrase تعیین شده است، WinSCP آن را درخواست می‌کند. **Passphrase کلید خصوصی با رمز ورود حساب لینوکس یکی نیست.**
 
 ### محدودکردن روش‌های احراز هویت اضافی
@@ -117,7 +120,7 @@ WinSCP همه گزینه‌های OpenSSH را دقیقاً با همان نام
 ## 6. ذخیره و برقراری اتصال
 
 1. در پنجره Login روی **Save** کلیک کن.
-2. نامی مانند **Linux Node — <NODE_HOSTNAME>** برای سایت بگذار و <hostname> را با hostname واقعی مقصد جایگزین کن.
+2. نامی مانند **Linux Node — <NODE_HOSTNAME>** برای سایت بگذار و <NODE_HOSTNAME> را با hostname واقعی مقصد جایگزین کن.
 3. برای اتصال روی **Login** کلیک کن.
 4. اگر WinSCP درباره کلید میزبان SSH پرسید، پیش از تأیید، اثر انگشت آن را از یک منبع قابل اعتماد در سمت سرور/کنسول VM بررسی کن. صرفاً به‌خاطر اینکه پیام ظاهر شده است آن را تأیید نکن.
 5. پس از موفقیت، فهرست فایل‌های Debian در یکی از پنل‌های WinSCP نمایش داده می‌شود.
@@ -260,7 +263,7 @@ sudo visudo -f /etc/sudoers.d/winscp-sftp-root
 <LINUX_USER> ALL=(root) NOPASSWD: /usr/lib/openssh/sftp-server -R
 ~~~
 
-عبارت <LinuxUser> را با نام کاربری واقعی Linux جایگزین کن؛ علامت‌های < و > را عیناً وارد نکن.
+عبارت <LINUX_USER> را با نام کاربری واقعی Linux جایگزین کن؛ علامت‌های < و > را عیناً وارد نکن.
 
 فایل را ذخیره کن، سپس فقط صحت نحوی آن را بررسی کن:
 
