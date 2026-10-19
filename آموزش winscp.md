@@ -2,50 +2,56 @@
 
 **هدف:** اتصال از Windows به Debian با احراز هویت کلید SSH و مدیریت فایل‌ها در رابط گرافیکی WinSCP.
 
-این راهنما برای هر Linux Node قابل استفاده است؛ IP، SSH port، نام کاربر و فایل کلید باید مطابق نصب خودت تنظیم شوند. مقادیر FragCity در جدول و بلوک PowerShell فقط نمونه‌اند. پیش از اجرا هر چهار مورد را بررسی کن؛ این راهنما برای اتصال معمولی SFTP است و رمز عبور حساب را عمداً استفاده نمی‌کند.
+این راهنما برای هر Linux Node قابل استفاده است. در بخش PowerShell آدرس، پورت، نام کاربر و نام کلید به‌صورت تعاملی پرسیده می‌شوند تا مقادیر Node دیگری به‌اشتباه استفاده نشوند. اتصال معمولی SFTP با کلید SSH انجام می‌شود؛ رمز حساب لینوکس وارد نمی‌شود.
 
 ## 1. مشخصات اتصال را برای محیط خودت پر کن
 
-| گزینه | مقدار |
+| گزینه | مقدار برای نصب خودت |
 |---|---|
-| نام VM | fc-node-01 |
-| IP مقصد | 192.168.1.9 |
+| نام Node | نام واقعی Linux Node |
+| IP/FQDN مقصد | IP داخلی یا FQDN قابل‌دسترسی همین Node |
 | پروتکل انتقال فایل | SFTP |
-| پورت SSH | 22 |
-| نام کاربری لینوکس | sv1 |
-| فایل کلید خصوصی در ویندوز | %USERPROFILE%\.ssh\<YourPrivateKey> |
-| مسیر پیش‌فرض پس از اتصال | پوشه خانه کاربر؛ برای دیدن ساختار کلی سیستم به / برو |
+| پورت SSH | پورت واقعی SSH؛ معمولاً 22 |
+| نام کاربری Linux | حساب عادی Linux که مجاز به SSH است |
+| کلید خصوصی Windows | فایل کلید زیر `%USERPROFILE%\\.ssh\\` |
+| مسیر پس از اتصال | Home همان حساب Linux |
 
-**مهم:** فرمان‌های زیر با مقادیر مثال شروع می‌شوند. قبل از اتصال، IP، نام کاربر و نام کلید را در بخش 2 با مقدارهای محیط خودت هماهنگ کن. IP نمونه را برای Node دیگری تکرار نکن؛ IP، port، username و key باید با مقصد خودت مطابقت داشته باشند.
+**مهم:** فرمان بخش 2 برای IP/FQDN، نام کاربر، پورت و فایل کلید از تو ورودی می‌گیرد. مطمئن شو مقصد انتخابی همان Node موردنظر است. نام کلید باید فقط نام فایل داخل پوشهٔ `.ssh` باشد، نه مسیر کامل آن.
 
 ## 2. فرمان SSH مرجع در PowerShell
 
 این فرمان مرجع اتصال است؛ WinSCP باید از همان حساب و همان کلید استفاده کند:
 
 ~~~powershell
-# Change these values to match your Linux Node.
-$ServerIp = "192.168.1.9"        # Example only; enter your Node's actual IP
-$SshPort = 22                     # Actual SSH port
-$LinuxUser = "sv1"                # Actual Linux username
-$KeyFileName = "<YourPrivateKey>" # Key filename inside %USERPROFILE%\.ssh, without folder path
+$ServerIp = Read-Host "Node IP or FQDN"
+$SshPortText = Read-Host "SSH port [22]"
+$LinuxUser = Read-Host "Linux username"
+$KeyFileName = Read-Host "Private key filename inside .ssh (for example id_ed25519)"
 
-$keyPath = Join-Path $env:USERPROFILE ".ssh\$KeyFileName"
+if ([string]::IsNullOrWhiteSpace($ServerIp) -or
+    [string]::IsNullOrWhiteSpace($LinuxUser) -or
+    [string]::IsNullOrWhiteSpace($KeyFileName)) {
+    throw "Node address, Linux username and key filename are required."
+}
+
+if ([string]::IsNullOrWhiteSpace($SshPortText)) {
+    $SshPort = 22
+} else {
+    $parsedPort = 0
+    if (-not [int]::TryParse($SshPortText, [ref]$parsedPort) -or
+        $parsedPort -lt 1 -or $parsedPort -gt 65535) {
+        throw "SSH port must be an integer from 1 to 65535."
+    }
+    $SshPort = $parsedPort
+}
+
+$keyPath = Join-Path $env:USERPROFILE ".ssh\\$KeyFileName"
+if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) {
+    throw "Private key file not found: $keyPath"
+}
+
 $target = "$LinuxUser@$ServerIp"
-
 ssh -p $SshPort -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
-~~~
-
-معنی گزینه‌ها:
-
-- **$keyPath**: مسیر کلید خصوصی روی کامپیوتر ویندوزی.
-- **$target**: نام کاربری و IP مقصد.
-- **IdentitiesOnly=yes**: استفاده از هویت/کلید مشخص‌شده در فرمان، به‌جای امتحان‌کردن کلیدهای نامرتبط.
-- **PreferredAuthentications=publickey**: درخواست احراز هویت با کلید عمومی.
-- **PasswordAuthentication=no**: غیرفعال‌کردن روش password برای همین اجرای SSH.
-- **-i $keyPath**: تعیین فایل کلید خصوصی مورد استفاده.
-
-اگر این فرمان موفق شد، اتصال آزمایشی SSH برقرار است. برای خروج از نشست تعاملی لینوکس بنویس:
-
 ~~~bash
 exit
 ~~~
@@ -77,13 +83,13 @@ exit
 3. در قسمت **Private key file**، فایل کلید خصوصی‌ای را انتخاب کن که در بخش 2 مشخص کرده‌ای:
 
    ~~~text
-   %USERPROFILE%\.ssh\<YourPrivateKey>
+   %USERPROFILE%\.ssh\<PrivateKeyFile>
    ~~~
 
    اگر انتخاب‌گر فایل متغیر محیطی را قبول نکرد، مسیر کامل ویندوز را انتخاب کن. شکل مسیر معمولاً به این صورت است:
 
    ~~~text
-   C:\Users\<WindowsUsername>\.ssh\<YourPrivateKey>
+   C:\Users\<WindowsUser>\.ssh\<YourPrivateKey>
    ~~~
 
    برای پیدا کردن مسیر دقیق می‌توانی در PowerShell اجرا کنی:
@@ -111,7 +117,7 @@ WinSCP همه گزینه‌های OpenSSH را دقیقاً با همان نام
 ## 6. ذخیره و برقراری اتصال
 
 1. در پنجره Login روی **Save** کلیک کن.
-2. نامی مانند **Linux Node — <hostname>** برای سایت بگذار و <hostname> را با hostname واقعی مقصد جایگزین کن.
+2. نامی مانند **Linux Node — <NODE_HOSTNAME>** برای سایت بگذار و <hostname> را با hostname واقعی مقصد جایگزین کن.
 3. برای اتصال روی **Login** کلیک کن.
 4. اگر WinSCP درباره کلید میزبان SSH پرسید، پیش از تأیید، اثر انگشت آن را از یک منبع قابل اعتماد در سمت سرور/کنسول VM بررسی کن. صرفاً به‌خاطر اینکه پیام ظاهر شده است آن را تأیید نکن.
 5. پس از موفقیت، فهرست فایل‌های Debian در یکی از پنل‌های WinSCP نمایش داده می‌شود.
@@ -135,18 +141,42 @@ WinSCP همه گزینه‌های OpenSSH را دقیقاً با همان نام
 | /usr | برنامه‌ها و کتابخانه‌های سیستم |
 | /tmp | فایل‌های موقت |
 
-در WinSCP می‌توانی فایل‌ها را باز کنی، از Debian به ویندوز کپی کنی، به سرور بارگذاری کنی و فایل‌های متنی را ویرایش کنی. برای تغییر فایل‌های مهم، قبل از ویرایش یک نسخه پشتیبان بگیر.
+در WinSCP می‌توانی فایل‌ها را باز کنی، از Debian به Windows کپی کنی و فایل‌ها را بارگذاری کنی. برای تغییر فایل‌های مهم، قبل از ویرایش نسخهٔ پشتیبان بگیر. بارگذاری با حساب معمولی فقط در مسیرهایی ممکن است که مالکیت/مجوز نوشتن داری.
 
 **برای انتقال CS2/Workshop:** مقصد و ترتیب انتقال را فقط از [راهنمای آموزشی K4ryuu CS2 Egg-Go و VPK Sync](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) بگیر. ابتدا به یک پوشهٔ staging زیر Home کاربر بارگذاری کن؛ هنگام اجرای SteamCMD یا cs2node در حال نوشتن، آپلود/ادغام نکن و VPKهای بازی را مستقیم به /srv/cs2-shared یا فایل‌های Workshop را مستقیم به /srv/cs2-workshop نریز.
 
 ## 8. محدودیت دسترسی‌ها
 
-ورود با حساب معمولی Linux (در نمونهٔ این راهنما، کاربر **sv1**) به معنی دسترسی کامل به همه فایل‌های لینوکس نیست؛ همیشه از نام کاربری واقعی بخش 1 استفاده کن. ممکن است بعضی فایل‌ها و پوشه‌ها، به‌خصوص زیر **/etc** یا فایل‌هایی که مالکشان **root** است، قابل خواندن یا ویرایش نباشند.
+ورود با حساب معمولی Linux به معنی دسترسی کامل به همه فایل‌های سیستم نیست؛ از حساب واقعی خودت استفاده کن. ممکن است بعضی فایل‌ها و پوشه‌ها، به‌خصوص زیر **/etc** یا فایل‌هایی که مالکشان **root** است، قابل خواندن یا ویرایش نباشند.
 
 - اگر Permission denied دیدی، به‌صورت تصادفی مالکیت یا مجوزها را تغییر نده.
 - از **chmod -R 777** برای دورزدن مشکل استفاده نکن.
 - ورود مستقیم SSH با کاربر root را فقط برای راحتی فعال نکن.
 - در صورت نیاز به عملیات مدیریتی، ابتدا مسیر و مالکیت فایل را مشخص کن و از روش مدیریتی مناسب مانند **sudo** استفاده کن.
+
+## 8.1 انتقال امن فایل‌ها به Node — روش Staging
+
+اگر لازم است فایل بزرگی مانند VPKهای بازی یا Workshop را با WinSCP به Node منتقل کنی، ابتدا آن را در Home حساب Linux خودت قرار بده؛ مثلاً در پوشهٔ `~/staging`. حساب معمولی معمولاً نمی‌تواند مستقیماً داخل `/srv`, `/root` یا Volumeهای Pterodactyl بنویسد.
+
+1. در Home خودت پوشه‌ای به نام `staging` بساز.
+2. با WinSCP فایل‌ها را به آن پوشه منتقل کن.
+3. در SSH فهرست فایل‌ها، حجم، ساختار مسیر و مالکیت را بررسی کن.
+4. اگر مقصد نهایی نیاز به root دارد، ابتدا سرویس/پردازشی را که ممکن است فایل‌ها را بنویسد متوقف کن و نبودن پردازش فعال را بررسی کن. سپس از `sudo rsync` یا فرمان کنترل‌شدهٔ مشابه برای ادغام از Staging استفاده کن؛ فرمان انتقال باید فقط فایل‌های موردنظر را هدف بگیرد.
+5. فایل‌های Windows، کتابخانه‌های runtime، Manifest یا تنظیمات را کورکورانه روی نسخهٔ Linux overwrite نکن. مسیر مقصد را پیش از هر فرمان انتقال بازبینی کن.
+
+**برای نوشتن فایل‌های root، SFTP با دسترسی root فعال نکن.** روش پیش‌فرض این راهنما عمداً SFTP را با حساب معمولی اجرا می‌کند. بخش 10 فقط یک گزینهٔ root SFTP خواندنی ارائه می‌دهد و برای بارگذاری فایل طراحی نشده است.
+
+~~~bash
+echo "=== Current account and home ==="
+id
+printf 'HOME=%s\\n' "$HOME"
+
+echo
+echo "=== Staging path ==="
+mkdir -p "$HOME/staging"
+ls -ld "$HOME/staging"
+df -hT "$HOME/staging"
+~~~
 
 ## 9. عیب‌یابی
 
@@ -227,7 +257,7 @@ sudo visudo -f /etc/sudoers.d/winscp-sftp-root
 این خط را اضافه کن:
 
 ~~~text
-<LinuxUser> ALL=(root) NOPASSWD: /usr/lib/openssh/sftp-server -R
+<LINUX_USER> ALL=(root) NOPASSWD: /usr/lib/openssh/sftp-server -R
 ~~~
 
 عبارت <LinuxUser> را با نام کاربری واقعی Linux جایگزین کن؛ علامت‌های < و > را عیناً وارد نکن.
@@ -284,7 +314,7 @@ sudo visudo -cf /etc/sudoers.d/winscp-sftp-root
 
 ## 11. نکات امنیتی
 
-- فایل **<YourPrivateKey>** و نسخه **.ppk** هر دو کلید خصوصی‌اند؛ آن‌ها را به GitHub، پیام‌ها یا سرورهای غیرمرتبط منتقل نکن.
+- فایل کلید خصوصی و نسخهٔ **.ppk** هر دو محرمانه‌اند؛ آن‌ها را به GitHub، پیام‌ها یا سرورهای غیرمرتبط منتقل نکن.
 - فقط کلید عمومی باید در سمت سرور برای مجازکردن ورود ثبت شود؛ کلید خصوصی باید روی کامپیوتر مورداعتماد بماند.
 - اثر انگشت میزبان را در اولین اتصال بررسی کن.
 - از WinSCP برای مدیریت فایل‌ها استفاده کن؛ برای فرمان‌های سیستمی و کارهای نیازمند مجوز مدیریتی، ترمینال SSH همچنان لازم است.
