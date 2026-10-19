@@ -59,6 +59,10 @@ sudo find "$BASE" -xdev -type f -printf '%s\t%p\n' 2>/dev/null |
   sort -nr | head -n 25 | numfmt --field=1 --to=iec
 
 echo
+echo "=== Disk free space ==="
+df -hT / /srv 2>/dev/null || true
+
+echo
 echo "=== Steam log files ==="
 sudo find /root/Steam/logs -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort
 
