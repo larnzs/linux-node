@@ -411,8 +411,8 @@ sudo rsync -rltv --ignore-existing \
   --include='*/' \
   --include='*.vpk' \
   --exclude='*' \
-  "$HOME/cs2-base-staging/" \
-  "/srv/cs2-shared/game/"
+  "$STAGE/" \
+  "$BASE/game/"
 ~~~
 
 این فرمان مسیرهای نسبی زیر game/ را حفظ می‌کند و فقط فایل‌های VPK را کپی می‌کند. اگر منبع شامل VPKهای ناقص/ناسازگار باشد یا SteamCMD به Manifest/Depotهای دیگر نیاز داشته باشد، دانلود همچنان انجام می‌شود یا فایل‌ها اصلاح می‌شوند. appmanifest_730.acf را از Windows جایگزین نکن.
@@ -459,16 +459,55 @@ game/bin/linuxsteamrt64/steamapps/workshop/
   content/730/<item-id>/<files...>
 ~~~
 
-راه امن برای فایل‌های Workshop موجود این است:
+فقط زمانی از این روش استفاده کن که منبع ویندوز واقعاً این ساختار را دارد و فایل ACF متعلق به همان مجموعهٔ Workshop است. اگر فقط VPKها یا پوشه‌ای مانند game/csgo_community_addons موجود است، این مرحله را اجرا نکن تا ساختار منبع بررسی شود.
+
+نمونهٔ انتقال برای Source با ساختار معتبر:
 
 1. سرور آزمایشی را Stop کن.
-2. با WinSCP فایل‌های شناسایی‌شده را ابتدا زیر Home کاربر staging کن؛ مسیر منبع را حفظ کن.
-3. مشخص کن فایل appworkshop_730.acf از همان مجموعه و نسخه‌هاست و محتویات هر item-id کامل است. اگر ACF معتبر در دسترس نیست، واردکردن به Cache را ادامه نده.
-4. UUID/Volume سرور آزمایشی را در Panel/Node مشخص کن؛ آن را حدس نزن. فقط همان Volume را انتخاب کن.
-5. فایل‌ها را به مسیر Workshop مورد انتظار آن Volume اضافه کن و سرویس/سرور را از مسیر معمول Egg راه‌اندازی کن تا Module بتواند آیتم را شناسایی و به Store مرکزی منتقل کند.
-6. بعد از Boot، sudo cs2node workshop را اجرا کن و وجود آیتم/نسخه را بررسی کن.
+2. با WinSCP کل پوشهٔ Workshop را به staging زیر Home کاربر منتقل کن؛ به‌طور نمونه، فایل ACF باید در \$HOME/workshop-staging/appworkshop_730.acf و پوشهٔ content باید در \$HOME/workshop-staging/content/730/ قرار گیرد.
+3. در Panel/Node Volume UUID سرور آزمایشی را مشخص کن؛ از UUID سرور فعلی FragCity برای سرور دیگری استفاده نکن.
+4. مسیر زیر را با UUID واقعی همان سرور تنظیم کن. فرمان فقط وقتی اجرا شود که سرور خاموش و فایل ACF و content موجود باشند.
 
-پس از انتقال، ماژول می‌تواند نسخهٔ معتبر را در Store خود نگه دارد و آن را با Symlink به Instanceهای دیگر پیشنهاد دهد. اگر فایل‌ها بدون metadata معتبر باشند، یا Manifest نشان دهد نسخهٔ جدیدتری در انتظار است، ممکن است ماژول آن‌ها را Cache نکند؛ این مورد را با cs2node workshop و لاگ بررسی کن.
+~~~bash
+set -eu
+
+STAGE="$HOME/workshop-staging"
+VOL="/var/lib/pterodactyl/volumes/<SERVER_UUID>"
+
+if [ ! -s "$STAGE/appworkshop_730.acf" ] || [ ! -d "$STAGE/content/730" ]; then
+  echo "STOP: a valid appworkshop_730.acf and content/730 directory are required."
+  exit 1
+fi
+
+if ! sudo test -d "$VOL/game"; then
+  echo "STOP: target volume not found. Check SERVER_UUID."
+  exit 1
+fi
+
+TARGET="$VOL/game/bin/linuxsteamrt64/steamapps/workshop"
+sudo install -d "$TARGET"
+
+echo "Source Workshop item folders:"
+find "$STAGE/content/730" -mindepth 1 -maxdepth 1 -type d | wc -l
+
+echo "Review the source and target before copying:"
+sudo ls -ld "$VOL" "$TARGET"
+~~~
+
+5. فقط پس از اینکه تعداد آیتم‌ها و مسیر مقصد درست بود، فایل‌ها را اضافه کن. جایگزین‌کردن ACF موجود یا فایل‌های هم‌نام نباید حدسی باشد؛ در این الگوی اولیه فایل‌های موجود حفظ می‌شوند:
+
+~~~bash
+sudo rsync -rtv --ignore-existing \
+  "$STAGE/" "$TARGET/"
+
+OWNER="$(sudo stat -c '%u:%g' "$VOL")"
+sudo chown -R "$OWNER" "$TARGET"
+~~~
+
+6. Start سرور آزمایشی کن تا Workshop Module آیتم‌ها را در مسیر خود جذب کند.
+7. پس از Boot، sudo cs2node workshop را اجرا کن و وجود آیتم/نسخه را بررسی کن.
+
+این مسیر برای Workshop Cache است، نه برای کپی مستقیم به /srv/cs2-workshop. ماژول metadata خود را هنگام جذب محتوا می‌سازد. اگر ACF معتبر نباشد، شناسه/Manifest قابل‌قبول نباشد یا نسخهٔ جدیدتری در انتظار باشد، ممکن است آیتم را Cache نکند؛ در آن صورت فایل‌های بیشتری کپی نکن و Console/Journals را بررسی کن.
 
 ### 11.3 تأیید Cache و آماده‌سازی Instance بعدی
 
