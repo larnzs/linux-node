@@ -1,6 +1,6 @@
 # آموزش نصب K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache
 
-این راهنما نصب تازه و قابل‌تکرار را از پیش‌نیاز Debian تا اجرای چند Instance آموزش می‌دهد. نام میزبان، IP، دامنه و شناسهٔ سرور به محیط هر نصب مربوط‌اند؛ مقادیر واقعی FragCity فقط در بخش «Checkpoint آزمایش جاری» انتهای فایل آمده‌اند و برای نصب دیگری نباید عیناً استفاده شوند.
+این راهنما نصب و راه‌اندازی K4ryuu CS2 Egg-Go را از پیش‌نیازهای Debian تا تأیید Shared Base و Multi Instance آموزش می‌دهد. دستورهای نمونه روی Debian میزبان اجرا می‌شوند، نه داخل Container بازی. مقادیر hostname، IP، دامنه، نام Instance و Allocation مخصوص هر محیط‌اند؛ جدول بخش 1.1 را با مقادیر خودت پر کن و مقادیر نمونه را بدون تطبیق اجرا نکن.
 
 ## نقشهٔ اجرا
 
@@ -373,9 +373,16 @@ ps -eo pid,etime,stat,args |
 - خود SteamCMD
 - EXE، DLL، فایل‌های runtime و باینری‌های مخصوص Windows
 
-### 10.3 ادغام فقط VPKهای موجود در staging
+### 10.3 ادغام کنترل‌شدهٔ VPKها
 
-پس از Upload موفق، مسیر staging را تنظیم کن و بلوک را اجرا کن. این فرمان فقط VPKها را با مسیر نسبی یکسان اضافه می‌کند؛ فایل موجود در مقصد را overwrite نمی‌کند:
+ابتدا مطمئن شو `rsync` نصب است، سپس مسیر staging و مقصد را در بلوک فقط‌خواندنی بررسی کن. فایل‌های Windows را ابتدا به پوشهٔ staging منتقل کن؛ هیچ‌گاه مستقیماً به `/srv/cs2-shared` آپلود نکن.
+
+~~~bash
+sudo apt-get update
+sudo apt-get install -y rsync
+~~~
+
+پس از تأیید Source و Target، این فرمان فقط VPKها را در مسیر نسبی یکسان اضافه می‌کند؛ VPKای که از قبل در مقصد وجود دارد overwrite نمی‌شود:
 
 ~~~bash
 set -eu
@@ -417,14 +424,19 @@ sudo rsync -rltv --ignore-existing \
 
 این فرمان مسیرهای نسبی زیر game/ را حفظ می‌کند و فقط فایل‌های VPK را کپی می‌کند. اگر منبع شامل VPKهای ناقص/ناسازگار باشد یا SteamCMD به Manifest/Depotهای دیگر نیاز داشته باشد، دانلود همچنان انجام می‌شود یا فایل‌ها اصلاح می‌شوند. appmanifest_730.acf را از Windows جایگزین نکن.
 
-پس از انتقال، سرویس را دوباره اجرا کن:
+پس از انتقال، باید SteamCMD فایل‌ها را بررسی کند. برای اینکه فایل‌های seedشده با Build مرکزی تطبیق داده شوند، در حالی که سرویس متوقف است، Wizard را دوباره اجرا کن و در بخش `vpksync` گزینهٔ `validate` را موقتاً `y` قرار بده. مسیر `cs2_dir` و باقی تنظیمات را حفظ کن؛ به‌خصوص ماژول‌ها را آگاهانه انتخاب کن، چون Wizard در اجرای مجدد نیز تنظیمات را می‌نویسد.
 
 ~~~bash
-sudo systemctl start cs2node
+sudo /usr/local/bin/cs2node install
+~~~
+
+پس از پایان Wizard، لاگ را دنبال کن:
+
+~~~bash
 sudo journalctl -u cs2node -f
 ~~~
 
-بعد از اتمام Update دوباره معیارهای بخش 7.1 را بررسی کن. تا وقتی Manifest و Build ID و VPK count معتبر نیستند، سرور را Start نکن.
+پس از تکمیل Update/validation، دوباره معیارهای بخش 7.1 را بررسی کن. اگر Base سالم شد، Wizard را یک بار دیگر اجرا کن و `validate` را به `n` برگردان تا اعتبارسنجی کامل در هر Update زمان/ترافیک اضافی مصرف نکند. تا وقتی Manifest، Build ID، VPK count و `cs2node doctor` معتبر نیستند، سرور را Start نکن.
 
 ## 11. Workshop Cache — مسیر درست و روش واردکردن
 
@@ -501,7 +513,8 @@ sudo rsync -rtv --ignore-existing \
   "$STAGE/" "$TARGET/"
 
 OWNER="$(sudo stat -c '%u:%g' "$VOL")"
-sudo chown -R "$OWNER" "$TARGET"
+sudo rsync -rtv --ignore-existing --chown="$OWNER" \
+  "$STAGE/" "$TARGET/"
 ~~~
 
 6. Start سرور آزمایشی کن تا Workshop Module آیتم‌ها را در مسیر خود جذب کند.
