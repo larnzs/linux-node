@@ -13,6 +13,9 @@
 3. **[Clone و VMDK آزمایشی](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)**  
    دستورالعمل Clone، بازگردانی امن به VM اصلی، بررسی سلامت و Storage جداگانهٔ اختیاری.
 
+4. **[آموزش WinSCP — اتصال گرافیکی با کلید SSH](https://github.com/larnzs/linux-node/blob/main/%D8%A2%D9%85%D9%88%D8%B2%D8%B4%20winscp.md)**  
+   راهنمای اتصال از ویندوز به Debian با SFTP، تنظیم کلید خصوصی SSH، مشاهده و انتقال فایل‌ها، محدودیت مجوزها و عیب‌یابی.
+
 ## وضعیت جاری — 2026-10-19
 
 - Debian Clone با hostname برابر `fc-node-01` و IP برابر `192.168.1.9` برای تست استفاده می‌شود؛ VM اصلی با IP `192.168.1.7` باید خاموش بماند.
