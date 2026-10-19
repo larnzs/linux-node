@@ -1,43 +1,32 @@
-# FragCity Linux Node — فهرست آموزش‌ها و Runbookها
+# FragCity Linux Node — راهنمای نصب و راه‌اندازی
 
-این ریپو برای آموزش و اجرای مرحله‌ای نصب زیرساخت Debian و Nodeهای CS2 نگهداری می‌شود. هر راهنما به‌صورت یک Runbook مستقل نوشته شده است؛ ابتدا پیش‌نیازها و مقادیر محیطی آن را بخوان، سپس فقط مرحلهٔ جاری را اجرا کن.
+این ریپو شامل آموزش‌های مرحله‌ای برای نصب زیرساخت Debian/Pterodactyl، ساخت محیط آزمایشی VMware و راه‌اندازی CS2 با Egg رسمی K4ryuu است. هر راهنما باید مستقل از IP و hostname نمونه قابل استفاده باشد؛ قبل از اجرای دستورها، بخش مقادیر محیطی همان راهنما را با اطلاعات واقعی خودت تطبیق بده.
 
-## از کجا شروع کنم؟
+## مسیر پیشنهادی مطالعه و اجرا
 
 1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)**  
-   نصب سیستم‌عامل، SSH، UFW، PHP/Composer، دیتابیس، Panel، Docker، Wings، Queue Worker و Scheduler. مقادیر دامنه، hostname، IP و حساب Linux در بخش 0.3 قابل تنظیم‌اند.
+   نصب سیستم‌عامل، SSH/UFW، PHP و Composer، پایگاه داده، Panel، Docker، Wings، Queue Worker و Scheduler. از این راهنما برای آماده‌سازی زیرساخت استفاده کن.
 
 2. **[آموزش K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md)**  
-   آموزش مستقل واردکردن Egg، نصب دقیق cs2node، پیش‌نیاز i386 برای Debian amd64، راه‌اندازی Shared Base، VPK Sync، انتقال کنترل‌شدهٔ فایل‌ها و آزمایش Instance دوم.
+   پیش‌نیازهای Debian amd64، فرمان دقیق نصب cs2node، تنظیم Wizard، دانلود/بررسی Shared Base، انتقال کنترل‌شدهٔ VPKها و Workshop، و اثبات کارکرد دو Instance.
 
 3. **[آموزش Full Clone و VMDK در VMware Workstation](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)**  
-   ساخت Full Clone، نگهداری VM اصلی، تغییر Port Forwardها، health check، افزودن اختیاری دیسک داده و بازگشت امن به VM اصلی.
+   فقط در صورت نیاز به Clone آزمایشی: ساخت Full Clone، حفظ VM اصلی، تغییر و بازگردانی Port Forward، اجرای health check و افزودن اختیاری VMDK. این راهنما دستورهای Clone را از نصب عادی Node جدا می‌کند.
 
 4. **[آموزش WinSCP — اتصال SFTP با کلید SSH](https://github.com/larnzs/linux-node/blob/main/%D8%A2%D9%85%D9%88%D8%B2%D8%B4%20winscp.md)**  
-   اتصال گرافیکی از Windows به Linux، تنظیم کاربر/IP/کلید خودت، انتقال فایل‌ها، مدیریت مجوزها و مشاهدهٔ فقط‌خواندنی فایل‌های root.
+   اتصال گرافیکی از Windows به Linux، تنظیم IP/port/user/key خودت، انتقال فایل‌ها، فهم مجوزها و روش اختیاری و فقط‌خواندنی مشاهدهٔ فایل‌های root.
 
-## قبل از Copy/Paste
+## پیش از Copy/Paste
 
-- مقادیر FragCity مانند hostname، IP، FQDN، username و پورت فقط نمونه‌اند. در هر Runbook جدول مقادیر را بررسی کن و مقدارهای متعلق به محیط خودت را تنظیم کن.
-- فرمان‌های Clone را فقط در سناریوی Clone اجرا کن. VM اصلی و Clone با هویت فعلی نباید هم‌زمان روشن باشند.
-- پیش از format یا mount دیسک، آن را با lsblk و blkid شناسایی کن؛ اسم دستگاه را حدس نزن.
-- Debian 13 amd64 برای SteamCMD به Runtimeهای i386 نیاز دارد. در آموزش K4ryuu این پیش‌نیاز قبل از فرمان نصب cs2node آمده است.
-- Base مرکزی CS2 در /srv/cs2-shared قرار می‌گیرد؛ Workshop Cache در /srv/cs2-workshop ساختار و metadata متفاوتی دارد. فایل‌های Workshop را خام به مسیر Cache مرکزی نریز.
-- هیچ Webhook URL، GSLT، Token، APP_KEY، رمز دیتابیس، فایل .env یا config.yml محرمانه‌ای را در GitHub یا چت منتشر نکن.
+- **مقادیر محیطی:** hostname، IP داخلی، دامنه/FQDN، subnet شبکه، نام کاربر Linux، مسیر نصب Panel و پورت‌های Node باید با محیط واقعی تو هماهنگ باشند. مقادیر 192.168.1.7، 192.168.1.9، fc-node-01 و fragcity.ir در راهنماها نمونه‌های یک محیط مشخص‌اند، نه مقادیر عمومی.
+- **مکان اجرای فرمان:** مشخص کن دستور باید در Windows PowerShell، نشست SSH روی Debian، prompt دیتابیس یا داخل یک فایل تنظیمات اجرا شود. JSON، YAML و NGINX config را در Bash اجرا نکن.
+- **Storage:** پیش از هر عملیات partition/format/mount، دستگاه را با lsblk و blkid شناسایی کن؛ نامی مثل /dev/sdb را حدس نزن.
+- **CS2 و i386:** در Debian amd64، Runtimeهای سازگار i386 را طبق راهنمای K4ryuu، قبل از نصب cs2node و اولین Update مرکزی نصب کن.
+- **Shared Base و Workshop:** بازی در /srv/cs2-shared و Workshop Cache در /srv/cs2-workshop دو ساختار مجزا هستند. فایل‌های بازی یا Workshop را بدون حفظ ساختار و metadata مربوط مستقیماً به Cache مرکزی کپی نکن.
+- **ترتیب آزمون:** اول Base مرکزی را با cs2node doctor/status، Manifest، Build ID و VPK count تأیید کن؛ سپس Instance اول را آزمایش و بعد Instance دوم را بساز. تا قبولی Multi Instance، پلاگین‌های FragCity/KUS را وارد این مسیر نکن.
+- **Clone:** اگر Clone موقتاً جای VM اصلی را می‌گیرد، دو VM با هویت مشترک را هم‌زمان روشن نکن. مقصد Port Forward و IP را هنگام شروع/پایان تست با دقت عوض کن. برای Node دوم مستقل، از هویت و config اختصاصی استفاده کن.
+- **Secrets:** رمزها، APP_KEY، Token، GSLT، Webhook URL، فایل .env و محتوای محرمانهٔ /etc/pterodactyl/config.yml را در GitHub یا چت منتشر نکن. اگر Webhook افشا شد، آن را باطل و دوباره بساز.
 
-## Checkpoint اجرای فعلی FragCity — 2026-10-19
+## استاندارد هر آموزش
 
-این بخش فقط وضعیت همین آزمایش را ثبت می‌کند؛ برای انجام نصب تازه از راهنماهای بالا پیروی کن.
-
-- Clone: hostname fc-node-01، IP 192.168.1.9. VM اصلی با IP 192.168.1.7 باید خاموش بماند.
-- Panel، Docker، Wings، Queue Worker و Scheduler روی Clone قبلاً تنظیم شده‌اند.
-- Instance آزمایشی fc-cs2-test-01 ساخته شده و دانلود standalone اولیه طبق گزارش پایان یافته است.
-- cs2node نصب شده و سرویس active/enabled است. Moduleهای vpksync، alerts، addoncache، workshop، backup، cleanup، crashes، consolelog و metrics روشن‌اند؛ guard خاموش است.
-- Runtimeهای i386 نصب شده‌اند و آزمون sudo /root/steamcmd/steamcmd.sh +quit با پیام‌های Loading Steam API...OK و Unloading Steam API...OK موفق بوده است.
-- پس از Restart، vpksync مقدار build=0 گزارش کرد؛ در بررسی Base مرکزی Manifest وجود نداشت و VPK count صفر بود. این وضعیت به‌تنهایی نمی‌گوید تلاش بعدی هنوز فعال است یا شکست خورده؛ قدم بعدی اجرای بلوک تشخیصی فقط‌خواندنی در بخش 7.2 راهنمای K4ryuu است.
-- پس از شروع/تأیید دانلود، انتقال VPKهای asset با WinSCP فقط در زمان توقف قطعی SteamCMD انجام می‌شود. Workshop جداگانه و فقط با ساختار و ACF مناسب خودش وارد Cache خواهد شد.
-- URL وب‌هوک Discord پیش‌تر در لاگ چت افشا شده است. اگر هنوز انجام نشده، وب‌هوک قبلی را در Discord باطل و با مقدار تازه جایگزین کن؛ مقدار جدید را در مستندات ثبت نکن.
-
-## نکتهٔ نگهداری مستندات
-
-نتیجه‌های اجرای مختص این VM را فقط در همین Checkpoint خلاصه کن. متن آموزش‌ها باید مستقل از IP/hostname فعلی قابل‌فهم باشد و در هر مرحله فرمان دقیق، پیش‌نیاز، روش تأیید و مسیر عیب‌یابی داشته باشد.
+هر بخش را به ترتیب اجرا کن: **پیش‌نیاز → فرمان دقیق → نتیجهٔ مورد انتظار → معیار قبولی → عیب‌یابی**. اگر یکی از معیارهای قبولی برقرار نیست، به مرحلهٔ بعد نرو و ابتدا خروجی فقط‌خواندنی همان مرحله را بررسی کن. لاگ اجرای یک VM خاص را در سند آموزشی دائمی جایگزین دستورالعمل نکن؛ راهنما باید برای نصب‌های بعدی قابل استفاده بماند.
