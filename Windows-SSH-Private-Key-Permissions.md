@@ -46,51 +46,46 @@ Write-Host "`nDetailed access rules:"
 
 ## 2. اصلاح مالک و Permissionها
 
-1. همان حساب ویندوزی که قرار است اتصال را انجام دهد، یک PowerShell را با **Run as administrator** باز کند. در پنجرهٔ UAC همان حساب را Elevate کن؛ از حساب Administrator دیگری استفاده نکن، چون مسیر `USERPROFILE` ممکن است عوض شود.
-2. کل بلوک زیر را اجرا کن. مسیر پیش‌فرض آن `%USERPROFILE%\.ssh\id_ed25519_fragcity` است؛ اگر فایل تو نام دیگری دارد، خط اول را اصلاح کن.
+در ACL نمونه‌ای که عیب‌یابی شد، سه مجوز نامناسب باقی مانده بود: `BUILTIN\\Administrators:(F)`، `NT AUTHORITY\\SYSTEM:(F)` و SID حساب ویندوز قدیمی با دسترسی `(M)`. مالک فایل به حساب فعلی تغییر کرده بود، اما دستور حذف چند SID در یک فراخوانی اجرا نشد.
+
+برای جلوگیری از این مشکل، Permissionها را **تک‌به‌تک** حذف کن:
+
+1. PowerShell را با حساب ویندوزی که از آن SSH می‌زنی باز کن. اگر برای تغییر ACL نیاز به مجوز Administrator است، همان حساب را با **Run as administrator** اجرا کن.
+2. مطمئن شو متغیر مسیر به همان private key اشاره می‌کند.
+3. ابتدا این دستورات را اجرا کن. SID قدیمی در این نمونه مختص همان کامپیوتر است؛ آن را از خروجی `icacls` خودت بردار و کورکورانه SID نمونه را در سیستم دیگری استفاده نکن.
 
 ```powershell
-$keyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_fragcity"
+$keyPath = Join-Path $env:USERPROFILE ".ssh\\id_ed25519_fragcity"
 
 if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) {
     throw "SSH private key not found: $keyPath"
 }
 
-$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-$currentUser = $identity.Name
-$currentSid = $identity.User.Value
-$oldOwner = ((Get-Acl -LiteralPath $keyPath).Owner -replace '^O:', '')
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-if ([string]::IsNullOrWhiteSpace($oldOwner)) {
-    throw "Could not identify the current file owner."
-}
-
-$oldOwnerArg = if ($oldOwner -match '^S-1-') { "*$oldOwner" } else { $oldOwner }
-
-Write-Host "Current Windows user: $currentUser"
-Write-Host "Current user SID:    $currentSid"
-Write-Host "Previous file owner: $oldOwner"
-
-# Transfer ownership to the current Windows account
+# Make the current account the owner
 icacls.exe $keyPath /setowner "$currentUser"
-if ($LASTEXITCODE -ne 0) { throw "Failed to change file owner." }
+if ($LASTEXITCODE -ne 0) { throw "Failed to set file owner." }
 
-# Stop inheriting permissions from the parent directory
+# Remove inherited permissions from the parent directory
 icacls.exe $keyPath /inheritance:r
 if ($LASTEXITCODE -ne 0) { throw "Failed to disable inheritance." }
 
-# Remove broad and stale grants, including the old Windows SID
-$principalsToRemove = @(
-    "*S-1-5-18",        # NT AUTHORITY\SYSTEM
-    "*S-1-5-32-544",    # BUILTIN\Administrators
-    $oldOwnerArg,
-    "*$currentSid"
-) | Select-Object -Unique
+# Remove each unwanted grant in a separate command.
+# These three SIDs correspond to SYSTEM, local Administrators, and
+# the stale SID seen on the original machine. Verify the actual ACL first.
+icacls.exe $keyPath /remove:g "*S-1-5-32-544"
+if ($LASTEXITCODE -ne 0) { throw "Failed to remove Administrators grant." }
 
-icacls.exe $keyPath /remove:g $principalsToRemove
-if ($LASTEXITCODE -ne 0) { throw "Failed to remove extra permissions." }
+icacls.exe $keyPath /remove:g "*S-1-5-18"
+if ($LASTEXITCODE -ne 0) { throw "Failed to remove SYSTEM grant." }
 
-# Grant read access to this Windows account only
+# Replace this SID with the stale SID actually shown on your file,
+# if one is present. Do not reuse this example on another computer.
+icacls.exe $keyPath /remove:g "*S-1-5-21-3116789890-1268379209-2693843427-1001"
+if ($LASTEXITCODE -ne 0) { throw "Failed to remove stale SID grant." }
+
+# Ensure the current account retains read access
 icacls.exe $keyPath /grant:r "$($currentUser):(R)"
 if ($LASTEXITCODE -ne 0) { throw "Failed to grant read access." }
 
@@ -101,16 +96,18 @@ Write-Host "`n========== FINAL PERMISSIONS =========="
 icacls.exe $keyPath
 ```
 
+اگر SID قدیمی روی فایل تو با نمونهٔ بالا فرق دارد، ابتدا از روی `icacls.exe $keyPath` مشخصش کن؛ دستور حذف SID قدیمی فقط زمانی اجرا شود که مطمئن شده‌ای همان حساب قدیمی است. اجرای دستور حذف روی SID اشتباه می‌تواند مجوز حساب دیگری را تغییر دهد.
+
 ### خروجی مورد انتظار
 
-مالک فایل باید به حساب فعلی ویندوز اشاره کند و خروجی Permissionها برای فایل کلید باید فقط حساب فعلی را با دسترسی خواندن نشان دهد؛ برای نمونه:
+ACL نهایی فایل کلید باید مالک فعلی را نشان دهد و تنها مجوز دسترسی فایل برای حساب فعلی ویندوز باشد؛ برای نمونه:
 
 ```text
-C:\Users\<WindowsUser>\.ssh\id_ed25519_fragcity <ComputerName>\<WindowsUser>:(R)
+C:\\Users\\<WindowsUser>\\.ssh\\id_ed25519_fragcity <ComputerName>\\<WindowsUser>:(R)
 ```
 
-اگر دستور `/setowner` یا یکی از مراحل خطا داد، ادامه را حدسی اجرا نکن؛ متن خطا و خروجی `icacls.exe $keyPath` را بررسی کن.
-
+اگر هر فرمان `icacls` خطا داد، به فرمان بعدی نرو. خطا و خروجی فعلی `icacls.exe $keyPath` را بررسی کن.
+ 
 ## 3. اتصال SSH را آزمایش کن
 
 به PowerShell همان حساب ویندوز برگرد و مقادیر کاربر و IP را با مشخصات سرور خودت جایگزین کن:
