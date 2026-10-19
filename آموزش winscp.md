@@ -13,7 +13,7 @@
 | پروتکل انتقال فایل | SFTP |
 | پورت SSH | پورت واقعی SSH؛ معمولاً 22 |
 | نام کاربری Linux | حساب عادی Linux که مجاز به SSH است |
-| کلید خصوصی Windows | فایل کلید زیر `%USERPROFILE%\\.ssh\\` |
+| کلید خصوصی Windows | فایل کلید زیر `%USERPROFILE%\.ssh\` |
 | مسیر پس از اتصال | Home همان حساب Linux |
 
 **مهم:** فرمان بخش 2 برای IP/FQDN، نام کاربر، پورت و فایل کلید از تو ورودی می‌گیرد. مطمئن شو مقصد انتخابی همان Node موردنظر است. نام کلید باید فقط نام فایل داخل پوشهٔ `.ssh` باشد، نه مسیر کامل آن.
@@ -53,10 +53,11 @@ if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) {
 $target = "$LinuxUser@$ServerIp"
 ssh -p $SshPort -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
 ~~~
-exit
+
 اگر فرمان بالا موفق شد، اتصال آزمایشی SSH برقرار است. برای خروج از نشست تعاملی لینوکس بنویس:
 
 ~~~bash
+exit
 ~~~
 
 ## 3. نصب WinSCP
