@@ -2098,8 +2098,8 @@ fi
 
 ## 10. ادامهٔ مراحل پس از نصب زیرساخت
 
-وضعیت اجرای زندهٔ CS2 با آموزش عمومی متفاوت است؛ برای بررسی یک اجرای در حال انجام، [checkpoint عملیاتی cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) را ببین. لاگ‌ها و وضعیت IP/hostname یک Node مشخص در متن اصلی این آموزش ثبت نمی‌شوند.
+این فصل زیرساخت را تا Online شدن Node پوشش می‌دهد؛ نصب CS2 مرحلهٔ جداگانه‌ای است. پس از پاس شدن چک‌لیست بخش 9، از [آموزش نصب K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) استفاده کن. آن آموزش شامل جدول مقادیر محیطی، پیش‌نیاز i386 برای Debian amd64، فرمان دقیق نصب `cs2node`، تنظیم Wizard، معیارهای قبولی Base و آزمون Multi Instance است.
 
-پس از تأیید Debian، Panel، Docker و Wings، برای نصب CS2 به [راهنمای K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Multi Instance](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) برو. ترتیب استاندارد آن است: آماده‌سازی i386 روی Debian amd64، واردکردن Egg کامل، ساخت Instance آزمایشی، نصب با فرمان مشخص `sudo /tmp/cs2node install`، تأیید Shared Base و سپس آزمایش Instance دوم.
+برای ادامهٔ اجرای زنده از [Checkpoint عملیاتی cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) استفاده کن؛ لاگ‌ها و IP/hostname یک VM مشخص نباید جایگزین آموزش عمومی شوند.
 
-این سند آموزش زیرساخت است، نه محل ثبت گزارش یک اجرای خاص. در هر نصب، معیارهای چک‌لیست را روی همان ماشین بررسی کن؛ لاگ خام، رمزها، APP_KEY، Token، GSLT، `.env`، Webhook URL یا محتویات محرمانهٔ `config.yml` را در ریپو ذخیره نکن.
+این سند برای نصب‌های تازه است. لاگ خام، رمزها، APP_KEY، Token، GSLT، `.env`، Webhook URL یا محتویات محرمانهٔ `config.yml` را در ریپو ذخیره نکن.
