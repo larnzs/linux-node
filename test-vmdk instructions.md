@@ -1,29 +1,32 @@
-# FragCity — Test VMDK / VM Clone Instructions
+# راهنمای آموزشی Full Clone و VMDK در VMware Workstation
 
-> **هدف:** ساخت یک کپی آزمایشگاهی مستقل از Debian Node فعلی FragCity و ثبت دستورالعمل اختیاری VMDK دوم برای جداسازی Storage بازی. برای PoC فعلی Shared Base، این دیسک اجباری نیست؛ از فایل‌سیستم فعلی استفاده می‌کنیم.
->
-> **قانون اصلی:** روی VM اصلی هیچ‌کدام از فرمان‌های مربوط به Clone، تغییر hostname، machine-id، SSH host keys، Wings، Nginx یا دیسک آزمایشی را اجرا نکن. تمام تغییرات این سند بعد از ساخت Full Clone و فقط در کپی انجام می‌شوند.
->
-> این فایل Runbook است، نه گزارش لاگ. خروجی خام ترمینال، رمزها، tokenها، APP_KEY، محتویات /etc/pterodactyl/config.yml و کلیدهای خصوصی را در GitHub ثبت نکن.
+این راهنما نحوهٔ ساخت Full Clone آزمایشی از یک Debian Node موجود، تست شبکه و Wings، افزودن دیسک مجزا به Clone و بازگشت امن به VM اصلی را آموزش می‌دهد.
 
-## 1. وضعیت و مسیرهای شناسایی‌شده
+**قانون ایمنی:** همهٔ تغییراتی که در این سند برای Clone نوشته شده‌اند فقط روی Clone اجرا می‌شوند. VM اصلی و Clone با هویت مشترک نباید هم‌زمان روشن باشند. قبل از Partition/Format/Mount هر دیسک، هویت آن را از روی lsblk و blkid تأیید کن؛ هیچ‌وقت اسم /dev/sdb یا هر دستگاه دیگری را حدس نزن.
 
-اطلاعاتی که هنگام آماده‌سازی Clone مشخص شدند:
+این سند شامل مقادیر مرجع FragCity است. اگر از آن برای محیط دیگری استفاده می‌کنی، ابتدا جدول بخش 1 را با مقادیر واقعی خودت تنظیم کن؛ نام دامنه، IP، نام VM، پورت‌ها و مسیر VMX باید با محیط تو سازگار باشند. راهنمای CS2/cs2node در فایل اختصاصی K4ryuu قرار دارد و در این سند فقط به آن ارجاع داده می‌شود.
 
-| مورد | وضعیت / مسیر |
-|---|---|
-| Windows host drive فضای آزاد D | حدود 301.8 GB در زمان بررسی؛ پیش از عملیات سنگین دوباره بررسی شود |
-| VMDK ماشین اصلی | **D:\Debian 13.x 64 bit cmd.vmdk** |
-| اندازهٔ فایل VMDK در زمان بررسی | حدود 2.67 GB؛ این عدد ظرفیت مجازی دیسک را نشان نمی‌دهد |
-| VMX ماشین اصلی | **C:\Users\Elias\Documents\Virtual Machines\Debian 13.x 64 bit cmd\Debian 13.x 64 bit cmd.vmx** |
-| نام پیشنهادی Clone | **fc-node-01-clone** |
-| محل پیشنهادی Full Clone | **D:\FragCity-VMs\fc-node-01-clone\** |
-| Hostname فعلی Clone | fc-node-01-test؛ اسکریپت بخش 7 آن را برای حالت جایگزین موقت به fc-node-01 برمی‌گرداند |
-| وضعیت Wings داخل Clone | قبلاً متوقف/disable شده؛ پس از اصلاح Port Forwardها در بخش 9 دوباره enable/start می‌شود |
-| Network Adapter کلون | در اولین بوت قطع شد؛ برای SSH دوباره وصل شده و IP فعلی Clone برابر 192.168.1.9 است |
-| VMDK دادهٔ دوم | هنوز اضافه نشده؛ در این مرحله دیسکی را فرمت یا mount نکن |
+## 1. مقادیر محیطی و شناسایی VM اصلی
 
-مسیر واقعی Clone را در VMware از تنظیمات همان VM بررسی کن. فایل‌های VM اصلی را به محل دیگری منتقل نکن و پوشهٔ قفل .lck را هنگام روشن‌بودن ماشین حذف نکن.
+قبل از Clone این موارد را از VMware، Debian و روتر یادداشت کن. ستون آخر نمونهٔ فعلی FragCity است؛ اگر محیط دیگری داری، فقط از مقادیر واقعی خودت استفاده کن.
+
+| مورد | روش شناسایی | نمونهٔ FragCity |
+|---|---|---|
+| فایل VMX اصلی | VM Settings / Open VM directory در VMware | زیر %USERPROFILE%\\Documents\\Virtual Machines\\... |
+| محل فایل VMDK اصلی | از فایل VMX و مسیر Hard Disk در تنظیمات VMware | یک مسیر اختصاصی روی درایو D |
+| نام Clone | نام یکتا در VMware | fc-node-01-clone |
+| محل Clone | پوشهٔ جدا از VM اصلی با فضای آزاد کافی | D:\\FragCity-VMs\\fc-node-01-clone\\ |
+| Hostname مورد انتظار Node | نامی که در سرویس‌ها و DNS فعلی تنظیم شده | fc-node-01 |
+| IP داخلی VM اصلی | DHCP reservation و IP داخل Debian | 192.168.1.7 |
+| IP داخلی Clone | DHCP reservation برای MAC جدید Clone | 192.168.1.9 |
+| Node FQDN | DNS و TLS موجود | fc-node-01.fragcity.ir |
+| دیسک دادهٔ جدید | ابتدا در VMware اضافه شود، سپس داخل Debian شناسایی شود | هنوز اختیاری/اضافه‌نشده |
+
+**پیش از ادامه:** مشخص کن هدفت کدام است:
+- **Clone موقت جایگزین اصلی:** VM اصلی خاموش می‌ماند؛ Clone هویت سرویس‌های اصلی را نگه می‌دارد و مقصد Port Forward موقتاً به IP Clone می‌رود.
+- **Node دوم مستقل:** نباید هویت‌های Panel/Wings، Hostname، DNS، Tokenها یا آدرس‌های سرویس‌های اصلی کپی و هم‌زمان استفاده شوند؛ این سناریو طراحی جداگانه می‌خواهد و دستورالعمل جایگزینی موقت این سند را عیناً اجرا نکن.
+
+فایل VMDK را دستی از Explorer کپی نکن؛ VMware را برای ساخت Full Clone به‌کار ببر. اندازهٔ فایل VMDK روی میزبان لزوماً ظرفیت مجازی آن نیست.
 
 ## 2. پیش‌بررسی فضای میزبان Windows
 
@@ -81,7 +84,7 @@ sudo systemctl poweroff
 2. از مسیر **VM → Manage → Clone** وارد Clone Wizard شو.
 3. در منبع، **The current state in the virtual machine** را انتخاب کن.
 4. در نوع Clone، حتماً **Create a full clone** را انتخاب کن؛ **Linked Clone** مناسب این آزمون نیست، چون به دیسک مبدأ وابسته می‌ماند.
-5. نام VM را **fc-node-01-clone** بگذار.
+5. نام Clone را یکتا انتخاب کن؛ برای محیط مرجع این ریپو، **fc-node-01-clone** است.
 6. محل را **D:\FragCity-VMs** انتخاب کن. اگر پوشه وجود ندارد، ابتدا آن را در File Explorer ایجاد کن. فایل‌های Clone باید زیر پوشهٔ مستقل خودشان باشند.
 7. تنظیمات را بازبینی کن و **Finish** را بزن. منتظر پایان کامل Clone بمان.
 
@@ -89,7 +92,7 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 
 ## 5. اولین بوت و هدف این Clone
 
-در اولین بوت، Network Adapter را قطع کن و اگر VMware پرسید، گزینهٔ **I Copied It** را انتخاب کن. بعد از اینکه Debian بالا آمد، برای دسترسی SSH شبکه را دوباره متصل کردی و مودم IP **192.168.1.9** را به MAC جدید Clone داده است.
+در اولین بوت، Network Adapter را قطع کن و اگر VMware پرسید، گزینهٔ **I Copied It** را انتخاب کن. بعد از اینکه Debian بالا آمد، شبکه را دوباره متصل کن و برای MAC جدید Clone یک DHCP reservation اختصاصی بساز. در نمونهٔ FragCity، IP آن 192.168.1.9 است.
 
 **تصمیم این فاز:** این Clone یک Node آزمایشی تازه و مستقل در Pterodactyl نیست؛ فعلاً قرار است موقتاً جای VM اصلی را بگیرد. تا پایان تست، VM اصلی کاملاً خاموش می‌ماند و فقط Clone روشن خواهد بود. بنابراین باید همان Panel، پایگاه‌داده، تنظیمات Wings، Nginx، PHP-FPM، MariaDB، Redis و گواهی‌های فعلی در Clone کار کنند.
 
@@ -98,18 +101,18 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 ## 6. قوانین ایمنی تا پایان تست
 
 1. VM اصلی روشن نشود؛ هیچ‌وقت دو کپی را هم‌زمان روشن نکن.
-2. Clone فعلی IP برابر **192.168.1.9** دارد؛ IP اصلی **192.168.1.7** را در روتر حفظ کن.
+2. در نمونهٔ FragCity، Clone با 192.168.1.9 و VM اصلی با 192.168.1.7 کار می‌کند. برای محیط دیگر از IPهای واقعی همان محیط استفاده کن.
 3. تنظیمات Panel و Wings در Clone را نگه می‌داریم؛ فقط hostname را به مقدار اصلی برمی‌گردانیم و Wings را پس از اصلاح Port Forwardها دوباره فعال می‌کنیم.
 4. DNS عمومی و گواهی‌های فعلی را تغییر نده، مگر اینکه IP عمومی WAN واقعاً عوض شده باشد.
-5. Port Forwardهای موجود را duplicate نکن. در زمان استفاده از Clone، مقصد قوانین مربوط به این VM را از 192.168.1.7 به 192.168.1.9 تغییر بده؛ در پایان تست مقصدها را برگردان.
+5. Port Forwardهای موجود را duplicate نکن. در زمان استفاده از Clone، مقصد قوانین مربوط به این VM را از IP اصلی به IP Clone تغییر بده؛ در پایان تست مقصدها را برگردان. از جدول مقادیر بخش 1 استفاده کن.
 6. برای این مرحله فقط پورت‌های فعلی را مدیریت کن: TCP 80/443 برای Panel، TCP 8080 برای Wings API، TCP 2022 برای SFTP. چون هنوز CS2 Instance نداریم، پورت بازی اضافه نکن.
-7. برای MAC جدید Clone در مودم DHCP reservation برابر 192.168.1.9 بساز.
+7. برای MAC جدید Clone در روتر DHCP reservation بساز؛ IP باید با جدول بخش 1 و قواعد شبکهٔ خودت سازگار باشد.
 
 ## 7. برگرداندن نام میزبان به نام اصلی
 
 hostname فعلی Clone به fc-node-01-test تغییر داده شده است. چون این VM فعلاً جایگزین VM اصلی است و اصلی خاموش می‌ماند، hostname را در Clone به fc-node-01 برمی‌گردانیم تا با تنظیمات سرویس‌های کپی‌شده هم‌خوان باشد.
 
-این اسکریپت فقط hostname و /etc/hosts را اصلاح می‌کند. machine-id، SSH host keys، گواهی‌ها، Wings config یا وضعیت سرویس‌ها را تغییر نمی‌دهد. آن را فقط از SSH به Clone با IP فعلی 192.168.1.9 اجرا کن.
+این اسکریپت فقط hostname و /etc/hosts را اصلاح می‌کند. machine-id، SSH host keys، گواهی‌ها، Wings config یا وضعیت سرویس‌ها را تغییر نمی‌دهد. قبل از اجرا، متغیرهای TARGET_IP، TARGET_HOST و نام قبلی Clone داخل اسکریپت را بر اساس جدول بخش 1 بررسی و در صورت نیاز اصلاح کن.
 
 ~~~bash
 sudo bash <<'SCRIPT'
@@ -589,33 +592,11 @@ echo "This script is read-only; it does not fix any reported issue."
 SCRIPT
 ~~~
 
-### تفسیر نتیجه
+### تفسیر نتیجهٔ health check
 
-### نتیجهٔ آخرین اجرای health check — 2026-10-18
+اسکریپت فقط‌خواندنی است؛ PASS یعنی فرمان بررسی‌شده پاسخ مورد انتظار داده، WARN یعنی نیاز به بررسی دستی باقی است و FAIL یعنی شرط مورد انتظار برقرار نیست. خروجی اسکریپت به‌تنهایی وضعیت DNS، Port Forward روتر یا Online بودن Node در UI را اثبات نمی‌کند؛ این موارد را جداگانه بررسی کن.
 
-- نتیجهٔ اسکریپت: **24 PASS / 1 WARN / 0 FAIL**.
-- Hostname برابر `fc-node-01` و IP برابر `192.168.1.9` است؛ `/etc/hosts` نام میزبان را resolve می‌کند.
-- Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال بودند. تست Nginx موفق بود، HTTPS محلی `panel.fragcity.ir` پاسخ HTTP 200 داد، و گواهی‌های Panel/Node بیش از 14 روز تا انقضا داشتند.
-- پورت‌های TCP 80، 443، 8080 و 2022 در حالت LISTEN بودند. MariaDB socket ping و Redis PING موفق بودند. Root filesystem تقریباً 1% مصرف و حدود 253 GB آزاد داشت. خطای سطح بالا در سرویس‌های پایش‌شده طی 15 دقیقهٔ اخیر دیده نشد.
-- تنها WARN health check اولیه این بود که واحد `pteroq.service` پیدا نشد. این نقص بعداً روی Clone اصلاح شد: بلوک README بخش 3.4.1 اجرا شد، سپس `pteroq.service` با وضعیت‌های `enabled` و `active (running)` تأیید شد و خط `artisan schedule:run` نیز در crontab ریشه ثبت و بررسی شد. راهنمای رسمی Pterodactyl v1، Queue Worker و cron مربوط به Scheduler را جزو نصب استاندارد می‌داند: https://docs.pterodactyl.io/v1/panel/getting-started
-- قانون ورودی `29001/udp` در UFW عمداً برای سرور CS2 آینده باز نگه داشته شده است؛ بنا به تصمیم کاربر، آن را حذف، تغییر یا دوباره عیب‌یابی نکن.
-- اسکریپت سلامت به‌تنهایی نمی‌تواند مقصد Port Forward روتر یا وضعیت Online نود در UI پنل را اثبات کند؛ اما طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند. بررسی دستی شبکه و دسترسی پنل برای این مرحله تکمیل‌شده محسوب می‌شود. خروجی خام ترمینال در این سند ذخیره نشده است.
-
-### راه‌اندازی Queue Worker و Scheduler — منبع واحد در README
-
-پیش‌بررسی اولیهٔ 2026-10-18 تأیید کرد PHP CLI برابر 8.3.35 است، Artisan با کاربر `www-data` اجرا می‌شود، نسخهٔ Laravel برابر 12.64.0 است، `QUEUE_CONNECTION=redis` تنظیم شده و Redis/Cron فعال‌اند؛ در همان بررسی اولیه `pteroq.service` و ورودی cron مربوط به `schedule:run` پیدا نشدند. این نقص اکنون روی Clone رفع شده است؛ برای VM اصلی همچنان باید همین مرحله جداگانه اجرا شود.
-
-راه‌حل استاندارد نصب اکنون به‌عنوان مرحلهٔ ضروری **3.4.1** در README اصلی قرار دارد، بر اساس راهنمای رسمی Pterodactyl 1.x:
-
-[راهنمای نصب Debian و Pterodactyl — مرحلهٔ 3.4.1: راه‌اندازی Queue Worker و Scheduler](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)
-
-**نتیجهٔ اجرای Clone در 2026-10-18:** بلوک README بخش 3.4.1 روی VM فعال با IP `192.168.1.9` اجرا شد. پیش‌بررسی‌های hostname، IP، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis، Cron و Artisan عبور کردند؛ `pteroq.service` ساخته شد و crontab ریشه با نسخهٔ پشتیبان قبلی به‌روزرسانی شد. سپس وضعیت سرویس و وجود خط Scheduler جداگانه بررسی و تأیید شد.
-
-این اصلاح در نصب اولیه جا افتاده بود و اکنون در ترتیب نصب اصلی، پیش از پیکربندی NGINX، ثبت شده است. **روی Clone انجام شد؛ روی VMDK اصلی هنوز انجام نشده است.** این دو VMDK مستقل‌اند؛ هنگام بازگشت به VM اصلی، ابتدا Clone را کاملاً خاموش کن، Port Forwardها را به `192.168.1.7` برگردان و فقط VM اصلی را روشن کن؛ سپس همان مرحلهٔ README را روی آن اجرا و تأیید کن. هرگز دو VM را هم‌زمان روشن نکن.
-
-**پورت 29001/udp** برای CS2 آینده عمداً باز است و در مراحل Queue/Scheduler نباید تغییر کند.
-
-**نتیجهٔ آزمون روی Clone:** هر دو معیار پاس شدند؛ `pteroq.service` برابر `enabled` و `active (running)` بود و خط `/var/www/pterodactyl/artisan schedule:run` در crontab ریشه وجود داشت. `journalctl` برای `pteroq.service` خطای شروع نشان نداد. این تأیید، اجرای موفق Scheduler در هر دقیقه را به‌تنهایی ثابت نمی‌کند؛ اما cron فعال بود و ورودی لازم حاضر است.
+اگر Queue Worker یا Scheduler بررسی می‌شود، مراحل استاندارد را در [راهنمای نصب Debian و Pterodactyl](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md) دنبال کن. نتیجهٔ یک اجرای خاص را به متن آموزشی تبدیل نکن؛ وضعیت نصب خودت را در README ریشه ثبت کن.
 
 ## 11. پایان تست و بازگشت به VM اصلی
 
@@ -645,104 +626,33 @@ SCRIPT
 5. دیسک تازه را با تطبیق اندازه، type، filesystem و mountpoint شناسایی کن. نام دستگاه را حدس نزن؛ ممکن است /dev/sdb باشد اما تضمینی نیست.
 6. تا وقتی دیسک جدید با اطمینان از دیسک root جدا تشخیص داده و تأیید نشده، هیچ mkfs، partitioning، mount یا ویرایش /etc/fstab اجرا نکن. دستورات formatting عمداً در این سند نیامده‌اند؛ بعد از ارائهٔ خروجی lsblk و blkid دربارهٔ دستگاه واقعی تصمیم می‌گیریم.
 
-## 13. ادامهٔ PoC: تأیید cs2node و Shared Base
+## 13. اتصال CS2 Node و Shared Base
 
-این بخش برای Clone با IP `192.168.1.9` است. در تمام مدت تست، VM اصلی با IP `192.168.1.7` خاموش بماند.
+ساخت Instance CS2، نصب cs2node، Runtimeهای i386، VPK Sync، Workshop Cache و Multi Instance در این سند تکرار نمی‌شود؛ برای آن مراحل به [راهنمای آموزشی K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) برو.
 
-طبق تصمیم کاربر، **فایل‌های بازی از Windows و از Volume فعلی Pterodactyl به Shared Base کپی نمی‌شوند**. Base مرکزی باید توسط `cs2node`/SteamCMD آماده شود. Volume موجود `fc-cs2-test-01` را حذف نکن؛ فعلاً در پنل Offline نگهش دار.
+پیش از افزودن VMDK اختیاری:
+1. CS2 Shared Base را روی فایل‌سیستم موجود با معیارهای آن راهنما تأیید کن.
+2. در صورت نیاز واقعی به جداسازی Storage، فقط به Clone دیسک مجزا اضافه کن.
+3. پس از بوت، با lsblk و blkid دیسک جدید را شناسایی کن؛ تا قبل از تأیید، هیچ Partition/Format/Mount انجام نده.
+4. Mount point جدید باید با مقدار cs2_dir در /etc/cs2node/config.json هماهنگ باشد.
+5. برای انتقال فایل‌های بازی/Workshop با WinSCP، مسیرها و پردازش‌های فعال را طبق راهنمای CS2 بررسی کن؛ هیچ‌وقت در زمان نوشتن SteamCMD آپلود انجام نده.
 
-### وضعیت فعلی ثبت‌شده از لاگ نصب
+## 14. چک‌لیست پایان عملیات Clone
 
-- باینری رسمی به `/usr/local/bin/cs2node` منتقل شده است.
-- config در `/etc/cs2node/config.json` نوشته شده و service file در `/etc/systemd/system/cs2node.service` ایجاد شده است.
-- Installer گزارش کرده سرویس enable و start شده است؛ هنوز خروجی مستقل `systemctl status`، `cs2node doctor/status` و وجود بازی در `/srv/cs2-shared` تأیید نشده است.
-- مسیر مرکزی پیکربندی‌شده `/srv/cs2-shared` و روش تحویل VPK برابر `symlink` است.
-- `vpksync`، `alerts`، `addoncache`، `workshop`، `backup`، `cleanup`، `crashes`، `consolelog` و `metrics` روشن‌اند؛ `guard` خاموش است.
-- URL وب‌هوک Discord در لاگ چت افشا شده است. آن را در Discord باطل و یک وب‌هوک تازه بساز؛ URL وب‌هوک را در GitHub یا خروجی قابل‌اشتراک نگذار.
+- [ ] VM اصلی قبل از روشن‌کردن Clone کاملاً خاموش شده است.
+- [ ] Full Clone با نام و مسیر مجزا ساخته شده و فایل‌های VM اصلی جابه‌جا یا overwrite نشده‌اند.
+- [ ] پیش از اجرای اسکریپت تغییر hostname، TARGET_HOST، TARGET_IP و نام‌های DNS با محیط خود تطبیق داده شده‌اند.
+- [ ] هر Port Forward فقط یک مقصد فعال دارد و به IP فعلی Clone اشاره می‌کند.
+- [ ] Health check روی Clone اجرا شده و WARN/FAILها به‌صورت مستقل بررسی شده‌اند.
+- [ ] اگر VMDK اضافه شده، دستگاه با lsblk و blkid تأیید شده و قبل از شناسایی دقیق Format نشده است.
+- [ ] برای بازگشت، ابتدا Clone خاموش شده، سپس Port Forwardها به VM اصلی بازگردانده و بعد VM اصلی روشن شده است.
+- [ ] دو VM با هویت فعلی هیچ‌وقت هم‌زمان روشن نبوده‌اند.
 
-### تشخیص فعلی — Runtime اصلاح شد؛ دانلود هنوز تأیید نشده
+### بازگشت امن به VM اصلی
 
-این دستورهای Runtime را قبل از نصب `cs2node` باید اجرا کرد؛ مرحلهٔ دقیق در ابتدای بخش 8.0 راهنمای K4ryuu قرار دارد. روی Clone این بسته‌ها نصب شدند:
+1. روی Clone اجرا کن: sudo systemctl poweroff.
+2. در VMware صبر کن تا وضعیت Clone دقیقاً **Powered Off** شود.
+3. مقصد Port Forwardهای فعلی را از IP Clone به IP اصلی برگردان.
+4. فقط بعد از تأیید تغییر مقصدها، VM اصلی را روشن کن.
+5. IP اصلی، SSH، Panel و Wings را بررسی کن. اگر در Clone تغییری مثل Queue Worker/Scheduler داده‌ای، وضعیت آن را روی VM اصلی نیز جداگانه بررسی کن؛ VMDKها فایل‌سیستم‌های مستقل‌اند.
 
-- `libc6:i386`
-- `libstdc++6:i386`
-- `libgcc-s1:i386`
-
-بعد از نصب، `sudo /root/steamcmd/steamcmd.sh +quit` موفق شد و `Loading Steam API...OK` و `Unloading Steam API...OK` را چاپ کرد.
-
-بعد از Restart سرویس `cs2node` در `09:03:51 UTC`، ماژول `vpksync` هنوز `build=0` گزارش کرد. اسکن بعدی Manifest مرکزی را پیدا نکرد و VPK count برابر صفر بود. این خروجی هنوز معلوم نمی‌کند که `app_update 730` در پس‌زمینه ادامه دارد یا تلاش جدید به خطا ختم شده است.
-
-طبق کد upstream، Update مرکزی اولین بار تقریباً 10 ثانیه بعد از شروع daemon اجرا می‌شود، سپس با فاصلهٔ `check_minutes` تکرار می‌شود. خروجی پیشرفت خود SteamCMD در Journal نمایش داده نمی‌شود؛ برای همین، پردازش واقعی را بررسی کن:
-
-~~~bash
-echo "=== Recent cs2node journal ==="
-sudo journalctl -u cs2node -n 80 --no-pager -o short-iso
-
-echo
-echo "=== SteamCMD process ==="
-ps -eo pid,etime,stat,args |
-  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
-
-echo
-echo "=== Directory size ==="
-sudo du -sh /root/steamcmd /srv/cs2-shared 2>/dev/null || true
-
-echo
-echo "=== Central manifest and VPK count ==="
-sudo test -s /srv/cs2-shared/steamapps/appmanifest_730.acf &&
-  sudo grep -E '"(appid|buildid|StateFlags)"' /srv/cs2-shared/steamapps/appmanifest_730.acf ||
-  echo "Central manifest not present"
-sudo find /srv/cs2-shared/game -type f -name '*.vpk' 2>/dev/null | wc -l
-~~~
-
-اگر قصد داری دانلود جاری را برای WinSCP قطع کنی، ابتدا پردازش را ثبت کن و سپس:
-
-~~~bash
-sudo systemctl stop cs2node
-sleep 2
-sudo systemctl is-active cs2node || true
-ps -eo pid,etime,stat,args |
-  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
-~~~
-
-تا وقتی هیچ پردازش SteamCMD باقی نمانده، سرور را Offline نگه دار و فایل‌ها را منتقل نکن.
-
-### برنامهٔ انتقال کنترل‌شده با WinSCP
-
-- Base اصلی `/srv/cs2-shared` است؛ VPKهای بازی در مسیرهای نسبی متناظر زیر `/srv/cs2-shared/game/` قرار می‌گیرند.
-- ابتدا فایل‌های Windows را به یک staging folder زیر Home کاربر منتقل کن. سپس فقط VPKهای asset را با مسیر نسبی صحیح ادغام خواهیم کرد؛ Windows EXE/DLL، فایل‌های runtime، پوشه‌های `Steam`، `.steam`، `steamcmd` و فایل manifest را جایگزین نکن. SteamCMD بعداً مرجع نهایی verification می‌ماند و ممکن است depots لینوکس را دانلود/اصلاح کند؛ صرف آپلود تضمین نمی‌کند دانلود صفر شود.
-- Workshop مسیر جدا دارد. داخل Volume هر سرور، منبع مورد انتظار ماژول `game/bin/linuxsteamrt64/steamapps/workshop/content/730/<item-id>/` و فایل `appworkshop_730.acf` است. Node cache در `/srv/cs2-workshop/730/<item-id>/<manifest>/` همراه `meta.json` ساختار داخلی خودش را دارد. فایل‌های خام Windows را مستقیم به `/srv/cs2-workshop` کپی نکن؛ ابتدا منبع Windows و ACF را شناسایی می‌کنیم، سپس import را از طریق volume/module انجام می‌دهیم.
-- سرور `fc-cs2-test-01` همچنان Offline بماند تا Shared Base تأیید شود.
-
-## 14. چک‌لیست مرحلهٔ جاری
-
-- [x] فضای آزاد Windows host بررسی شد؛ D در زمان بررسی حدود 301.8 GB آزاد داشت.
-- [x] مسیر VMX روی C و فایل VMDK روی D پیدا شد.
-- [x] Full Clone ساخته شد؛ VMware گزینهٔ I Copied It را در اولین بوت انتخاب کرد.
-- [x] MAC کلون جدید است و DHCP فعلاً IP برابر 192.168.1.9 داده است.
-- [x] hostname داخل Clone به fc-node-01 برگردانده شد؛ /etc/hosts نام میزبان را resolve می‌کند.
-- [x] Health check فقط‌خواندنی نتیجهٔ 24 PASS / 1 WARN / 0 FAIL داد.
-- [x] Nginx، PHP 8.3-FPM، MariaDB، Redis، Docker و Wings فعال گزارش شده‌اند؛ Nginx test و HTTPS محلی Panel موفق بودند.
-- [x] مسیر Panel برابر /var/www/pterodactyl، نسخه Laravel برابر 12.64.0، QUEUE_CONNECTION برابر redis و Cron فعال است.
-- [x] PHP CLI در /usr/bin/php نسخه 8.3.35 است؛ www-data می‌تواند Artisan را اجرا کند و queue:work و schedule:run موجودند.
-- [x] در پیش‌بررسی اولیه هیچ Queue Worker در حال اجرا و هیچ Scheduler cron entry برای `artisan schedule:run` پیدا نشد؛ این نقص روی Clone با مرحلهٔ 3.4.1 اصلاح شد.
-- [x] قانون UFW ورودی 29001/udp عمداً برای سرور CS2 آینده باز است؛ طبق تصمیم کاربر آن را تغییر نده.
-- [x] بلوک استاندارد README بخش 3.4.1 روی Clone اجرا شد؛ `pteroq.service` ایجاد و راه‌اندازی شد.
-- [x] تأیید شد `pteroq.service` هم `active` و هم `enabled` است و خط `schedule:run` در crontab ریشه وجود دارد.
-- [x] طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند؛ بررسی دسترسی شبکه/پنل برای Clone با IP `192.168.1.9` تکمیل‌شده ثبت شد.
-- [x] دسترسی پنل و عملیاتی بودن شبکه طبق تأیید کاربر تأیید شد.
-- [x] Egg رسمی CS2-Egg-Go وارد شده و اولین Instance `fc-cs2-test-01` ساخته شده است؛ کاربر پایان دانلود اولیه را گزارش کرده است.
-- [x] خروجی اولیه نشان داد Kernel `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB است.
-- [x] Volume فعلی manifest با appid=730، StateFlags=4، buildid=25966348 و 739 فایل VPK دارد؛ باینری `cs2node` نصب شده و Installer گزارش کرده سرویس start شده است. وجود محتوا در `/srv/cs2-shared` هنوز باید جداگانه تأیید شود.
-- [x] بازرسی read-only پایان یافت: game/csgo حدود 61 GB، game/csgo/maps حدود 9.6 GB، game/csgo_community_addons حدود 6.4 GB و مجموع VPKها 67.75 GiB؛ حجم 69 GB خطا تلقی نمی‌شود.
-- [x] تصمیم جدید کاربر: پس از آغاز موفق SteamCMD، برای کاهش دانلود از WinSCP استفاده شود؛ فقط VPKهای asset با مسیر نسبی مناسب seed می‌شوند و SteamCMD پس از آن depots را بررسی/اصلاح می‌کند. فایل‌های اجرایی/manifest Windows جایگزین فایل‌های Linux نمی‌شوند.
-- [ ] پیش‌بررسی بخش 8.1 راهنمای server-creation؛ `fc-cs2-test-01` در حالت Offline بماند.
-- [x] نصب رسمی `cs2node` انجام شده؛ `vpksync` فعال است و `cs2_dir=/srv/cs2-shared` ثبت شده است. ماژول‌های `alerts`, `addoncache`, `workshop`, `backup`, `cleanup`, `crashes`, `consolelog`, `metrics` نیز روشن و `guard` خاموش است.
-- [x] i386 runtime نصب شد و `steamcmd.sh +quit` با موفقیت اجرا شد.
-- [ ] بررسی پردازش زنده/لاگ برای مشخص‌شدن وضعیت واقعی `app_update 730`; manifest مرکزی وجود ندارد و VPK count صفر است.
-- [ ] سپس انتقال کنترل‌شدهٔ VPKهای asset via WinSCP، reconcile با SteamCMD و import جداگانهٔ Workshop با ACF/metadata معتبر. VMDK دوم برای این PoC لازم نیست.
-- [ ] پس از قبولی Shared Base و Instance دوم، CounterStrikeSharp/MetaMod و پلاگین‌های Fun Mode منتخب طبق بخش 9 راهنمای ساخت سرور نصب و تأیید شوند؛ configs و addons هر Instance مستقل بمانند.
-- [ ] پس از قبولی PoC، در صورت نیاز VMDK داده جداگانه به Clone اضافه و شناسایی شود؛ این کار برای نصب اولیهٔ Shared Base الزامی نیست.
-- [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
-
-**آخرین checkpoint:** Clone با IP `192.168.1.9` و hostname `fc-node-01` فعال است و VM اصلی باید خاموش بماند. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. پورت `29001/udp` را تغییر نده. اولین Instance `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده؛ manifest موجود در Volume با `appid=730` و `buildid=25966348` دیده شده است. طبق تصمیم جدید کاربر، VPKهای asset از Windows با WinSCP به‌صورت کنترل‌شده Seed خواهند شد؛ فایل‌های Windows جایگزین manifest و executableهای لینوکس نمی‌شوند. Installer رسمی `cs2node` گزارش کرده config و systemd unit نوشته شده و سرویس فعال/اجرا شده است؛ `vpksync` به `/srv/cs2-shared` با روش `symlink` پیکربندی شده و Moduleهای addoncache, workshop, backup, cleanup, crashes, consolelog, metrics و alerts نیز روشن‌اند. محتوای Shared Base هنوز تأیید نشده؛ ابتدا SteamCMD با خطای 32-bit exit 127 شکست خورد، سپس پس از نصب i386 runtime آزمون `steamcmd.sh +quit` موفق شد. پس از Restart، `build=0` و صفر VPK/بدون Manifest مرکزی ثبت شد. گام بعدی بررسی پردازش زنده، Journal و رشد مسیر مرکزی است. URL وب‌هوک افشاشده باید در Discord باطل و جایگزین شود. VMDK دوم برای PoC لازم نیست. پس از قبولی Base و Instance دوم، پلاگین‌ها آزمایش می‌شوند. تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
