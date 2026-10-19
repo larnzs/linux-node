@@ -311,7 +311,7 @@ if [[ "$PANEL_FQDN" == *'<'* || "$PANEL_FQDN" == *'>'* ]]; then
     echo "STOP: replace PANEL_FQDN before running this test."
     exit 2
 fi
-curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' "https://$PANEL_FQDN/"
+curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' "https://${PANEL_FQDN}/"
 ~~~
 
 پاسخ 200 یا redirect مانند 301/302 می‌تواند نشان دهد وب‌سرور پاسخ داده است؛ وضعیت Node را جداگانه در Panel بررسی کن. اگر Panel باز نشد، قبل از reinstall کردن سرویس‌ها مقصد Port Forward، Nginx و PHP-FPM را بررسی کن. لاگ‌ها را در README ذخیره نکن.
@@ -423,11 +423,11 @@ else
 fi
 
 printf '\nDNS resolution for <PANEL_FQDN>:\n'
-if getent ahosts <PANEL_FQDN> >/dev/null 2>&1; then
-    getent ahosts <PANEL_FQDN> | head -n 3
+if getent ahosts "$PANEL_FQDN" >/dev/null 2>&1; then
+    getent ahosts "$PANEL_FQDN" | head -n 3
     pass "Panel domain resolves through the system resolver."
 else
-    fail "<PANEL_FQDN> did not resolve from this VM."
+    fail "$PANEL_FQDN did not resolve from this VM."
 fi
 
 section "3. Main systemd services"
@@ -486,11 +486,11 @@ else
 fi
 
 if command -v curl >/dev/null 2>&1; then
-    panel_code="$(curl --resolve <PANEL_FQDN>:443:127.0.0.1 \
+    panel_code="$(curl --resolve "${PANEL_FQDN}:443:127.0.0.1" \\
         --connect-timeout 4 --max-time 10 \
         --silent --show-error --output /dev/null \
         --write-out '%{http_code}' \
-        https://<PANEL_FQDN>/ 2>/dev/null || true)"
+        "https://${PANEL_FQDN}/" 2>/dev/null || true)"
 
     if [[ "$panel_code" =~ ^[23][0-9][0-9]$ ]]; then
         pass "Local HTTPS virtual host for $PANEL_FQDN replied with HTTP $panel_code."
@@ -506,8 +506,8 @@ fi
 section "5. TLS certificate files"
 
 for cert in \
-    /etc/letsencrypt/live/<PANEL_FQDN>/fullchain.pem \
-    /etc/letsencrypt/live/<NODE_FQDN>/fullchain.pem
+    "/etc/letsencrypt/live/${PANEL_FQDN}/fullchain.pem" \\
+    "/etc/letsencrypt/live/${NODE_FQDN}/fullchain.pem"
 do
     if [[ -r "$cert" ]] && command -v openssl >/dev/null 2>&1; then
         printf '%s: ' "$cert"
