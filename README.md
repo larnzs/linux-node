@@ -2,7 +2,7 @@
 
 > **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
 >
-> **وضعیت فعلی:** پنل Pterodactyl، Docker و Wings راه‌اندازی شده‌اند؛ شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. هنوز CS2 Instance ساخته نشده است. کاربر انتخاب کرده که ابتدا طبق راهنمای K4ryuu یک سرور پایه با Egg رسمی CS2-Egg-Go روی Clone آزمایش شود؛ فصل جدید [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) مسیر Import Egg و ساخت این Instance را ثبت می‌کند. این تست standalone فایل‌های بازی را در Volume معمول Pterodactyl دانلود می‌کند و به حدود 40 GB فضای آزاد نیاز دارد. پس از موفقیت تست پایه، VMDK داده فقط به Clone افزوده و شناسایی می‌شود؛ نصب cs2node/VPK sync و Shared Base تا آماده‌شدن Storage مستقل انجام نمی‌شود. VM اصلی با IP 192.168.1.7 تا پایان تست خاموش می‌ماند؛ Clone با IP 192.168.1.9 فعال است. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
+> **وضعیت فعلی:** پنل Pterodactyl، Docker و Wings راه‌اندازی شده‌اند؛ شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. اولین Instance با نام `fc-cs2-test-01` ساخته شده و طبق گزارش کاربر دانلود اولیهٔ بازی تمام شده است؛ اکنون مرحلهٔ نصب `cs2node` و فعال‌سازی VPK Sync روی Clone است. فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) مسیر رسمی K4ryuu و معیارهای قبولی را ثبت می‌کند. این تست standalone فایل‌های بازی را در Volume معمول Pterodactyl دانلود می‌کند و به حدود 40 GB فضای آزاد نیاز دارد. خروجی فعلی حدود 182 GB فضای آزاد روی root نشان داده است، بنابراین برای PoC فعلی Shared Base در مسیر `/srv/cs2-shared` روی همین فایل‌سیستم قرار می‌گیرد. VMDK دوم فقط گزینهٔ جداسازی Storage برای مرحلهٔ بعد/Production است و پیش‌نیاز `cs2node`/VPK sync نیست. VM اصلی با IP 192.168.1.7 تا پایان تست خاموش می‌ماند؛ Clone با IP 192.168.1.9 فعال است. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
 >
 > **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
 
@@ -2084,7 +2084,7 @@ fi
 3. hostname در Clone به fc-node-01 برگردانده شده و /etc/hosts نیز به نام اصلی اشاره می‌کند. هشدار ابتدایی sudo مبنی بر unable to resolve host fc-node-01-test پیش از اصلاح hosts ظاهر شد؛ با getent hosts fc-node-01 و sudo -v وضعیت نهایی را تأیید کن.
 4. مقصد قوانین **موجود** Port Forward برای TCP 80/443، TCP 8080 و TCP 2022 برای زمان تست به Clone با IP `192.168.1.9` تنظیم شده بود. طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند؛ برای این مرحله، بررسی دسترسی و Port Forward را تکمیل‌شده در نظر می‌گیریم. قانون تکراری با پورت عمومی یکسان نساز. DNS عمومی نیاز به تغییر ندارد، مگر IPv4 عمومی WAN تغییر کرده باشد.
 5. Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند؛ Wings نیز قبلاً با `sudo systemctl enable --now wings` فعال/اجرا شده است. طبق تأیید کاربر در 2026-10-18، پنل بالا می‌آید و شبکه عملیاتی است؛ این مرحله از بررسی شبکه و دسترسی پنل تکمیل‌شده محسوب می‌شود. اگر بعداً Node به Offline تغییر کرد، قبل از دست‌کاری `config.yml`، مقصد Port Forward TCP 8080 و لاگ اخیر Wings را بررسی کن.
-6. تصمیم به‌روزشده در 2026-10-19: ابتدا طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) فقط یک Instance پایه با Egg رسمی CS2-Egg-Go و بدون Node daemon آزمایش می‌شود؛ نخستین Start می‌تواند تا حدود 40 GB داخل Volume عادی Pterodactyl دانلود کند، پس فضای آزاد را پیش از Start بررسی کن. این گام به معنی آماده‌شدن Shared Base نیست. نصب cs2node/VPK sync، انتقال مسیر `/srv/cs2-shared` و اجرای چند Instance تا شناسایی و mount ایمن VMDK دادهٔ دوم انجام نمی‌شوند. هیچ اسکریپت KUS را اجرا نکن.
+6. وضعیت به‌روزشده در 2026-10-19: `fc-cs2-test-01` ساخته شده و کاربر پایان دانلود اولیه را گزارش کرده است. Kernel برابر `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB است. برای PoC، `cs2node`/`vpksync` را طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) روی همین فایل‌سیستم نصب می‌کنیم؛ `cs2node` یک Base مرکزی جداگانه در `/srv/cs2-shared` می‌سازد و ممکن است 35–40 GB دیگر یک بار دانلود کند. VMDK دوم لازم نیست و فقط برای جداسازی آیندهٔ Storage اختیاری است. هیچ اسکریپت KUS را اجرا نکن.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
 **آخرین health check کاملِ اولیه (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN بودند. در ادامه، مرحلهٔ 3.4.1 برای Queue Worker و Scheduler روی Clone با IP `192.168.1.9` با موفقیت اجرا و تأیید شد: `pteroq.service` برابر `enabled` و `active (running)` است و ورودی `schedule:run` در crontab ریشه وجود دارد. طبق تأیید کاربر در 2026-10-18، شبکه و پنل از مسیر موردنظر عملیاتی‌اند؛ تأیید دستی Port Forward/دسترسی پنل برای این مرحله تکمیل‌شده ثبت می‌شود. Queue Worker و Scheduler هنوز باید جداگانه روی VMDK اصلی اعمال شوند. UFW قانون `29001/udp` را برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند.
@@ -2093,7 +2093,7 @@ fi
 
 طبق راهنمای رسمی K4ryuu، ابتدا یک سرور CS2-Egg-Go به‌صورت standalone و بدون Node daemon می‌سازیم تا نصب بازی، Source 2، Map، Console، اتصال Client و Stop/Start آزمایش شود. این فقط Baseline فنی است؛ نیاز اصلی محصول FragCity شامل CounterStrikeSharp و پلاگین‌های Fun Mode منتخب هم هست. پس از قبولی Baseline، `INSTALL_CSS=1` را فعال و پلاگین‌های کامپایل‌شدهٔ منتخب را روی Volume همان Instance نصب و تست می‌کنیم. راهنمای مرحله‌به‌مرحله و معیارهای قبولی هر دو فاز در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) قرار دارد. پلاگین‌ها و configs خصوصی باید per-instance بمانند؛ محتوای VIP حذف‌شده نباید دوباره وارد Deployment شود.
 
-این تست اولیه می‌تواند حدود 40 GB از Volume سرور در Storage فعلی مصرف کند؛ قبل از Start فضای آزاد را بررسی کن. پس از قبولی این تست، VMDK داده فقط به Clone اضافه و شناسایی می‌شود؛ سپس مسیر Storage مشترک آماده و cs2node/VPK sync آزمایش می‌شود. هنوز Instance دوم، Shared Base، Update خودکار Base یا Production اجرا نمی‌شود.
+دانلود اولیهٔ Instance در Volume خودش قرار دارد و به‌تنهایی Shared Base نیست. مرحلهٔ جاری ساخت Base مرکزی با `cs2node`/`vpksync` روی فایل‌سیستم فعلی است؛ پیش از آن سرور فعلی را Stop کن. Base مرکزی یک دانلود جداگانهٔ یک‌باره دارد؛ پس از تأیید `doctor`/`status`، سرور اول را به Shared Base متصل و سپس Instance دوم را آزمایش می‌کنیم. VMDK دوم پیش‌نیاز نیست.
 
 #### 7.3.3 افزودن VMDK داده فقط به Clone
 
@@ -2109,20 +2109,15 @@ sudo blkid
 4. دیسک تازه را با اندازه، نوع، filesystem و mountpoint شناسایی کن. **فرمت، partitioning یا mount نکن** تا نام دستگاه و جدا بودن آن از دیسک سیستم با خروجی بررسی و صریحاً تأیید شود.
 5. پس از تأیید دیسک جدید، filesystem و mount دائمی مخصوص Base/دادهٔ بازی طراحی می‌شود. مسیر نهایی و فرمان‌های mkfs یا /etc/fstab قبل از شناسایی دقیق دستگاه نوشته/اجرا نمی‌شوند.
 
-**قدم فعلی:** Import کردن Egg رسمی طبق فصل جدید و آماده‌کردن یک سرور آزمایشی روی Clone. VM اصلی و ریپوی KUS دست‌نخورده می‌مانند؛ VMDK داده و Shared Base همچنان گام‌های بعدی‌اند.
+**قدم فعلی:** نصب `cs2node` روی Clone، فعال‌کردن فقط `vpksync` با `push_method=symlink` و `cs2_dir=/srv/cs2-shared`، و بررسی Base مرکزی. حدود 182 GB فضای آزاد فعلی برای PoC گزارش شده است؛ VMDK دوم اختیاری است. VM اصلی و ریپوی KUS دست‌نخورده می‌مانند.
 
-### 7.4 تصمیم Storage — پس از بررسی 7.3
+### 7.4 تصمیم Storage — PoC فعلی و Production
 
-پس از آماده‌شدن VM آزمایشگاهی و VMDK، قبل از نصب Base این موارد را مشخص می‌کنیم:
-1. مسیر و filesystem نهایی Base مرکزی و SteamCMD.
-2. روش read-only اشتراک Base و پوشه‌های خصوصی هر Instance.
-3. سازگاری Egg/Startup با CS2 واقعی، نه صرفاً Egg قدیمی CS:GO.
-4. Backup/Restore و رفتار حذف/Reinstall یک Instance.
-5. فضای لازم برای Base، نقشه‌ها/Workshop، addons، logها و backup.
+برای PoC، چون root حدود 182 GB فضای آزاد دارد، Base مرکزی در `/srv/cs2-shared` روی فایل‌سیستم فعلی قرار می‌گیرد. روش اشتراک `symlink` به‌صورت read-only توسط `cs2node` مدیریت می‌شود؛ Volume/config/addons هر Instance مستقل می‌مانند. برای Production بعداً می‌توان VMDK/Storage جداگانه در نظر گرفت، اما این موضوع اجرای PoC را مسدود نمی‌کند. پیش از Production ظرفیت Base، Workshop، addons، logs و backups را دوباره محاسبه می‌کنیم.
 
 ### 7.5 Shared Base و Instanceهای بعدی — پس از قبولی تست پایه و طراحی Storage
 
-ابتدا یک Instance مستقل بدون Node daemon را طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) با حداقل 40 GB فضای آزاد آزمایش می‌کنیم؛ سپس CounterStrikeSharp و پلاگین‌های Fun Mode منتخب را نصب و قبولی آن‌ها را نیز تأیید می‌کنیم. فقط پس از موفقیت بازی پایه و پلاگین‌ها، VMDK دادهٔ شناسایی‌شده و mount ایمن می‌شود و cs2node/VPK sync و Instance دوم آزمایش می‌شوند. Start/Stop/Console/Files/SFTP، جدایی Plugin و config خصوصی هر Instance، Backup/Restore و baseline عملکرد بررسی می‌شوند. پلاگین‌ها را دسته‌ای اضافه کن تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
+اکنون که Instance اول دانلود شده، ابتدا `cs2node`/`vpksync` و Shared Base را روی Storage فعلی نصب و تأیید می‌کنیم؛ سپس Instance اول را به Base مرکزی وصل و Instance دوم را می‌سازیم تا دانلود کامل مجدد رخ ندهد. بعد از قبولی Multi Instance، CounterStrikeSharp و پلاگین‌های Fun Mode منتخب را در مرحله‌ای جداگانه آزمایش می‌کنیم. VMDK دوم برای PoC لازم نیست. Start/Stop/Console/Files/SFTP، جدایی Plugin و config خصوصی هر Instance، Backup/Restore و baseline عملکرد بررسی می‌شوند. پلاگین‌ها را دسته‌ای اضافه کن تا اثر هر تغییر قابل‌اندازه‌گیری باشد.
 
 تا تکمیل مراحل قبل، هیچ Instance جدیدی روی Node اصلی نساز و به `/home/steam` دست نزن.
 
@@ -2171,7 +2166,7 @@ sudo blkid
 | SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
 | Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
 | Panel / Docker / Wings | Panel روی HTTPS تنظیم شده؛ Docker فعال است؛ `config.yml` از Auto-Deploy تولید شده؛ Wings از آزمون foreground عبور کرده و سرویس systemd فعال/enable است. اتصال Node با Port Forward و قوانین UFW برقرار شده است. لاگ systemd اخیر Wings و Docker هشدار/خطای جدید نشان نداد؛ پیام‌های قدیمی TLS مربوط به قبل از آماده‌شدن گواهی‌اند. SMTP باید پیش از Production تنظیم شود. |
-| CS2 instance / game files | در این فاز نصب نمی‌شوند؛ طراحی روی محیط آزمایشگاهی و فاز جداگانه |
+| CS2 instance / game files | `fc-cs2-test-01` ساخته شده؛ کاربر پایان دانلود اولیه را گزارش کرده است. `cs2node`/`vpksync` و Shared Base هنوز نصب/تأیید نشده‌اند. |
 | Website/Wallet/Billing | فازهای بعدی |
 
 خروجی اجرای فرمان‌ها، لاگ‌ها، رمزها، نام حساب‌های شخصی و SHAهای فایل‌ها را به این README اضافه نکن. این سند فقط دستورها، تصمیم‌های معماری و مراحل تکرارپذیر را نگه می‌دارد.
