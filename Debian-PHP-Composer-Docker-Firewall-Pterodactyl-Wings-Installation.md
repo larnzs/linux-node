@@ -2068,7 +2068,7 @@ fi
 - [Pterodactyl custom mounts](https://docs.pterodactyl.io/v1/guides/configuration/mounts) اجازه می‌دهد مسیر میزبان به Container mount شود؛ منبع باید در `allowed_mounts` مربوط به Wings مجاز شده و Mount نیز در Panel تنظیم شود. محدودیت مهم: Mountهای سفارشی در File Manager و SFTP نمایش داده نمی‌شوند. پس به‌تنهایی ممکن است نیاز File Manager مشتری به فایل‌های خصوصی را برآورده نکنند.
 - [Linux OverlayFS](https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html) امکان ترکیب lower/upper را دارد، اما upper و work باید روی یک filesystem باشند و رفتار copy-up/delete/whiteout باید در آزمون واقعی سنجیده شود. این فقط نامزد آزمایش است، نه روش انتخاب‌شده.
 
-**ممنوعیت تا پایان PoC:** اسکریپت‌های `docker/update.sh`، `docker/install_docker.sh`، `linux/install.sh` یا هر Egg مربوط به نصب CS2 را روی Node اصلی اجرا نکن. هیچ payload یا پلاگین سفارشی KUS را روی Base مرکزی copy/merge نکن و از runtime مشترک نوشتنی برای دو Instance استفاده نکن. طبق تصمیم کاربر، هیچ Seedای از Windows یا Volume فعلی انجام نمی‌شود؛ Base مرکزی باید توسط `cs2node`/SteamCMD از ابتدا دانلود شود.
+**ممنوعیت تا پایان PoC:** اسکریپت‌های `docker/update.sh`، `docker/install_docker.sh`، `linux/install.sh` یا هر Egg مربوط به نصب CS2 را روی Node اصلی اجرا نکن. هیچ payload یا پلاگین سفارشی KUS را روی Base مرکزی copy/merge نکن و از runtime مشترک نوشتنی برای دو Instance استفاده نکن. طبق تصمیم تازهٔ کاربر، پس از رفع خطای SteamCMD قرار است بخشی از VPKهای asset از Windows با WinSCP به‌شکل کنترل‌شده Seed و سپس با SteamCMD بررسی شوند؛ باینری/manifest لینوکس و runtimeهای Windows نباید جایگزین شوند. فایل‌های Workshop باید از مسیر و metadata معتبر خودش عبور کنند، نه کپی خام به `/srv/cs2-workshop`.
 
 ### 7.3 وضعیت Clone و آماده‌سازی Shared Base — گام جاری
 
@@ -2084,7 +2084,7 @@ fi
 3. hostname در Clone به fc-node-01 برگردانده شده و /etc/hosts نیز به نام اصلی اشاره می‌کند. هشدار ابتدایی sudo مبنی بر unable to resolve host fc-node-01-test پیش از اصلاح hosts ظاهر شد؛ با getent hosts fc-node-01 و sudo -v وضعیت نهایی را تأیید کن.
 4. مقصد قوانین **موجود** Port Forward برای TCP 80/443، TCP 8080 و TCP 2022 برای زمان تست به Clone با IP `192.168.1.9` تنظیم شده بود. طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند؛ برای این مرحله، بررسی دسترسی و Port Forward را تکمیل‌شده در نظر می‌گیریم. قانون تکراری با پورت عمومی یکسان نساز. DNS عمومی نیاز به تغییر ندارد، مگر IPv4 عمومی WAN تغییر کرده باشد.
 5. Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند؛ Wings نیز قبلاً با `sudo systemctl enable --now wings` فعال/اجرا شده است. طبق تأیید کاربر در 2026-10-18، پنل بالا می‌آید و شبکه عملیاتی است؛ این مرحله از بررسی شبکه و دسترسی پنل تکمیل‌شده محسوب می‌شود. اگر بعداً Node به Offline تغییر کرد، قبل از دست‌کاری `config.yml`، مقصد Port Forward TCP 8080 و لاگ اخیر Wings را بررسی کن.
-6. وضعیت به‌روزشده در 2026-10-19: `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده است. Kernel برابر `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB گزارش شده است. Manifest موجود در Volume سرور با appid=730 و buildid=25966348 و 739 VPK تأیید شد؛ طبق تصمیم کاربر هیچ فایل بازی از Windows یا Volume فعلی برای Seed استفاده نمی‌شود. باینری رسمی `cs2node` نصب شده و Installer گزارش کرده فایل config و systemd unit را ساخته و سرویس را enable/start کرده است. مسیر Shared Base در config برابر `/srv/cs2-shared` است، اما محتوای واقعی این مسیر و تکمیل دانلود هنوز بررسی نشده‌اند. چند ماژول دیگر نیز به‌جز `vpksync` فعال شده‌اند؛ وضعیت ثبت‌شده در راهنمای K4ryuu آمده است. گام بعدی اجرای بلوک read-only برای `cs2node status/doctor`، فایل‌های Shared Base و journal است. VMDK دوم برای PoC لازم نیست. هیچ اسکریپت KUS را اجرا نکن.
+6. وضعیت به‌روزشده در 2026-10-19: `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده است. Kernel برابر `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB گزارش شده است. Manifest موجود در Volume سرور با appid=730 و buildid=25966348 و 739 VPK تأیید شد. تصمیم جاری این است که پس از رفع خطای SteamCMD، VPKهای asset منبع Windows با WinSCP به‌صورت کنترل‌شده Seed شوند؛ manifest و باینری‌های Linux حفظ می‌شوند و SteamCMD بعداً فایل‌ها را reconcile می‌کند. باینری رسمی `cs2node` نصب شده و Installer گزارش کرده فایل config و systemd unit را ساخته و سرویس را enable/start کرده است. مسیر Shared Base در config برابر `/srv/cs2-shared` است، اما محتوای واقعی این مسیر و تکمیل دانلود هنوز بررسی نشده‌اند. چند ماژول دیگر نیز به‌جز `vpksync` فعال شده‌اند؛ وضعیت ثبت‌شده در راهنمای K4ryuu آمده است. لاگ بعدی نشان داد `cs2node` فعال است، اما SteamCMD از `/root/steamcmd/linux32/steamcmd` با `cannot execute: required file not found` و exit status 127 شکست می‌خورد. `/srv/cs2-shared` حدود 4 KiB و بدون manifest یا `game/` است؛ مرحلهٔ بعد نصب i386 runtime، آزمایش `steamcmd.sh +quit` و restart daemon است. VMDK دوم برای PoC لازم نیست. هیچ اسکریپت KUS را اجرا نکن.
 7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
 
 **آخرین health check کاملِ اولیه (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN بودند. در ادامه، مرحلهٔ 3.4.1 برای Queue Worker و Scheduler روی Clone با IP `192.168.1.9` با موفقیت اجرا و تأیید شد: `pteroq.service` برابر `enabled` و `active (running)` است و ورودی `schedule:run` در crontab ریشه وجود دارد. طبق تأیید کاربر در 2026-10-18، شبکه و پنل از مسیر موردنظر عملیاتی‌اند؛ تأیید دستی Port Forward/دسترسی پنل برای این مرحله تکمیل‌شده ثبت می‌شود. Queue Worker و Scheduler هنوز باید جداگانه روی VMDK اصلی اعمال شوند. UFW قانون `29001/udp` را برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند.
@@ -2093,13 +2093,13 @@ fi
 
 Egg رسمی K4ryuu انتخاب صحیح است، چون image مربوط به CS2-Egg-Go با daemon handshake می‌کند. اولین Instance یعنی `fc-cs2-test-01` ساخته شده و کاربر پایان دانلود اولیه را گزارش کرده است.
 
-مسیر PoC طبق تصمیم کاربر:
-1. سرور اول را Offline نگه دار؛ حذف یا Reinstall نکن.
-2. `cs2node` نصب شده و مسیر مقصد تنظیم‌شده `/srv/cs2-shared` است؛ حالا وضعیت واقعی سرویس و محتویات مسیر را با دستورهای بخش 8.2 در راهنمای K4ryuu بررسی کن.
-3. اگر SteamCMD هنوز دانلود می‌کند، به آن فرصت بده و سرویس یا Instance را Restart/Start نکن. اگر خطا می‌بینی، خروجی `doctor/status` و journal را بررسی کن.
-4. URL وب‌هوک Discord که در لاگ چت افشا شد را در Discord باطل کن و با URL جدید جایگزین کن؛ URL را در README یا خروجی قابل‌اشتراک ثبت نکن.
-5. پس از وجود manifest مرکزی، Build ID و VPKها و نتیجهٔ قابل‌قبول `doctor/status`، سرور اول را Start کن و پیام `Daemon-managed game files, SteamCMD skipped` را بررسی کن.
-6. پس از قبولی سرور اول، Instance دوم را با همان Egg کامل و Allocation جدا بساز؛ `cs2node status` و Console باید نشان دهند SteamCMD محلی برای Instance دوم اجرا نشده است.
+مسیر جاری طبق آخرین لاگ:
+1. سرور اول `fc-cs2-test-01` را Offline نگه دار و حذف یا Reinstall نکن.
+2. SteamCMD با خطای اجرای باینری 32-bit و exit status 127 شکست می‌خورد؛ ابتدا در راهنمای K4ryuu بخش 8.2.1 را برای فعال‌کردن i386 و نصب `libc6:i386`, `libstdc++6:i386`, `libgcc-s1:i386` اجرا کن.
+3. `sudo /root/steamcmd/steamcmd.sh +quit` را تست کن؛ بعد از موفقیت، daemon را Restart و `journalctl -u cs2node -f` را دنبال کن تا شروع `app_update 730` مشخص شود.
+4. پس از شروع دانلود، برای WinSCP ابتدا daemon را متوقف و نبودن پردازش SteamCMD را تأیید می‌کنیم. فقط VPKهای asset را با مسیر نسبی صحیح ادغام می‌کنیم؛ SteamCMD بعداً آن‌ها را بررسی خواهد کرد.
+5. Workshop به‌صورت جداگانه و با ACF/metadata مناسب وارد می‌شود؛ فایل خام را مستقیم داخل `/srv/cs2-workshop` نریز.
+6. پس از تأیید Base و پیام `Daemon-managed game files, SteamCMD skipped`، سرور اول را آزمایش و سپس Instance دوم را با Allocation جدا بساز.
 
 CounterStrikeSharp و Plugin/Fun Modeهای FragCity را فقط بعد از اثبات VPK Sync و Instance دوم اضافه می‌کنیم. فایل‌های writable مربوط به cfg/addons/configs باید per-instance بمانند؛ محتوای VIP حذف‌شده نباید برگردد.
 
@@ -2119,7 +2119,7 @@ sudo blkid
 4. پیش از شناسایی قطعی دستگاه و توافق روی مقصد، هیچ partitioning، mkfs، wipefs یا mount دائمی انجام نده.
 5. اگر این مسیر برای Production انتخاب شد، mountpoint نهایی را با مقدار cs2_dir در /etc/cs2node/config.json هماهنگ می‌کنیم.
 
-**گام جاری:** `cs2node` نصب شده و Installer شروع سرویس را گزارش کرده است. اکنون باید `doctor/status`، journal و محتوای `/srv/cs2-shared` را بررسی کنیم؛ آماده‌بودن Base هنوز اثبات نشده و هیچ Seedای از Windows/Volume موجود انجام نمی‌شود.
+**گام جاری:** `cs2node` سرویس فعالی است اما SteamCMD با exit status 127 و خطای اجرای `linux32/steamcmd` شکست می‌خورد. `/srv/cs2-shared` خالی است و manifest مرکزی وجود ندارد. گام بعدی نصب i386 runtime و آزمایش SteamCMD است؛ پس از شروع دانلود، Seed کنترل‌شدهٔ VPKهای Windows با WinSCP بررسی می‌شود. Workshop در مسیر جداگانهٔ سازگار با metadata وارد خواهد شد.
 
 ### 7.4 تصمیم Storage — PoC فعلی و Production
 
