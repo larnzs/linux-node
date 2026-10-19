@@ -413,7 +413,7 @@ ip -4 route
 
 #### قدم A — ورود محلی به مودم/روتر
 
-1. از روی Debian، در `ip route`، Gateway فعلی شبکه را ببین؛ در وضعیت فعلی راهنما مقدار آن `192.168.1.1` است، اما اگر عوض شده از مقدار واقعی استفاده کن.
+1. از روی Debian در `ip route`، Gateway واقعی شبکه را شناسایی کن. `192.168.1.1` فقط یک نمونه است؛ Gateway را از روی خروجی خودت بخوان و حدس نزن.
 2. از مرورگر داخل همان LAN، صفحهٔ مدیریت محلی Gateway را باز کن، مثلاً `http://192.168.1.1/`. فقط از آدرس محلی استفاده کن.
 3. در تنظیمات مودم/روتر دنبال گزینه‌هایی با نام‌هایی مانند **Remote Management**, **Web Access from WAN**, **WAN HTTP/HTTPS Access**, **Remote Web Administration** یا **Management from Internet** بگرد.
 4. دسترسی مدیریتی از WAN را برای HTTP و HTTPS خاموش کن؛ دسترسی مدیریتی از LAN را نگه دار تا بتوانی روتر را محلی مدیریت کنی. اگر نام گزینه‌ها یا عملکردشان نامشخص است، قبل از تغییر از صفحهٔ تنظیمات عکس بگیر و مدل دستگاه را مشخص کن؛ تنظیمات WAN، Bridge، PPPoE یا TR-069 را حدس‌زنان تغییر نده.
@@ -582,7 +582,9 @@ sudo apt install -y ufw
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 
-sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+LAN_CIDR="192.168.1.0/24"  # Replace with your actual LAN subnet, e.g. 10.0.0.0/24
+if [[ "$LAN_CIDR" == *REPLACE* ]]; then echo "STOP: set LAN_CIDR first."; exit 1; fi
+sudo ufw allow from "$LAN_CIDR" to any port 22 proto tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
@@ -1016,7 +1018,7 @@ sudo ss -ltnp
 
 اگر معیار قبولی برقرار نبود، 3.1 را اجرا نکن؛ خروجی خطا/سرویس‌های ناموفق را بفرست. در صورت بروز خطا، به‌دلیل اجرای بلوک داخل subshell، باید prompt نشست SSH باقی بماند. لاگ‌های واقعی را در README ثبت نکن.
 
-## 3. نصب Pterodactyl Panel — فاز آینده، پیش از اجرا نسخه را بازبینی کن
+## 3. نصب Pterodactyl Panel
 
 ### 3.0 انتخاب نسخه و بررسی سازگاری پیش از نصب
 
@@ -1782,8 +1784,8 @@ df -hT /
 
 قبل از تنظیم Node، فضای آزاد فعلی را ملاک بگیر.
 
-**پیش‌شرط مهم FQDN/TLS:** گواهی `panel.fragcity.ir` به‌تنهایی برای `fc-node-01.fragcity.ir` معتبر نیست. پیش از ساخت Node با SSL فعال:
-- رکورد A عمومی هر دو دامنه را با Windows PowerShell طبق مرحلهٔ 3.7.2 بررسی کن.
+**پیش‌شرط مهم FQDN/TLS:** گواهی Panel برای FQDN خود Panel صادر می‌شود و خودبه‌خود FQDN مربوط به Node/Wings را پوشش نمی‌دهد. پیش از ساخت Node با SSL فعال:
+- رکورد A عمومی FQDNهای واقعی Panel و Node را با Windows PowerShell طبق مرحلهٔ 3.7.2 بررسی کن.
 - Port Forward مربوط به HTTP-01 را به IP LAN رزروشدهٔ Node هدایت کن.
 - گواهی مستقل Node را طبق مرحلهٔ 3.7.2 صادر و مسیرهای `fullchain.pem` و `privkey.pem` را بررسی کن.
 
@@ -2060,7 +2062,7 @@ fi
 
 ## 8. سایت FragCity، Wallet و فروش مدت‌دار — فازهای بعد
 
-این بخش هنوز دستور نهاییِ اجرا و آزمایش‌شده ندارد. پس از اثبات PoC سرور بازی، همین runbook با فرمان‌های معتبر برای موارد زیر ادامه پیدا می‌کند:
+این بخش خارج از فرایند نصب Debian/Panel/Wings است و فقط موضوع‌های توسعهٔ بعدی محصول را فهرست می‌کند:
 - API امن بین سایت Raw PHP و Pterodactyl؛
 - اتصال فروشگاه/Paymenter؛
 - شارژ Wallet، کسر یک‌باره، سفارش و expires_at؛
@@ -2069,7 +2071,7 @@ fi
 - Node دوم، آزمون ظرفیت و نصب تکرارپذیر؛
 - DNS/TLS، firewall و دسترسی عمومی پس از قبولی آزمون LAN.
 
-فرمان اجرانشده را به‌عنوان دستور آمادهٔ Production ثبت نمی‌کنیم؛ پس از اجرا و تست به همین سند اضافه می‌شود.
+برای هر یک از این موضوع‌ها، Runbook مستقل با پیش‌نیاز، فرمان‌های قابل‌تکرار، آزمون و روش بازگشت تهیه کن؛ این فهرست به‌تنهایی دستور اجرایی نیست.
 
 ## 9. چک‌لیست پایان نصب زیرساخت
 
