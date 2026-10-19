@@ -1,40 +1,32 @@
 # FragCity Linux Node — راهنمای نصب و راه‌اندازی
 
-این ریپو شامل آموزش‌های مرحله‌ای برای نصب زیرساخت Debian/Pterodactyl، ساخت محیط آزمایشی VMware و راه‌اندازی CS2 با Egg رسمی K4ryuu است. هر راهنما باید مستقل از IP و hostname نمونه قابل استفاده باشد؛ قبل از اجرای دستورها، بخش مقادیر محیطی همان راهنما را با اطلاعات واقعی خودت تطبیق بده.
+این مخزن شامل آموزش‌های قابل‌تکرار برای Debian، زیرساخت Pterodactyl، اتصال WinSCP، ساخت Clone آزمایشی VMware و راه‌اندازی CS2 با K4ryuu است. راهنماهای آموزشی باید برای کاربری با hostname، IP و دامنهٔ متفاوت هم قابل استفاده باشند؛ گزارش وضعیت یک اجرای خاص در فایل Checkpoint جدا نگهداری می‌شود.
 
-## مسیر پیشنهادی مطالعه و اجرا
+## ترتیب پیشنهادی مطالعه
 
-1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)**  
-   نصب سیستم‌عامل، SSH/UFW، PHP و Composer، پایگاه داده، Panel، Docker، Wings، Queue Worker و Scheduler. از این راهنما برای آماده‌سازی زیرساخت استفاده کن.
+1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)** — برای نصب تازهٔ زیرساخت، از Debian Base تا Online شدن Node.
+2. **[آموزش K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md)** — پیش‌نیاز i386 روی amd64، واردکردن Egg، دستور نصب cs2node، تنظیم Wizard، Shared Base، Workshop و آزمون Multi Instance.
+3. **[آموزش WinSCP](https://github.com/larnzs/linux-node/blob/main/%D8%A2%D9%85%D9%88%D8%B2%D8%B4%20winscp.md)** — اتصال SFTP با SSH key، دسترسی فایل‌ها و انتقال امن از مسیر staging.
+4. **[آموزش Full Clone و VMDK در VMware Workstation](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)** — فقط وقتی به Clone جایگزین یا دیسک دادهٔ آزمایشی نیاز داری؛ برای نصب عادی Node الزامی نیست.
 
-2. **[آموزش K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md)**  
-   پیش‌نیازهای Debian amd64، فرمان دقیق نصب cs2node، تنظیم Wizard، دانلود/بررسی Shared Base، انتقال کنترل‌شدهٔ VPKها و Workshop، و اثبات کارکرد دو Instance.
+## قبل از اجرای دستورها
 
-3. **[آموزش Full Clone و VMDK در VMware Workstation](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)**  
-   فقط در صورت نیاز به Clone آزمایشی: ساخت Full Clone، حفظ VM اصلی، تغییر و بازگردانی Port Forward، اجرای health check و افزودن اختیاری VMDK. این راهنما دستورهای Clone را از نصب عادی Node جدا می‌کند.
+- دستورها را فقط در محل ذکرشده اجرا کن: Windows PowerShell، Debian host از طریق SSH، Panel، یا فایل پیکربندی. دستورهای host را داخل Container بازی اجرا نکن.
+- hostname، IP، FQDN، نام کاربر، پورت‌ها، مسیر فایل‌ها و Allocationهای نمونه را با محیط خودت جایگزین کن. اگر Placeholder باقی مانده، بلوک را اجرا نکن.
+- در Debian amd64، پیش‌نیاز Runtimeهای i386 باید پیش از نصب cs2node و اولین Update مرکزی تکمیل و با `steamcmd.sh +quit` آزمایش شود.
+- برای Storage، پیش از partition/format/mount دستگاه را با `lsblk` و `blkid` شناسایی کن؛ اسم دیسک را حدس نزن.
+- برای Shared VPK، Base مرکزی `/srv/cs2-shared` و Workshop Cache `/srv/cs2-workshop` دو ساختار جدا هستند. فایل خام را بدون مسیر و metadata لازم داخل Cache کپی نکن.
+- تا زمانی که Manifest/Build ID و VPKهای Base تأیید نشده‌اند، سرور را Start نکن. ابتدا Instance اول را تأیید کن، سپس Instance دوم؛ پلاگین‌های اختصاصی را بعد از قبولی Multi Instance اضافه کن.
+- Clone موقت که هویت VM اصلی را به ارث برده نباید هم‌زمان با VM اصلی روشن باشد.
+- هرگز رمز، APP_KEY، Token، GSLT، Webhook URL، فایل `.env` یا محتوای محرمانهٔ config را در GitHub ثبت نکن. Webhook افشاشده را در ارائه‌دهنده باطل و جایگزین کن.
 
-4. **[آموزش WinSCP — اتصال SFTP با کلید SSH](https://github.com/larnzs/linux-node/blob/main/%D8%A2%D9%85%D9%88%D8%B2%D8%B4%20winscp.md)**  
-   اتصال گرافیکی از Windows به Linux، تنظیم IP/port/user/key خودت، انتقال فایل‌ها، فهم مجوزها و روش اختیاری و فقط‌خواندنی مشاهدهٔ فایل‌های root.
+## روش استفاده از هر راهنما
 
-## پیش از Copy/Paste
+هر فصل را به ترتیب اجرا کن: **پیش‌نیاز → فرمان دقیق → خروجی مورد انتظار → معیار قبولی → عیب‌یابی**. اگر معیار قبولی پاس نشد، جلو نرو و ابتدا خروجی تشخیصی همان مرحله را بررسی کن. از اجرای تکراری فرمان‌های تغییر‌دهنده بدون فهم خطا خودداری کن.
 
-- **مقادیر محیطی:** hostname، IP داخلی، دامنه/FQDN، subnet شبکه، نام کاربر Linux، مسیر نصب Panel و پورت‌های Node باید با محیط واقعی تو هماهنگ باشند. مقادیر 192.168.1.7، 192.168.1.9، fc-node-01 و fragcity.ir در راهنماها نمونه‌های یک محیط مشخص‌اند، نه مقادیر عمومی.
-- **مکان اجرای فرمان:** مشخص کن دستور باید در Windows PowerShell، نشست SSH روی Debian، prompt دیتابیس یا داخل یک فایل تنظیمات اجرا شود. JSON، YAML و NGINX config را در Bash اجرا نکن.
-- **Storage:** پیش از هر عملیات partition/format/mount، دستگاه را با lsblk و blkid شناسایی کن؛ نامی مثل /dev/sdb را حدس نزن.
-- **CS2 و i386:** در Debian amd64، Runtimeهای سازگار i386 را طبق راهنمای K4ryuu، قبل از نصب cs2node و اولین Update مرکزی نصب کن.
-- **Shared Base و Workshop:** بازی در /srv/cs2-shared و Workshop Cache در /srv/cs2-workshop دو ساختار مجزا هستند. فایل‌های بازی یا Workshop را بدون حفظ ساختار و metadata مربوط مستقیماً به Cache مرکزی کپی نکن.
-- **ترتیب آزمون:** اول Base مرکزی را با cs2node doctor/status، Manifest، Build ID و VPK count تأیید کن؛ سپس Instance اول را آزمایش و بعد Instance دوم را بساز. تا قبولی Multi Instance، پلاگین‌های FragCity/KUS را وارد این مسیر نکن.
-- **Clone:** اگر Clone موقتاً جای VM اصلی را می‌گیرد، دو VM با هویت مشترک را هم‌زمان روشن نکن. مقصد Port Forward و IP را هنگام شروع/پایان تست با دقت عوض کن. برای Node دوم مستقل، از هویت و config اختصاصی استفاده کن.
-- **Secrets:** رمزها، APP_KEY، Token، GSLT، Webhook URL، فایل .env و محتوای محرمانهٔ /etc/pterodactyl/config.yml را در GitHub یا چت منتشر نکن. اگر Webhook افشا شد، آن را باطل و دوباره بساز.
+## گزارش وضعیت اجرای فعلی
 
-## گزارش اجرای جاری
+این فایل‌ها فقط برای ادامهٔ اجرای مشخص FragCity هستند و جایگزین آموزش عمومی نیستند:
 
-برای وضعیت واقعی آزمون cs2node، خروجی آخرین مرحله و قدم بعدی فقط‌خواندنی، از [Checkpoint آزمایش cs2node](https://github.com/larnzs/linux-node/blob/main/%D9%88%D8%B6%D8%B9%DB%8C%D8%AA%20%D9%81%D8%B9%D9%84%DB%8C%20%D8%A2%D8%B2%D9%85%D8%A7%DB%8C%D8%B4%20cs2node.md) استفاده کن. این گزارش جدا از آموزش‌های تکرارپذیر نگه داشته می‌شود.
-
-## استاندارد هر آموزش
-
-هر بخش را به ترتیب اجرا کن: **پیش‌نیاز → فرمان دقیق → نتیجهٔ مورد انتظار → معیار قبولی → عیب‌یابی**. اگر یکی از معیارهای قبولی برقرار نیست، به مرحلهٔ بعد نرو و ابتدا خروجی فقط‌خواندنی همان مرحله را بررسی کن. لاگ اجرای یک VM خاص را در سند آموزشی دائمی جایگزین دستورالعمل نکن؛ راهنما باید برای نصب‌های بعدی قابل استفاده بماند.
-
-## وضعیت اجرای فعلی (گزارش عملیاتی، نه آموزش)
-
-برای ادامهٔ آزمون زندهٔ FragCity، وضعیت جاری را در [checkpoint دانلود cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) ببین. این فایل از راهنماهای آموزشی جداست؛ برای نصب جدید، دستورالعمل عمومی همان راهنماها را اجرا و مقادیر محیطی خودت را جایگزین کن.
+- [Checkpoint وضعیت دانلود cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md)
+- [گزارش اجرای آزمایشی cs2node](https://github.com/larnzs/linux-node/blob/main/%D9%88%D8%B6%D8%B9%DB%8C%D8%AA%20%D9%81%D8%B9%D9%84%DB%8C%20%D8%A2%D8%B2%D9%85%D8%A7%DB%8C%D8%B4%20cs2node.md)
