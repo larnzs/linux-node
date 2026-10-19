@@ -564,13 +564,13 @@ VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را
 - [ ] باید از روی `ps`, Journal و رشد اندازهٔ `/srv/cs2-shared` مشخص شود تلاش مرکزی هنوز در حال دانلود است یا با خطای جدیدی شکست خورده.
 - [ ] پس از افشای URL وب‌هوک Discord در لاگ چت، Webhook قبلی باید باطل و جایگزین شود؛ URL محرمانه در GitHub ثبت نشود.
 
-### پنج گام بعدی — رفع SteamCMD و شروع دانلود
+### پنج گام بعدی — تشخیص تلاش دانلود مرکزی
 
-1. `fc-cs2-test-01` را Offline نگه دار و Clone را روشن بگذار.
-2. دستور بخش 8.2.1 را اجرا کن تا i386 multiarch و Runtimeهای لازم نصب شوند.
-3. `sudo /root/steamcmd/steamcmd.sh +quit` را آزمایش کن؛ اگر شکست خورد، خروجی را بفرست.
-4. فقط پس از موفقیت تست، `sudo systemctl restart cs2node` و `sudo journalctl -u cs2node -f` را اجرا کن و شروع `app_update 730` را بررسی کن.
-5. بعد از شروع واقعی دانلود، پیش از WinSCP ابتدا daemon و SteamCMD را با روش ثبت‌شده در بخش 8.2.2 متوقف می‌کنیم؛ انتقال VPK و Workshop مراحل جداگانه دارند. تا آن موقع سرور را Start نکن.
+1. پیش‌نیاز Debian amd64 بخش 8.0 اکنون اجرا و `steamcmd.sh +quit` موفق شده است؛ آن را تکرار نکن مگر آزمون دوباره خطا دهد.
+2. `fc-cs2-test-01` را Offline نگه دار و چیزی را از `/srv/cs2-shared` حذف نکن.
+3. بلوک read-only بخش 8.2.1 را اجرا کن: پردازش‌های SteamCMD، journal، اندازهٔ `/root/steamcmd` و `/srv/cs2-shared` و تعداد VPKها را ثبت می‌کند.
+4. اگر SteamCMD هنوز process فعال دارد و فایل‌ها رشد می‌کنند، منتظر بمان؛ هم‌زمان WinSCP آپلود نکن و سرویس را متوقف نکن.
+5. اگر process فعال نیست و manifest/VPK همچنان وجود ندارد، خروجی جدید را بفرست تا علت عدم شروع/شکست `app_update 730` را از log/config بررسی کنیم؛ دانلود را با حدس دوباره اجرا نکن.
 
 ### منابع رسمی
 - Egg installation: https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md
