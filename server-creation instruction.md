@@ -253,108 +253,115 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 - پیش از دانلود دوبارهٔ کامل، بررسی می‌کنیم آیا نصب فعلی می‌تواند seed نسخهٔ مرکزی /srv/cs2-shared شود. این seed کردن، مرحلهٔ بهینه‌سازی محلی FragCity است (نه روال اصلی‌ای که مستندات K4ryuu به‌صورت خودکار انجام می‌دهند)؛ فقط وقتی manifest و فایل‌های نصب کامل باشند انجام می‌شود. اگر بررسی شکست بخورد، از نصب مرکزی معمول SteamCMD استفاده می‌کنیم.
 - فایل‌های نصب فعلی را Move نمی‌کنیم. ابتدا با rsync یک کپی مستقل می‌سازیم تا اگر seed یا SteamCMD ناموفق بود، Volume فعلی قابل بازیابی بماند.
 
-### 8.1 گام اول — خروج امن از Wizard و بررسی فقط‌خواندنی
+### 8.1 — تفسیر نصب موجود و آماده‌کردن منبع ویندوز
 
-اگر ترمینال هنوز روی پرسش Proceed? از دستور sudo /tmp/cs2node install است، فعلاً n بزن و Enter کن. اگر از آن عبور کرده‌ای ولی نصب نهایی نشده، با Ctrl+C خارج شو. تا پایان بررسی نصب را نهایی نکن.
+بازرسی انجام‌شده در 2026-10-19 کامل است؛ حجم 69 GB یک خطا محسوب نمی‌شود و دیگر لازم نیست برای توضیح آن اسکن جداگانه اجرا شود. خروجی گزارش‌شده:
 
-در پنل Pterodactyl، سرور fc-cs2-test-01 را Stop کن و منتظر Offline شدن آن بمان. خود Debian، Docker، Wings و Panel باید روشن بمانند.
+- `game/csgo`: حدود 61 GB؛ `game/csgo/maps`: حدود 9.6 GB.
+- `game/csgo_community_addons`: حدود 6.4 GB؛ این مسیر محتوای Community/Workshop را نگه می‌دارد.
+- کل فایل‌های VPK داخل `game/`: تعداد 739 و مجموع 67.75 GiB؛ تعداد symlink برابر صفر بود.
+- Manifest لینوکسی موجود در `$VOL/steamapps/appmanifest_730.acf`: appid=730، StateFlags=4 و buildid=25966348.
+- `/srv/cs2-shared` هنوز ساخته نشده و `cs2node` هنوز نصب نیست.
 
-نکتهٔ مهم: در چیدمان Egg، پوشه‌های game و steamapps در ریشهٔ Volume خواهر/هم‌سطح یکدیگرند. مسیر manifest مورد انتظار، steamapps/appmanifest_730.acf است؛ جستجوی قبلی روی game/steamapps انجام شده بود و مسیر درستی نبود.
+**روش انتخاب‌شده:** نصب فعلیِ دانلودشده روی Debian پایهٔ مورداعتماد برای فایل‌های بازی و manifest باقی می‌ماند؛ فایل‌های Windows برای اضافه‌کردن Library کامل Workshop استفاده می‌شوند. این کار از جایگزین‌شدن تصادفی runtime/باینری‌های لینوکس با فایل‌های ویندوز جلوگیری می‌کند. `steamapps`، `Steam`، `.steam`، `steamcmd` یا فایل‌های اجرایی/کتابخانه‌های Windows را از نصب Windows به Shared Base کپی نکن. پس از آماده‌شدن Base، `cs2node`/SteamCMD مسئول بررسی و تکمیل فایل‌های نصب مرکزی خواهد بود.
 
-در SSH این بلوک را اجرا کن. هیچ تغییری ایجاد نمی‌کند.
+### 8.2 — اشتراک‌گذاری فقط‌خواندنی نصب Windows و بررسی محتوای Workshop
+
+در Windows، از Steam روی Counter-Strike 2 برو به **Properties → Installed Files → Browse** تا مسیر واقعی نصب را ببینی. در تنظیمات همان Clone در VMware Workstation، بخش **Options → Shared Folders** را باز کن، Shared Folders را روی **Always enabled** بگذار و ریشهٔ نصب بازی را به‌عنوان Folder جدید با نام `CS2WIN` اضافه کن. گزینهٔ **Read-only** را فعال کن؛ لازم نیست کل Steam Library یا کل درایو Windows را Share کنی.
+
+در SSH روی Debian فقط بررسی کن که Share و ساختار آن دیده می‌شوند؛ هنوز هیچ کپی‌ای انجام نده:
 
 ~~~bash
+set -eu
+WINROOT="/mnt/hgfs/CS2WIN"
 VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
 
-echo "=== Top-level entries in current server volume ==="
-sudo find "$VOL" -mindepth 1 -maxdepth 1 -printf '%f\t%y\n' | sort
+echo "=== VMware shared folders ==="
+ls -lah /mnt/hgfs 2>/dev/null || true
+findmnt -t fuse.vmhgfs-fuse || true
 
 echo
-echo "=== Key paths ==="
-for p in game steamapps steamcmd Steam .steam egg; do
-  if sudo test -e "$VOL/$p"; then
-    sudo ls -ld "$VOL/$p"
+echo "=== Windows CS2 source root ==="
+if [ ! -d "$WINROOT/game" ]; then
+  echo "STOP: $WINROOT/game not found; do not copy anything."
+  exit 1
+fi
+ls -lah "$WINROOT"
+echo
+echo "=== Windows game folders ==="
+for p in "$WINROOT/game/csgo" "$WINROOT/game/csgo_community_addons" "$WINROOT/game/csgo/maps"; do
+  if [ -d "$p" ]; then
+    sudo du -sh "$p"
+    sudo find "$p" -maxdepth 2 -type d | head -n 25
   else
-    echo "MISSING: $VOL/$p"
+    echo "MISSING: $p"
   fi
 done
 
 echo
-echo "=== Disk usage ==="
-sudo du -sh "$VOL/game" "$VOL/steamapps" "$VOL/steamcmd" "$VOL/Steam" "$VOL/.steam" "$VOL/egg" 2>/dev/null || true
-
-echo
-echo "=== App manifest and build id ==="
-if sudo test -f "$VOL/steamapps/appmanifest_730.acf"; then
-  sudo grep -E '"(appid|buildid|StateFlags)"' "$VOL/steamapps/appmanifest_730.acf" || true
-else
-  echo "NO ROOT STEAM APPMANIFEST FOUND"
+echo "=== Windows Workshop VPK count and total bytes ==="
+if [ -d "$WINROOT/game/csgo_community_addons" ]; then
+  sudo find "$WINROOT/game/csgo_community_addons" -type f -name '*.vpk' -printf '%s\n' |
+    awk '{bytes += $1; count++} END {printf "count=%d total_GiB=%.2f\n", count, bytes/1024/1024/1024}'
 fi
 
 echo
-echo "=== VPK file count ==="
-sudo find "$VOL/game" -type f -name '*.vpk' 2>/dev/null | wc -l
-
+echo "=== Current free space ==="
+df -hT /
 echo
-echo "=== Existing shared base (read-only) ==="
-if sudo test -d /srv/cs2-shared; then
-  sudo ls -ld /srv/cs2-shared
-  sudo find /srv/cs2-shared -mindepth 1 -maxdepth 1 -printf '%f\t%y\n' | head -n 30
-else
-  echo "/srv/cs2-shared does not exist yet"
-fi
-
-echo
-echo "=== Existing cs2node state (read-only) ==="
-command -v cs2node || true
-sudo systemctl is-active cs2node 2>/dev/null || true
-sudo test -f /etc/cs2node/config.json && echo "Node config exists" || echo "No node config yet"
+echo "=== Current server workshop folder ==="
+sudo du -sh "$VOL/game/csgo_community_addons" 2>/dev/null || true
 ~~~
 
-خروجی این بررسی را قبل از هرگونه کپی بفرست. اگر /srv/cs2-shared از قبل وجود دارد و خالی نیست، آن را overwrite نکن.
+اگر Share مسیر متفاوتی دارد، `game/` پیدا نمی‌شود یا `csgo_community_addons` روی Windows وجود ندارد، متوقف شو و خروجی را بفرست. مسیر را حدس نزن و هنوز `rsync`، نصب `cs2node` یا ایجاد Base را اجرا نکن.
 
-### 8.2 گام دوم — seed کردن Base از نصب موجود، فقط بعد از تأیید
+### 8.2.1 — روش Seed پس از تأیید خروجی Share
 
-این دستورها را تا زمان بررسی خروجی بخش 8.1 اجرا نکن. شرایط لازم:
-- مسیر game/csgo و manifest ریشهٔ steamapps وجود داشته باشند.
-- manifest مربوط به App ID 730 و دارای buildid عددی باشد.
-- تعداد VPKها بیشتر از صفر باشد.
-- سرور کاملاً متوقف باشد.
-- مقصد /srv/cs2-shared وجود نداشته باشد یا خالی باشد.
-- هنوز پلاگین یا payload سفارشی روی Instance نصب نشده باشد.
+فقط پس از اینکه مسیر Windows و حجم واقعی Workshop را دیدیم، کار کپی انجام می‌شود. سرور `fc-cs2-test-01` باید کاملاً **Offline** باشد و `/srv/cs2-shared` نباید قبلاً دادهٔ ناشناخته داشته باشد.
 
-اگر همهٔ شرط‌ها تأیید شدند، فقط game و steamapps را به Shared Base کپی می‌کنیم؛ پوشه‌های egg و steamcmd از Volume کپی نمی‌شوند.
+ابتدا نسخهٔ مستقل Base را از نصب Linux فعلی و manifest خودش بساز؛ Volume اصلی را Move/Delete نکن:
 
 ~~~bash
+set -eu
 VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
 BASE="/srv/cs2-shared"
 
-sudo test -d "$VOL/game/csgo" || { echo "STOP: source game/csgo is missing"; exit 1; }
-sudo test -f "$VOL/steamapps/appmanifest_730.acf" || { echo "STOP: appmanifest is missing"; exit 1; }
-sudo grep -Eq '"buildid"[[:space:]]+"[0-9]+"' "$VOL/steamapps/appmanifest_730.acf" || { echo "STOP: manifest buildid not found"; exit 1; }
-VPK_COUNT="$(sudo find "$VOL/game" -type f -name '*.vpk' | wc -l)"
-[ "$VPK_COUNT" -gt 0 ] || { echo "STOP: no VPK files found"; exit 1; }
-
+sudo test -d "$VOL/game/csgo" || { echo "STOP: Linux source game missing"; exit 1; }
+sudo test -f "$VOL/steamapps/appmanifest_730.acf" || { echo "STOP: Linux appmanifest missing"; exit 1; }
 if sudo test -d "$BASE" && [ -n "$(sudo find "$BASE" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
-  echo "STOP: $BASE already contains files; inspect it before doing anything"
+  echo "STOP: $BASE is non-empty; inspect it before copying"
   exit 1
 fi
 
 sudo mkdir -p "$BASE/game" "$BASE/steamapps"
 sudo rsync -a --chown=root:root --info=progress2 "$VOL/game/" "$BASE/game/"
 sudo rsync -a --chown=root:root --info=progress2 "$VOL/steamapps/" "$BASE/steamapps/"
-
-echo
-echo "=== Seeded central install ==="
-sudo grep -E '"(appid|buildid|StateFlags)"' "$BASE/steamapps/appmanifest_730.acf"
-sudo find "$BASE/game" -type f -name '*.vpk' | wc -l
-sudo du -sh "$BASE/game" "$BASE/steamapps"
-df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
 ~~~
 
-اگر هر شرطی شکست خورد، ادامه نده و خروجی را بفرست. اگر manifest یا فایل‌های بازی ناقص باشند، از seed کردن صرف‌نظر می‌کنیم و می‌گذاریم vpksync نصب مرکزی را با SteamCMD آماده کند.
+بعد از تأیید مسیر و موجودبودن کامل Workshop روی Windows، محتوای پوشهٔ Workshop را با Merge غیرحذفی به Base اضافه کن. **از `--delete` استفاده نکن** و پوشهٔ `game/` را از Windows به‌صورت کامل روی نسخهٔ Linux جایگزین نکن:
 
-بعد از seed هم cs2node در اولین اجرا SteamCMD را اجرا می‌کند. اگر manifest و فایل‌ها سالم و هم‌نسخه باشند، انتظار داریم دانلود کامل مجدد لازم نشود؛ ممکن است آپدیت افزایشی به‌دلیل انتشار build جدید لازم باشد. این موضوع را با خروجی SteamCMD و Build ID واقعی تأیید می‌کنیم.
+~~~bash
+set -eu
+WINROOT="/mnt/hgfs/CS2WIN"
+BASE="/srv/cs2-shared"
+SRC="$WINROOT/game/csgo_community_addons"
+DST="$BASE/game/csgo_community_addons"
+
+sudo test -d "$SRC" || { echo "STOP: Windows Workshop source missing"; exit 1; }
+sudo test -f "$BASE/steamapps/appmanifest_730.acf" || { echo "STOP: Linux appmanifest missing from Base"; exit 1; }
+
+sudo mkdir -p "$DST"
+sudo rsync -a --chown=root:root --info=progress2 "$SRC/" "$DST/"
+
+echo
+echo "=== Shared Base result ==="
+sudo grep -E '"(appid|buildid|StateFlags)"' "$BASE/steamapps/appmanifest_730.acf"
+sudo du -sh "$BASE/game" "$BASE/game/csgo_community_addons" "$BASE/steamapps"
+sudo find "$BASE/game/csgo_community_addons" -type f -name '*.vpk' | wc -l
+df -hT /
+~~~
+
+این Merge فایل‌های موجود روی Base را که در Share ویندوز نیستند حذف نمی‌کند. قبل از نصب daemon، Build ID و تعداد/حجم Workshop نهایی باید ثبت شود. در اولین راه‌اندازی central SteamCMD ممکن است دانلود افزایشی/اصلاح فایل‌ها انجام دهد؛ جلوگیری از هرگونه دانلود تضمین‌شده نیست.
 
 ### 8.3 گام سوم — نصب رسمی cs2node
 
@@ -503,42 +510,15 @@ VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را
 - [x] تصمیم گرفته شد برای PoC فعلی از فایل‌سیستم موجود استفاده کنیم؛ VMDK دوم پیش‌نیاز `cs2node`/`vpksync` نیست.
 - [ ] `cs2node`، ماژول `vpksync` و Shared Base هنوز نصب/فعال نشده‌اند؛ نصب مرکزی ممکن است یک دانلود 35–40 GB جداگانه انجام دهد.
 
-### پنج گام بعدی — بررسی حجم غیرمنتظره پیش از Seed
+### پنج گام بعدی — اتصال منبع Windows و بررسی Workshop
 
-بررسی اولیه موفق بود: manifest با appid=730 و buildid=25966348 دیده شده و 739 فایل VPK پیدا شده است. اما حجم game/ برابر 69 GB است؛ پیش از کپی‌کردن آن به Shared Base، توزیع این حجم را فقط‌خواندنی بررسی می‌کنیم. هنوز هیچ rsync اجرا نشده است.
+خروجی فقط‌خواندنیِ ارسال‌شده در 2026-10-19 نشان داد حجم 69 GB قابل توضیح است: `game/csgo` حدود 61 GB، `game/csgo/maps` حدود 9.6 GB و `game/csgo_community_addons` حدود 6.4 GB است. در مجموع 739 فایل VPK برابر با 67.75 GiB دیده شده و Symlink فعلی صفر است. این عدد را نقص فرض نکنیم؛ مرحلهٔ بعد استفاده از محتوای Windows برای کامل‌کردن Workshop است.
 
-1. مطمئن شو fc-cs2-test-01 همچنان Offline است. چیزی را Uninstall نکن.
-2. حجم زیرپوشه‌های سطح اول game/ را نشان بده:
-
-   ~~~bash
-   VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
-   echo "=== First-level game directory sizes ==="
-   sudo du -xhd1 "$VOL/game" | sort -h
-   ~~~
-
-3. حجم زیرپوشه‌های اصلی game/csgo را نشان بده:
-
-   ~~~bash
-   echo "=== First-level csgo directory sizes ==="
-   sudo du -xhd1 "$VOL/game/csgo" | sort -h | tail -n 35
-   ~~~
-
-4. این دستور 30 فایل بزرگ‌تر را نشان می‌دهد و مشخص می‌کند VPKها یا فایل‌های دیگر عامل حجم هستند:
-
-   ~~~bash
-   echo "=== Largest files under game/ ==="
-   sudo find "$VOL/game" -xdev -type f -printf '%s\t%p\n' |
-     sort -nr | head -n 30 | numfmt --field=1 --to=iec
-   echo
-   echo "=== Regular-file VPK total ==="
-   sudo find "$VOL/game" -xdev -type f -name '*.vpk' -printf '%s\n' |
-     awk '{bytes += $1; count++} END {printf "count=%d total_GiB=%.2f\n", count, bytes/1024/1024/1024}'
-   echo
-   echo "=== Symlink count ==="
-   sudo find "$VOL/game" -xdev -type l | wc -l
-   ~~~
-
-5. خروجی کامل را بفرست. فعلاً Shared Base را نساز و rsync اجرا نکن. بعد از دیدن توزیع حجم 69 GB و بررسی فضای باقی‌مانده، دربارهٔ Seed تصمیم می‌گیریم.
+1. در Steam روی Windows از **Counter-Strike 2 → Properties → Installed Files → Browse** مسیر واقعی بازی را پیدا کن.
+2. تنظیمات VMware مربوط به **Clone** را باز کن: Options → Shared Folders → Always enabled → Add؛ ریشهٔ نصب بازی را با نام `CS2WIN` اضافه کن و حتماً Read-only را فعال کن. کل درایو را Share نکن.
+3. داخل Debian، ابتدا `/mnt/hgfs/CS2WIN/game` را بررسی کن. اگر مسیر پیدا نشد، هیچ کپی‌ای انجام نده.
+4. فرمان بازرسی read-only بخش 8.2 را اجرا کن تا ساختار `csgo_community_addons`، حجم آن، تعداد VPKها و فضای آزاد دیسک مشخص شود.
+5. خروجی را بفرست. فعلاً `/srv/cs2-shared` را نساز، `rsync` اجرا نکن و `cs2node` را نصب نکن؛ پس از تأیید ساختار و فضای لازم، Seed لینوکسی و Merge محتوای Workshop را مرحله‌ای انجام می‌دهیم.
 
 ### منابع رسمی
 
