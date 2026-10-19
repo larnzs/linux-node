@@ -6,13 +6,13 @@
 
 **قانون ایمنی:** همهٔ تغییراتی که در این سند برای Clone نوشته شده‌اند فقط روی Clone اجرا می‌شوند. VM اصلی و Clone با هویت مشترک نباید هم‌زمان روشن باشند. قبل از Partition/Format/Mount هر دیسک، هویت آن را از روی lsblk و blkid تأیید کن؛ هیچ‌وقت اسم /dev/sdb یا هر دستگاه دیگری را حدس نزن.
 
-این سند شامل مقادیر مرجع FragCity است. اگر از آن برای محیط دیگری استفاده می‌کنی، ابتدا جدول بخش 1 را با مقادیر واقعی خودت تنظیم کن؛ نام دامنه، IP، نام VM، پورت‌ها و مسیر VMX باید با محیط تو سازگار باشند. راهنمای CS2/cs2node در فایل اختصاصی K4ryuu قرار دارد و در این سند فقط به آن ارجاع داده می‌شود.
+این سند بر اساس سناریوی Clone موقت جایگزین نوشته شده است. قبل از اجرا، همهٔ متغیرهای جدول بخش 1 را با اطلاعات واقعی محیط خودت هماهنگ کن؛ نام دامنه، IP، نام VM، پورت‌ها و مسیر VMX در هر محیط متفاوت‌اند. راهنمای CS2/cs2node در فایل اختصاصی K4ryuu قرار دارد و در این سند فقط به آن ارجاع داده می‌شود.
 
 ## 1. مقادیر محیطی و شناسایی VM اصلی
 
 قبل از Clone این موارد را از VMware، Debian و روتر یادداشت کن. جدول را پیش از اجرا با مقادیر واقعی محیط خودت تکمیل کن.
 
-| مورد | روش شناسایی | نمونهٔ FragCity |
+| مورد | روش شناسایی | مقدار محیط خودت |
 |---|---|---|
 | فایل VMX اصلی | VM Settings / Open VM directory در VMware | زیر %USERPROFILE%\\Documents\\Virtual Machines\\... |
 | محل فایل VMDK اصلی | از فایل VMX و مسیر Hard Disk در تنظیمات VMware | یک مسیر اختصاصی روی درایو D |
@@ -107,7 +107,7 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 3. تنظیمات Panel و Wings در Clone را نگه می‌داریم؛ فقط hostname را به مقدار اصلی برمی‌گردانیم و Wings را پس از اصلاح Port Forwardها دوباره فعال می‌کنیم.
 4. DNS عمومی و گواهی‌های فعلی را تغییر نده، مگر اینکه IP عمومی WAN واقعاً عوض شده باشد.
 5. Port Forwardهای موجود را duplicate نکن. در زمان استفاده از Clone، مقصد قوانین مربوط به این VM را از `<NODE_LAN_IP>` به `<CLONE_LAN_IP>` تغییر بده؛ در پایان تست مقصدها را برگردان.
-6. برای این مرحله فقط پورت‌های فعلی را مدیریت کن: TCP 80/443 برای Panel، TCP 8080 برای Wings API، TCP 2022 برای SFTP. چون هنوز CS2 Instance نداریم، پورت بازی اضافه نکن.
+6. مقادیر پیش‌فرض این آموزش TCP 80/443 برای Panel، TCP 8080 برای Wings API و TCP 2022 برای SFTP هستند؛ اگر Panel/Wings تو پورت‌های دیگری تنظیم کرده‌اند، اسکریپت و قوانین روتر را با همان مقادیر واقعی هماهنگ کن. چون هنوز CS2 Instance نداریم، پورت بازی اضافه نکن.
 7. برای MAC جدید Clone در روتر DHCP reservation بساز؛ IP باید با جدول بخش 1 و قواعد شبکهٔ خودت سازگار باشد.
 
 ## 7. تنظیم Hostname برای سناریوی Clone جایگزین
@@ -306,7 +306,12 @@ sudo systemctl status wings --no-pager
 سپس از آدرس `https://<PANEL_FQDN>` وارد Panel شو و وضعیت Node را بررسی کن؛ پیش از استفاده مقدار placeholder را با FQDN واقعی جایگزین کن. برای بررسی پاسخ HTTPS:
 
 ~~~bash
-curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' https://<PANEL_FQDN>/
+PANEL_FQDN="<PANEL_FQDN>" # Replace with the real Panel FQDN
+if [[ "$PANEL_FQDN" == *'<'* || "$PANEL_FQDN" == *'>'* ]]; then
+    echo "STOP: replace PANEL_FQDN before running this test."
+    exit 2
+fi
+curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' "https://$PANEL_FQDN/"
 ~~~
 
 پاسخ 200 یا redirect مانند 301/302 می‌تواند نشان دهد وب‌سرور پاسخ داده است؛ وضعیت Node را جداگانه در Panel بررسی کن. اگر Panel باز نشد، قبل از reinstall کردن سرویس‌ها مقصد Port Forward، Nginx و PHP-FPM را بررسی کن. لاگ‌ها را در README ذخیره نکن.
@@ -488,7 +493,7 @@ if command -v curl >/dev/null 2>&1; then
         https://<PANEL_FQDN>/ 2>/dev/null || true)"
 
     if [[ "$panel_code" =~ ^[23][0-9][0-9]$ ]]; then
-        pass "Local HTTPS virtual host for <PANEL_FQDN> replied with HTTP $panel_code."
+        pass "Local HTTPS virtual host for $PANEL_FQDN replied with HTTP $panel_code."
     elif [[ "$panel_code" =~ ^[45][0-9][0-9]$ ]]; then
         warn "Local HTTPS virtual host replied with HTTP $panel_code; inspect the Panel response."
     else
