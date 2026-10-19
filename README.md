@@ -1983,7 +1983,7 @@ https://fc-node-01.fragcity.ir:8080/
 
 ---
 
-## 7. Storage و CS2/KUS — preflight پیش از اولین Instance
+## 7. Storage، Shared Base و Multi Instance
 
 Wings و سرویس systemd راه‌اندازی شده‌اند. **فعلاً هیچ سرور CS2 نساز، هیچ Egg/Installer را اجرا نکن، فایل‌های `/home/steam` را جابه‌جا یا حذف نکن و پورت بازی را روی روتر باز نکن.** ابتدا باید وضعیت دیسک‌ها، فایل‌های موجود و محل ذخیره‌سازی Docker/Pterodactyl را فقط‌خواندنی بررسی کنیم.
 
