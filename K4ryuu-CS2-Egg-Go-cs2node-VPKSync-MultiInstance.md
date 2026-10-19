@@ -245,14 +245,16 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 
 این فصل با مستندات رسمی K4ryuu تطبیق داده شده است: [Install](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md)، [Node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)، [VPK Sync](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/vpk-sync.md)، [Node config](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)، [Protocol](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/protocol.md)، [Security](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/security.md) و [Troubleshooting](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/troubleshooting.md).
 
-### تصمیم معماری — دانلود تازه از SteamCMD
+### تصمیم معماری — تعمیر SteamCMD و سپس انتقال کنترل‌شدهٔ VPKها
 
-- طبق تصمیم کاربر، **هیچ فایل بازی از Windows یا از Volume فعلی Pterodactyl به Shared Base کپی/Seed نمی‌شود**. پوشهٔ `/srv/cs2-shared` باید با `cs2node` و SteamCMD از ابتدا آماده شود.
-- Instance فعلی `fc-cs2-test-01` را حذف نکن؛ در پنل Offline نگهش دار. Volume موجود صرفاً برای عیب‌یابی/بازیابی حفظ می‌شود و منبع Base مرکزی نیست.
-- از Egg کامل **KitsuneLab CS2 Go @ K4ryuu** استفاده می‌کنیم؛ این Egg با پروتکل cs2node سازگار است. Egg standalone انتخاب نشود.
-- `cs2node` روی Debian به‌عنوان سرویس host اجرا می‌شود؛ ماژول `vpksync` یک نصب مرکزی تولید می‌کند و VPKها را به‌شکل read-only از Base می‌دهد. configs و فایل‌های نوشتنی هر Instance خصوصی می‌مانند.
-- PoC فعلاً روی فایل‌سیستم فعلی با حدود 182 GB فضای آزاد انجام می‌شود؛ VMDK دوم لازم نیست.
-- مرحلهٔ فعلی فقط اثبات Fresh Base، اتصال Instance اول و بعد Instance دوم است. CounterStrikeSharp و پلاگین‌های FragCity را قبل از قبولی این آزمون نصب نکن.
+- طبق آخرین تصمیم کاربر، ابتدا باید SteamCMD روی Debian درست اجرا شود. پس از شروع موفق دانلود، کاربر می‌خواهد بازی را موقتاً متوقف کند و از طریق WinSCP فایل‌های بازی/Workshop موجود روی Windows را منتقل کند.
+- **هیچ‌وقت فایل‌های Windows را کورکورانه روی کل Shared Base کپی نکن.** manifest لینوکسی، پوشه‌های `.steam`، `Steam`، `steamapps`، خود SteamCMD و فایل‌های اجرایی/کتابخانه‌های ویندوز نباید جایگزین ساختار Linux شوند. برای Seed احتمالی، فقط VPKهای asset با مسیر نسبی درست منتقل می‌شوند؛ سپس SteamCMD باید دوباره اجرا شود تا depots لینوکسی را بررسی و فایل‌های لازم را اصلاح/دانلود کند. صرف کپی فایل تضمین نمی‌کند SteamCMD همهٔ دانلود را حذف کند.
+- Instance فعلی `fc-cs2-test-01` را حذف نکن؛ در پنل Offline نگهش دار. Volume آن منبع Shared Base نخواهد بود.
+- از Egg کامل **KitsuneLab CS2 Go @ K4ryuu** استفاده می‌کنیم؛ این Egg با پروتکل cs2node سازگار است.
+- `cs2node` روی Debian به‌عنوان سرویس host اجرا می‌شود؛ `vpksync` یک نصب مرکزی تولید می‌کند و VPKها را به‌شکل read-only به Instanceها می‌دهد. configs و فایل‌های نوشتنی هر Instance خصوصی می‌مانند.
+- Workshop ساختار جداگانه‌ای دارد: Cache ماژول در `/srv/cs2-workshop/730/<item-id>/<manifest>/` قرار می‌گیرد و به `meta.json` نیاز دارد. فایل‌های Workshop ویندوز را مستقیم و خام داخل `/srv/cs2-workshop` نریز. اول SteamCMD/Base را سالم می‌کنیم، بعد مسیر منبع Workshop و metadata را مشخص و Seed آن را جداگانه انجام می‌دهیم.
+- PoC فعلاً روی فایل‌سیستم فعلی با حدود 182 GiB فضای آزاد انجام می‌شود؛ VMDK دوم لازم نیست.
+- CounterStrikeSharp و پلاگین‌های FragCity را قبل از قبولی VPK Sync و Multi Instance نصب نکن.
 
 ### 8.1 — وضعیت نصب واقعی cs2node
 
@@ -361,6 +363,57 @@ df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
 
 لاگ ممکن است نشان بدهد SteamCMD هنوز در حال دانلود یا Update است؛ اگر بله، به آن فرصت بده و فعلاً از Restart کردن سرویس یا Start کردن Instance خودداری کن. خروجی کامل را بفرست، اما اگر در هر مرحله URL محرمانه‌ای دیدی آن را قبل از ارسال حذف کن.
 
+### 8.2.1 — رفع خطای اجرای SteamCMD در Debian
+
+خروجی واقعی در 2026-10-19 نشان داد:
+
+```text
+/root/steamcmd/steamcmd.sh: line 37: /root/steamcmd/linux32/steamcmd: cannot execute: required file not found
+central update failed err=steamcmd: exit status 127
+```
+
+در نتیجه `cs2node` فعال است ولی SteamCMD اجرا نمی‌شود؛ `/srv/cs2-shared` حدود 4 KiB و بدون `game/` و manifest است. روی Debian amd64 این خطا معمولاً با نبودن ELF loader یا کتابخانه‌های 32-bit سازگار است. برای رفع آن، i386 multiarch و Runtimeهای موردنیاز را نصب کن:
+
+~~~bash
+set -eu
+
+echo "=== Host architecture ==="
+dpkg --print-architecture
+dpkg --print-foreign-architectures
+
+echo
+echo "=== SteamCMD binary and ELF interpreter ==="
+file /root/steamcmd/linux32/steamcmd
+readelf -l /root/steamcmd/linux32/steamcmd | grep -i interpreter || true
+
+echo
+echo "=== Enable i386 packages and install runtime ==="
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install -y libc6:i386 libstdc++6:i386 libgcc-s1:i386
+
+echo
+echo "=== Initialize/test SteamCMD only ==="
+sudo /root/steamcmd/steamcmd.sh +quit
+~~~
+
+این فرمان آخر فقط کلاینت SteamCMD را راه‌اندازی/به‌روزرسانی می‌کند؛ قرار نیست خودش CS2 را نصب کند. اگر خطایی داد، همان خروجی را ارسال کن و ادامه نده.
+
+وقتی تست SteamCMD موفق شد، دانلود مرکزی را با daemon شروع کن:
+
+~~~bash
+sudo systemctl restart cs2node
+sudo journalctl -u cs2node -f
+~~~
+
+لاگ را دنبال کن تا تلاش جدید SteamCMD را ببینی. برای خروج از حالت دنبال‌کردن لاگ، `Ctrl+C` بزن؛ این کار سرویس را متوقف نمی‌کند. اگر دانلود شروع شد، پیش از انتقال فایل‌ها ابتدا باید سرویس را با `sudo systemctl stop cs2node` متوقف و نبودن پردازش SteamCMD را تأیید کنیم؛ هم‌زمان با نوشتن SteamCMD فایل آپلود نکن.
+
+### 8.2.2 — طرح انتقال فایل‌های بازی با WinSCP
+
+این کار را فقط پس از رفع خطای SteamCMD و تأیید شروع دانلود انجام بده. مقصد اصلی بازی `/srv/cs2-shared` است و محتوای بازی باید در زیرپوشهٔ `game/` آن قرار بگیرد. برای اینکه باینری‌های Linux خراب یا با فایل‌های Windows جایگزین نشوند، فایل‌ها را ابتدا به یک پوشهٔ staging زیر Home کاربر منتقل می‌کنیم؛ سپس با `rsync` کنترل‌شده فقط VPKها را در مسیر نسبی درست ادغام می‌کنیم و SteamCMD را دوباره اجرا می‌کنیم تا depots را reconcile کند. برای این مرحله، فایل‌های `steamapps/appmanifest_730.acf`، `.steam`، `Steam`، `steamcmd` و executable/libraryهای Windows را از منبع Windows جایگزین نکن.
+
+Workshop جداست: مسیر ورودی‌ای که ماژول از داخل Volume هر سرور می‌خواند `game/bin/linuxsteamrt64/steamapps/workshop/content/730/<item-id>/` به‌همراه `appworkshop_730.acf` است. Node cache خودش را با ساختار `/srv/cs2-workshop/730/<item-id>/<manifest>/meta.json` می‌سازد. **فایل‌های Workshop را مستقیماً در `/srv/cs2-workshop` قرار نده**؛ در قدم Workshop، ابتدا مسیر واقعی فایل‌های Windows و ACF موجود را فقط بررسی می‌کنیم، سپس آن‌ها را به Volume سرور آزمایشی وارد و از مسیر sync رسمی ماژول عبور می‌دهیم.
+
 ### 8.3 — معیار قبولی Shared Base
 
 قبل از Start کردن `fc-cs2-test-01` این شروط باید تأیید شوند:
@@ -449,16 +502,18 @@ VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را
 - [x] تنظیم `vpksync` شامل `cs2_dir=/srv/cs2-shared` و `push_method=symlink` است؛ `check_minutes=30`، `restart_policy=empty`، `max_delay_hours=2` و `warn_minutes=10` ثبت شده است.
 - [x] ماژول‌های `alerts`، `addoncache`، `workshop`، `backup`، `cleanup`، `crashes`، `consolelog` و `metrics` نیز در Wizard روشن شده‌اند؛ `guard` خاموش است.
 - [ ] Running کامل سرور، بارگذاری Map، اتصال و Stop/Start هنوز به‌طور صریح تأیید نشده است.
-- [ ] پرشدن `/srv/cs2-shared`، وجود manifest مرکزی، Build ID، VPK count و عبور `cs2node doctor/status` هنوز تأیید نشده‌اند.
+- [x] `cs2node status/doctor` اجرا شد؛ daemon فعال است، اما Central Build برابر خالی است و `doctor` در VPK Sync خطا دارد.
+- [x] لاگ واقعی نشان داد SteamCMD با خطای `/root/steamcmd/linux32/steamcmd: cannot execute: required file not found` و exit status 127 شکست می‌خورد؛ `/srv/cs2-shared` حدود 4 KiB و بدون `game/` و manifest است.
+- [ ] Runtimeهای i386 نصب و `sudo /root/steamcmd/steamcmd.sh +quit` باید با موفقیت آزمایش شوند؛ سپس daemon دوباره تلاش می‌کند.
 - [ ] پس از افشای URL وب‌هوک Discord در لاگ چت، Webhook قبلی باید باطل و جایگزین شود؛ URL محرمانه در GitHub ثبت نشود.
 
-### پنج گام بعدی
+### پنج گام بعدی — رفع SteamCMD و شروع دانلود
 
-1. در پنل، `fc-cs2-test-01` را Offline نگه دار و حذفش نکن.
-2. بلوک read-only بخش 8.2 را اجرا کن تا وضعیت سرویس، config عملیاتی، `/srv/cs2-shared`، manifest، VPK count و لاگ دیده شوند.
-3. اگر SteamCMD هنوز دانلود می‌کند، به‌جای Restart یا Start کردن Instance، لاگ را دنبال کن تا کار تمام شود؛ اگر خطا دارد، همان خروجی را بررسی می‌کنیم.
-4. پس از تأیید Base، سرور اول را Start کن و در Console پیام `Daemon-managed game files, SteamCMD skipped` را بررسی کن.
-5. پس از موفقیت سرور اول، Instance دوم را با Egg کامل و Allocation مستقل بساز. قبل از قبولی Multi Instance، KUS و پلاگین‌های FragCity را اضافه نکن.
+1. `fc-cs2-test-01` را Offline نگه دار و Clone را روشن بگذار.
+2. دستور بخش 8.2.1 را اجرا کن تا i386 multiarch و Runtimeهای لازم نصب شوند.
+3. `sudo /root/steamcmd/steamcmd.sh +quit` را آزمایش کن؛ اگر شکست خورد، خروجی را بفرست.
+4. فقط پس از موفقیت تست، `sudo systemctl restart cs2node` و `sudo journalctl -u cs2node -f` را اجرا کن و شروع `app_update 730` را بررسی کن.
+5. بعد از شروع واقعی دانلود، پیش از WinSCP ابتدا daemon و SteamCMD را با روش ثبت‌شده در بخش 8.2.2 متوقف می‌کنیم؛ انتقال VPK و Workshop مراحل جداگانه دارند. تا آن موقع سرور را Start نکن.
 
 ### منابع رسمی
 - Egg installation: https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md
