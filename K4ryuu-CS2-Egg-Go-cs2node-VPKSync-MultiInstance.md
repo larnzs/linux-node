@@ -288,6 +288,21 @@ dpkg --print-foreign-architectures
 
 در نصب تازه ممکن است `/root/steamcmd/steamcmd.sh` تا اولین تلاش daemon ساخته نشده باشد؛ پس `+quit` را در همین نقطه اجباری اجرا نکن. Installer را پس از آماده‌سازی i386 ادامه بده. اگر SteamCMD قبلاً نصب شده یا اولین تلاش daemon خطا داد، از آزمون بازیابی بخش 8.2.1 استفاده کن.
 
+### 8.0.1 — نصب cs2node (پس از تکمیل پیش‌نیاز i386)
+
+فقط بعد از اجرای موفق مرحلهٔ 8.0، باینری رسمی را دریافت کن و Wizard را اجرا کن:
+
+~~~bash
+curl -fsSL \
+  https://github.com/K4ryuu/CS2-Egg-Go/releases/latest/download/cs2node_linux_amd64 \
+  -o /tmp/cs2node
+chmod +x /tmp/cs2node
+file /tmp/cs2node
+sudo /tmp/cs2node install
+~~~
+
+از `--yes` استفاده نکن؛ Wizard تعاملی را با دقت کامل کن. مسیر مرکزی `cs2_dir` در PoC برابر `/srv/cs2-shared` و روش `push_method` برابر `symlink` است. گزینه‌های واقعاً انتخاب‌شده در نصب فعلی، بعد از اجرای Wizard، در بخش 8.1 ثبت شده‌اند. در نصب تازه، بخش i386 باید قبل از این فرمان‌ها اجرا شود تا نخستین Update مرکزی با Runtime ناقص 32-bit شکست نخورد.
+
 ### 8.1 — وضعیت نصب واقعی cs2node
 
 طبق لاگ ارسالی در 2026-10-19، Installer اجرای موفق را گزارش کرده است:
