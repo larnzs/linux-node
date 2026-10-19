@@ -506,11 +506,14 @@ echo "Review the source and target before copying:"
 sudo ls -ld "$VOL" "$TARGET"
 ~~~
 
-5. فقط پس از اینکه تعداد آیتم‌ها و مسیر مقصد درست بود، فایل‌ها را اضافه کن. جایگزین‌کردن ACF موجود یا فایل‌های هم‌نام نباید حدسی باشد؛ در این الگوی اولیه فایل‌های موجود حفظ می‌شوند:
+5. اگر پوشهٔ مقصد خالی است و ACF منبع معتبر است، فایل‌ها را به‌صورت اضافه‌کردن بدون overwrite منتقل کن. اگر مقصد از قبل فایل دارد، متوقف شو و ACF موجود را به‌صورت جداگانه بررسی/پشتیبان‌گیری کن؛ به‌طور خودکار آن را با نسخهٔ Windows جایگزین نکن.
 
 ~~~bash
-sudo rsync -rtv --ignore-existing \
-  "$STAGE/" "$TARGET/"
+set -eu
+if sudo find "$TARGET" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+  echo "STOP: Workshop target is not empty. Review its ACF/content before merging."
+  exit 1
+fi
 
 OWNER="$(sudo stat -c '%u:%g' "$VOL")"
 sudo rsync -rtv --ignore-existing --chown="$OWNER" \
@@ -600,13 +603,13 @@ ps -eo pid,etime,stat,args | grep -E '[s]teamcmd|[l]inux32/steamcmd|[l]inux64/st
 - [Node config reference](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)
 - [Troubleshooting](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/troubleshooting.md)
 
-## Checkpoint آزمایش جاری FragCity (به‌روزرسانی 2026-10-19)
+## 15. ادامهٔ نصب بعد از توقف یا خطا
 
-این قسمت گزارش آموزش نیست؛ فقط وضعیت همین نصب را ثبت می‌کند تا مشخص شود قدم بعدی چیست.
+این بخش برای هر Node قابل استفاده است؛ وضعیت یک VM یا IP مشخص را ثبت نمی‌کند.
 
-- Clone فعلی: hostname برابر fc-node-01 و IP برابر 192.168.1.9. VM اصلی با IP 192.168.1.7 باید خاموش بماند.
-- cs2node نصب شده و Service فعال است. Moduleهای vpksync، alerts، addoncache، workshop، backup، cleanup، crashes، consolelog و metrics روشن‌اند؛ guard خاموش است.
-- Runtimeهای i386 نصب شده و sudo /root/steamcmd/steamcmd.sh +quit با Loading Steam API...OK و Unloading Steam API...OK موفق بوده است.
-- آخرین بررسی Base نشان داد build=0، Manifest مرکزی غایب و VPK count برابر صفر است؛ باید پردازش‌های SteamCMD، Journal و رشد مسیر /srv/cs2-shared بررسی شود.
-- fc-cs2-test-01 باید Offline بماند تا Base مرکزی تأیید شود.
-- URL وب‌هوک Discord پیش‌تر در لاگ چت افشا شده؛ قبل از اتکا به Alerts آن را در Discord باطل و جایگزین کن. URL جدید را در اسناد یا لاگ‌ها ذخیره نکن.
+1. اگر روی Debian amd64 پیام `cannot execute: required file not found` و `exit status 127` دیدی، به بخش 2 برگرد و وجود `i386` و بسته‌های `libc6:i386`، `libstdc++6:i386` و `libgcc-s1:i386` را بررسی کن.
+2. اگر `cs2node` فعال است اما `central build` خالی است، وجود دایرکتوری را موفقیت نصب حساب نکن. `sudo cs2node doctor`، `sudo cs2node status`، Journal، پردازش‌های SteamCMD و رشد `/srv/cs2-shared` را بررسی کن.
+3. اگر SteamCMD هنوز در حال اجراست، به آن فرصت بده؛ آن را دوباره اجرا نکن، سرویس را بی‌دلیل Restart نکن و هم‌زمان WinSCP آپلود نکن.
+4. اگر باید فایل منتقل کنی، ابتدا سرورهای بازی را Offline نگه دار، سپس `cs2node` را متوقف و نبودن پردازش SteamCMD را تأیید کن؛ فقط بعد از آن به بخش 10 یا 11 برو.
+5. اگر اتصال Webhook در دسترس نیست، این خطا به‌تنهایی نشانهٔ خرابی VPK Sync نیست. Alerts را مطابق سیاست شبکهٔ خود تنظیم کن؛ اگر URL وب‌هوک افشا شد، آن را در Discord باطل و جایگزین کن.
+6. اگر نصب را از نشست قبلی ادامه می‌دهی، پیش از تغییر پیکربندی از تنظیمات فعلی `/etc/cs2node/config.json` نسخهٔ پشتیبان محدوددسترسی بگیر و همهٔ پاسخ‌های Wizard را آگاهانه انتخاب کن. فایل config کامل یا URL محرمانه را در چت/GitHub قرار نده.
