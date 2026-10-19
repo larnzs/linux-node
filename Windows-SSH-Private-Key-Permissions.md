@@ -44,70 +44,62 @@ Write-Host "`nDetailed access rules:"
 
 > هرگز محتوای فایل Private Key را در چت، تیکت یا GitHub قرار نده. برای عیب‌یابی، نام فایل و خروجی Permissionها کافی است.
 
-## 2. اصلاح مالک و Permissionها
+## 2. روش تأییدشده برای اصلاح Permission فایل کلید در Windows
 
-در ACL نمونه‌ای که عیب‌یابی شد، سه مجوز نامناسب باقی مانده بود: `BUILTIN\\Administrators:(F)`، `NT AUTHORITY\\SYSTEM:(F)` و SID حساب ویندوز قدیمی با دسترسی `(M)`. مالک فایل به حساب فعلی تغییر کرده بود، اما دستور حذف چند SID در یک فراخوانی اجرا نشد.
+در ویندوز تازه‌نصب‌شده ممکن است فایل کلید خصوصی مالک و ACL ویندوز قبلی را نگه داشته باشد. در این حالت فقط عوض‌کردن Owner یا حذف چند SID به‌صورت جداگانه کافی نیست. روش زیر ACL همان فایل را از نو تنظیم می‌کند؛ این روش در محیط FragCity آزمایش شد و مشکل را برطرف کرد.
 
-برای جلوگیری از این مشکل، Permissionها را **تک‌به‌تک** حذف کن:
+**محل اجرا:** Windows PowerShell با همان حساب ویندوزی که برای SSH استفاده می‌کنی. اگر دسترسی لازم را نداری، PowerShell را با گزینهٔ **Run as administrator** و همان حساب کاربری باز کن؛ مسیر USERPROFILE باید همچنان پوشهٔ کاربر اصلی را نشان دهد.
 
-1. PowerShell را با حساب ویندوزی که از آن SSH می‌زنی باز کن. اگر برای تغییر ACL نیاز به مجوز Administrator است، همان حساب را با **Run as administrator** اجرا کن.
-2. مطمئن شو متغیر مسیر به همان private key اشاره می‌کند.
-3. ابتدا این دستورات را اجرا کن. SID قدیمی در این نمونه مختص همان کامپیوتر است؛ آن را از خروجی `icacls` خودت بردار و کورکورانه SID نمونه را در سیستم دیگری استفاده نکن.
-
-```powershell
-$keyPath = Join-Path $env:USERPROFILE ".ssh\\id_ed25519_fragcity"
+~~~powershell
+$keyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_fragcity"
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) {
     throw "SSH private key not found: $keyPath"
 }
 
-$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+Write-Host "Key path: $keyPath"
+Write-Host "Windows user: $currentUser"
 
-# Make the current account the owner
+# Transfer ownership to the current Windows user
 icacls.exe $keyPath /setowner "$currentUser"
-if ($LASTEXITCODE -ne 0) { throw "Failed to set file owner." }
+if ($LASTEXITCODE -ne 0) { throw "Failed to set owner." }
 
-# Remove inherited permissions from the parent directory
+# Reset this file's ACL to inherited defaults
+icacls.exe $keyPath /reset
+if ($LASTEXITCODE -ne 0) { throw "Failed to reset ACL." }
+
+# Remove inherited permissions from the private-key file
 icacls.exe $keyPath /inheritance:r
 if ($LASTEXITCODE -ne 0) { throw "Failed to disable inheritance." }
 
-# Remove each unwanted grant in a separate command.
-# These three SIDs correspond to SYSTEM, local Administrators, and
-# the stale SID seen on the original machine. Verify the actual ACL first.
-icacls.exe $keyPath /remove:g "*S-1-5-32-544"
-if ($LASTEXITCODE -ne 0) { throw "Failed to remove Administrators grant." }
-
-icacls.exe $keyPath /remove:g "*S-1-5-18"
-if ($LASTEXITCODE -ne 0) { throw "Failed to remove SYSTEM grant." }
-
-# Replace this SID with the stale SID actually shown on your file,
-# if one is present. Do not reuse this example on another computer.
-icacls.exe $keyPath /remove:g "*S-1-5-21-3116789890-1268379209-2693843427-1001"
-if ($LASTEXITCODE -ne 0) { throw "Failed to remove stale SID grant." }
-
-# Ensure the current account retains read access
+# Grant read access to the current Windows user
 icacls.exe $keyPath /grant:r "$($currentUser):(R)"
-if ($LASTEXITCODE -ne 0) { throw "Failed to grant read access." }
+if ($LASTEXITCODE -ne 0) { throw "Failed to grant read permission." }
 
-Write-Host "`n========== FINAL OWNER =========="
+Write-Host ""
+Write-Host "========== FINAL OWNER =========="
 (Get-Acl -LiteralPath $keyPath).Owner
 
-Write-Host "`n========== FINAL PERMISSIONS =========="
+Write-Host ""
+Write-Host "========== FINAL PERMISSIONS =========="
 icacls.exe $keyPath
-```
-
-اگر SID قدیمی روی فایل تو با نمونهٔ بالا فرق دارد، ابتدا از روی `icacls.exe $keyPath` مشخصش کن؛ دستور حذف SID قدیمی فقط زمانی اجرا شود که مطمئن شده‌ای همان حساب قدیمی است. اجرای دستور حذف روی SID اشتباه می‌تواند مجوز حساب دیگری را تغییر دهد.
+~~~
 
 ### خروجی مورد انتظار
 
-ACL نهایی فایل کلید باید مالک فعلی را نشان دهد و تنها مجوز دسترسی فایل برای حساب فعلی ویندوز باشد؛ برای نمونه:
+مالک باید حساب ویندوز فعلی باشد و ACL مؤثر فایل کلید باید فقط حساب فعلی را با مجوز خواندن نشان دهد. در نمونهٔ حل‌شده، ورودی‌های اضافی مانند Administrators، SYSTEM و SID باقی‌مانده از ویندوز قبلی پس از این روش دیگر در ACL فایل دیده نمی‌شدند.
 
-```text
-C:\\Users\\<WindowsUser>\\.ssh\\id_ed25519_fragcity <ComputerName>\\<WindowsUser>:(R)
-```
+اگر هر دستور خطا داد، ادامه نده؛ خروجی خطا و نتیجهٔ زیر را بررسی کن:
 
-اگر هر فرمان `icacls` خطا داد، به فرمان بعدی نرو. خطا و خروجی فعلی `icacls.exe $keyPath` را بررسی کن.
- 
+~~~powershell
+icacls.exe $keyPath
+(Get-Acl -LiteralPath $keyPath).Access |
+    Format-Table IdentityReference, FileSystemRights, AccessControlType, IsInherited -AutoSize
+~~~
+
+**هشدار:** این فرمان‌ها فقط روی فایل کلید خصوصی اجرا شوند، نه روی کل پوشهٔ .ssh و نه روی فایل عمومی به‌جای آن. محتوای کلید خصوصی را هیچ‌وقت در چت یا GitHub قرار نده.
+
 ## 3. اتصال SSH را آزمایش کن
 
 به PowerShell همان حساب ویندوز برگرد و مقادیر کاربر و IP را با مشخصات سرور خودت جایگزین کن:
@@ -137,3 +129,121 @@ ssh -vvv -o IdentitiesOnly=yes -i "$env:USERPROFILE\.ssh\id_ed25519_fragcity" sv
 - [ ] خطای `UNPROTECTED PRIVATE KEY FILE` رفع شده است.
 - [ ] اگر `Permission denied (publickey)` باقی ماند، کلید عمومی مجاز، نام کاربر و IP بررسی شده‌اند.
 - [ ] هیچ Private Key یا Webhook/Token محرمانه‌ای در مستندات یا GitHub قرار نگرفته است.
+
+## 6. روش موقت بازیابی دسترسی: غیرفعال‌کردن SSH Key و ورود با رمز در Debian
+
+این روش زمانی است که نمی‌توانی با کلید وارد شوی و موقتاً می‌خواهی با رمز عادی حساب Linux وصل شوی. منظور «غیرفعال‌کردن SSH Key authentication» است، نه خاموش‌کردن سرویس SSH. این تنظیم به‌صورت سراسری روی اتصال‌های SSH جدید اثر می‌گذارد.
+
+**پیش از شروع**
+- ترجیحاً از کنسول VMware وارد Debian شو؛ یا نشست SSH مدیریتی فعلی را باز نگه دار.
+- مطمئن شو حساب عادی، در این مثال sv1، وجود دارد و دسترسی sudo دارد.
+- رمز حساب را در چت یا فایل مستندات ننویس.
+- پس از اتمام عیب‌یابی، ورود کلیدی را دوباره فعال کن؛ ورود با رمز را به‌عنوان حالت دائمی ترجیح نده.
+
+### 6.1 تنظیم رمز حساب Linux
+
+روی کنسول Debian یا نشست مدیریتی فعلی اجرا کن:
+
+~~~bash
+sudo passwd sv1
+~~~
+
+رمز جدید را دو بار وارد کن. هنگام تایپ رمز در ترمینال کاراکترها نمایش داده نمی‌شوند؛ این رفتار طبیعی است.
+
+### 6.2 ساخت تنظیم موقت Password-only
+
+در Debian فایل موقتی با نامی می‌سازیم که پیش از فایل سخت‌سازی معمول ما یعنی 00-fragcity-hardening.conf خوانده شود. در OpenSSH معمولاً اولین مقدار خوانده‌شده برای هر گزینه تعیین‌کننده است؛ بنابراین به نام فایل و بررسی خروجی مؤثر دقت کن.
+
+~~~bash
+sudo tee /etc/ssh/sshd_config.d/00-00-fragcity-password-only.conf >/dev/null <<'EOF'
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+PubkeyAuthentication no
+AuthenticationMethods password
+EOF
+~~~
+
+پیش از Reload حتماً نحو و تنظیمات مؤثر را بررسی کن:
+
+~~~bash
+sudo sshd -t || exit 1
+
+sudo sshd -T | grep -E '^(authenticationmethods|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|permitrootlogin) '
+~~~
+
+برای این حالت، خروجی مربوط به گزینه‌های احراز هویت باید مشابه این باشد:
+
+~~~text
+authenticationmethods password
+passwordauthentication yes
+kbdinteractiveauthentication no
+pubkeyauthentication no
+~~~
+
+اگر مقادیر بالا با خروجی واقعی فرق داشتند، **SSH را Reload نکن**. ممکن است فایل دیگری زودتر خوانده شود یا تنظیمات دیگری وجود داشته باشد؛ ابتدا فهرست و محتوای فایل‌های /etc/ssh/sshd_config.d/ را بررسی کن.
+
+اگر خروجی صحیح بود، اعمال کن:
+
+~~~bash
+sudo systemctl reload ssh
+sudo systemctl is-active ssh
+~~~
+
+سرویس باید active باشد. کنسول VMware یا نشست مدیریتی فعلی را نبند.
+
+### 6.3 اتصال از Windows با رمز
+
+در یک پنجرهٔ تازهٔ Windows PowerShell اجرا کن و نام کاربر و IP را با مقادیر Node خودت جایگزین کن:
+
+~~~powershell
+ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password sv1@192.168.1.11
+~~~
+
+باید رمز Linux کاربر sv1 را بخواهد. اگر ورود رد شد، کنسول را باز نگه دار و لاگ را در Debian بررسی کن:
+
+~~~bash
+sudo journalctl -u ssh -n 60 --no-pager
+~~~
+
+این تنظیم احراز هویت با کلید عمومی را برای SSH غیرفعال می‌کند، اما خود SSH خاموش نمی‌شود. سیاستی مانند PermitRootLogin no از فایل سخت‌سازی قبلی همچنان باید مانع ورود مستقیم root شود.
+
+## 7. بازگشت از Password-only به ورود امن با SSH Key
+
+پس از آن‌که مشکل Permission فایل کلید ویندوز را با روش بخش 2 حل کردی، بهتر است ورود کلیدی را به حالت عادی برگردانی. تا زمانی که فایل موقت Password-only وجود دارد، آزمون ورود کلیدی از سمت سرور عمداً رد خواهد شد.
+
+**از کنسول VMware یا نشست مدیریتی باز** این کار را انجام بده:
+
+~~~bash
+sudo rm /etc/ssh/sshd_config.d/00-00-fragcity-password-only.conf
+
+sudo sshd -t || exit 1
+
+sudo sshd -T | grep -E '^(permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication) '
+~~~
+
+پیش از Reload، بررسی کن مقادیر با سیاست سخت‌سازی معمول ما هم‌خوان باشند:
+
+~~~text
+permitrootlogin no
+passwordauthentication no
+kbdinteractiveauthentication no
+pubkeyauthentication yes
+~~~
+
+اگر خروجی همین مقادیر را نشان نمی‌دهد، Reload نکن و فایل‌های تنظیمات SSH را بررسی کن. اگر درست بود:
+
+~~~bash
+sudo systemctl reload ssh
+sudo systemctl is-active ssh
+~~~
+
+حالا از **یک پنجرهٔ تازهٔ Windows PowerShell** ورود فقط با کلید را دوباره تست کن:
+
+~~~powershell
+$keyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_fragcity"
+ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath sv1@192.168.1.11 "hostname; id"
+~~~
+
+اگر تست موفق شد، روش کلیدی برقرار است. نشست کنسول یا مدیریتی را تا زمان تأیید این اتصال جدید باز نگه دار. اگر ناموفق بود، قبل از بستن دسترسی مدیریتی، خطا و لاگ SSH را بررسی کن.
+
+
