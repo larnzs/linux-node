@@ -1,4 +1,4 @@
-# FragCity — نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings
+# راهنمای نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings
 
 > **هدف این فایل:** Runbook ترتیبی برای نصب Debian 13، PHP و Composer، Pterodactyl Panel، Docker Engine، Wings، Firewall و سرویس‌های لازم است. هر مرحله هدف، فرمان و روش تأیید دارد. پیش از اجرای مرحله‌ای که Firewall، SSH، دیسک یا سرویس‌ها را تغییر می‌دهد، پیش‌نیاز و راه بازگشت همان بخش را بخوان.
 >
@@ -8,58 +8,43 @@
 
 ---
 
-## 0. وضعیت، محدوده و خط قرمزها
+## 0. پیش‌نیازها، مقادیر محیطی و قواعد اجرای امن
 
-- هدف، آموزش نصب Debian 13 و اجزای لازم برای یک Linux Node با Pterodactyl است. مقدارهای نمونهٔ این راهنما در بخش 0.3 آمده‌اند؛ پیش از اجرای روی محیط دیگری آن‌ها را با تنظیمات واقعی خودت هماهنگ کن.
-- Hostname، Domain name، Panel FQDN و Node FQDN باید در نصاب، DNS، TLS و تنظیمات Panel/Wings یکسان باشند. نمونه‌های FragCity در جدول 0.3 آمده‌اند؛ در محیط خودت مقادیر واقعی را به کار ببر.
-- رکوردهای DNS عمومی باید به IPv4 عمومی فعلی اشاره کنند، نه IP خصوصی LAN. مقدار Domain name در نصاب Debian به‌تنهایی DNS، Port Forwarding یا HTTPS را تنظیم نمی‌کند. روش بررسی DNS در مرحلهٔ 3.7.2 آمده است.
-- هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. راهنما: https://wiki.debian.org/DesktopEnvironment
-- نمونه‌های نصب این ریپو از VMware و Debian 13/Trixie استفاده می‌کنند؛ توزیع، منابع و نام دیسک واقعی محیط خودت را با بلوک‌های بررسی مشخص کن، نه با مقدارهای نمونه.
-- مسیر Panel در نمونه `/var/www/pterodactyl` و دامنهٔ آن `https://panel.fragcity.ir` است. اگر Panel روی مسیر یا دامنهٔ دیگری نصب شده، مقدارهای تمام مراحل مربوط به آن را هماهنگ کن.
-- اگر یک دیسک یا VMDK حاوی دادهٔ موجود داری، **آن را overwrite یا بدون طرح مشخص mount نکن.** این Runbook فرض نمی‌کند که فایل‌های بازی روی سیستم تازه حاضرند؛ نصب CS2 و Storage اشتراکی در راهنمای جداگانه انجام می‌شود.
-- پیش از انتخاب Egg یا ساخت Instance بازی، سیاست Storage و حجم موردنیاز را بخوان؛ نصب مستقل بازی ممکن است ده‌ها گیگابایت فضا مصرف کند.
-- برای صدور و تمدید گواهی‌های Let's Encrypt با روش HTTP-01، TCP 80 باید از اینترنت به IP LAN رزروشدهٔ همین VM برسد. پورت‌های عمومی را فقط طبق مراحل مربوطه و با حداقل دسترسی لازم منتشر کن؛ قاعدهٔ UFW به‌تنهایی جای Port Forward روتر را نمی‌گیرد. SSH، MariaDB و Redis را در اینترنت عمومی نکن.
+این Runbook نصب Debian 13 و زیرساخت Pterodactyl را مرحله‌به‌مرحله آموزش می‌دهد. بخش‌هایی از نسخهٔ مرجع ابتدا برای محیط FragCity نوشته شده‌اند، اما مقادیر میزبان/شبکه باید برای هر نصب جداگانه تعیین شوند.
 
-### 0.1 حفاظت از دیسک قبلی
+### پیش از اجرا این مقادیر را مشخص کن
 
-فایل‌های VMDK مربوط به Debian Desktop قبلی نزد کاربر موجود هستند. **آن VMDK پشتیبان را در طول نصب جاری به‌عنوان دیسک مقصد انتخاب نکن و آن را overwrite نکن.** نصب روی دیسک مقصد، تمام داده‌های همان دیسک را پاک خواهد کرد.
-
-### 0.2 قرارداد اجرای مرحله‌ای
-
-- فقط **بلوک مرحلهٔ جاری** را اجرا کن؛ به مراحل بعدی نپر.
-- محل اجرا را از برچسب زبان و توضیح قبل از بلوک بررسی کن:
-  - `powershell`: پنجرهٔ Windows PowerShell با prompt شبیه `PS C:\\...`؛
-  - `bash`: نشست SSH دبیان با prompt شبیه `sv1@fc-node-01:~$`؛
-  - `sql`: فقط داخل prompt مربوط به MariaDB/MySQL، بعد از بازکردن کلاینت دیتابیس؛
-  - `nginx`, `yaml`, `json` و مشابه آن: **محتوای فایل** هستند، نه فرمان Bash. آن‌ها را در فایل مربوطه paste کن، نه در ترمینال.
-- برای ویرایش فایل، ابتدا فقط فرمان بازکردن ویرایشگر را در Bash اجرا کن؛ مثلاً `sudo nano /etc/nginx/sites-available/pterodactyl.conf`. سپس در خود Nano محتوای فایل را paste کن. برای ذخیره در Nano از `Ctrl+O`، سپس `Enter` و برای خروج از `Ctrl+X` استفاده کن.
-- کد NGINX که با `server {` شروع می‌شود را **هرگز مستقیم در Bash اجرا نکن**. دیدن خطاهایی مانند `server: command not found` پس از این اشتباه، به‌تنهایی ثابت نمی‌کند که NGINX خراب شده است یا فایل پیکربندی ذخیره شده است.
-- بلوک Bash را کامل و یک‌جا اجرا کن؛ اگر بلوک با `(...)` احاطه شده، پرانتزها را حذف نکن. این کار کمک می‌کند خطای داخل آن بلوک، نشست تعاملی اصلی SSH را نبندد.
-- اگر SSH ناگهان قطع شد، از یک پنجرهٔ تازهٔ PowerShell طبق بخش «اتصال روزمره از Windows PowerShell به Debian» دوباره وصل شو. نصب یا مهاجرت را از ابتدا تکرار نکن، سرویس را کورکورانه restart نکن و تا اجرای آزمون‌های فقط‌خواندنی، فایل یا symlink را حذف/فعال نکن.
-- خروجی لازم را برای عیب‌یابی در گفت‌وگو بفرست، اما رمزها، APP_KEY، token و محتوای `.env` یا `config.yml` را ارسال نکن.
-
-### 0.3 مقادیر محیطی — پیش از اجرای روی Node دیگر اصلاح کن
-
-این Runbook نمونه‌های مشخصی دارد و آن‌ها به‌صورت خودکار جایگزین نمی‌شوند. پیش از شروع، جدول زیر را برای Node خودت تکمیل کن؛ سپس در مرورگر با Ctrl+F هر مقدار ستون «نمونه» را پیدا کن و مطمئن شو در هر فرمان/فایل، مقدار متناظرِ محیط خودت درج شده است. برای Clone موقت از بخش Clone استفاده کن؛ این مقادیر را برای Node مستقل جدید کپی نکن.
-
-| مقدار | نمونهٔ این ریپو | اگر نصب تو متفاوت است |
+| Placeholder | معنی | از کجا پیدا شود |
 |---|---|---|
-| Hostname اصلی | `fc-node-01` | نام واقعی Node را استفاده کن و آن را با DNS و TLS هماهنگ کن |
-| دامنهٔ پایه | `fragcity.ir` | دامنه‌ای که مالک آن هستی و DNS آن را مدیریت می‌کنی |
-| Panel FQDN | `panel.fragcity.ir` | FQDN واقعی Panel |
-| Node FQDN | `fc-node-01.fragcity.ir` | FQDN واقعی Node |
-| IP داخلی VM اصلی | `192.168.1.7` | IP رزروشدهٔ VM اصلی |
-| IP داخلی Clone | `192.168.1.9` | فقط هنگام جایگزینی موقت با Clone؛ در نصب عادی الزاماً وجود ندارد |
-| LAN CIDR | `192.168.1.0/24` | subnet واقعی شبکهٔ محلی |
-| Linux username | `sv1` | حساب Linux واقعی |
-| مسیر Panel | `/var/www/pterodactyl` | مسیر نصب واقعی Panel |
-| Wings API | `8080/TCP` | پورتی که config نصب واقعی Wings استفاده می‌کند |
-| SFTP برای Wings | `2022/TCP` | پورت Allocation/تنظیم‌شده برای SFTP |
-| CS2 game port | `29001/UDP` | فقط نمونه؛ Allocation واقعی را در Panel تعریف کن |
+| <NODE_HOSTNAME> | نام میزبان Debian | نامی که در نصاب و DNS انتخاب می‌کنی |
+| <BASE_DOMAIN> | دامنه‌ای که مالک آن هستی | پنل مدیریت DNS |
+| <PANEL_FQDN> | نام کامل DNS برای Panel | رکورد DNS و تنظیم APP_URL |
+| <NODE_FQDN> | نام کامل DNS برای Wings/Node | رکورد DNS و TLS مخصوص Node |
+| <NODE_LAN_IP> | IP داخلی ثابت Node اصلی | DHCP reservation و ip address |
+| <CLONE_LAN_IP> | IP داخلی Clone موقت، فقط در سناریوی Clone | DHCP reservation برای MAC جدید |
+| <LAN_CIDR> | محدودهٔ شبکهٔ داخلی | ip route و تنظیمات روتر |
+| <LAN_GATEWAY_IP> | Gateway شبکه | خروجی ip route |
+| <LINUX_USER> | حساب Linux عادی | حساب ساخته‌شده هنگام نصب Debian |
+| <CS2_GAME_PORT> | Port تخصیص‌یافتهٔ CS2، اگر لازم است | Allocation واقعی در Panel |
 
-**روش تطبیق نمونه‌ها:** مقادیر بالا فقط فهرست خلاصه‌اند؛ بعضی فرمان‌ها و متن‌های پیکربندی پایین‌تر، دامنه یا IP را مستقیم در خود بلوک دارند. قبل از Copy/Paste، هر نمونهٔ hostname/domain/IP/CIDR/username را با Ctrl+F پیدا و با مقدار خودت هماهنگ کن. اگر متن یک دستور شامل مقصد Port Forward یا یک Node دیگر است، آن را بدون فهمیدن سناریو اجرا نکن.
+**هیچ دستوری را با placeholderهای زاویه‌دار اجرا نکن.** پیش از Copy/Paste، تمام مقادیر مربوط به نصب خودت را در متن فرمان و فایل تنظیمات جایگزین کن. IP خصوصی LAN را به‌عنوان رکورد عمومی DNS استفاده نکن؛ رکورد عمومی باید به IPv4 عمومی قابل‌دسترسی اشاره کند.
 
-**قانون Clone:** مقدارهای `192.168.1.7` و `192.168.1.9` فقط نمونهٔ سناریوی جایگزینی موقت‌اند. دو VM با هویت مشترک را هم‌زمان روشن نکن. اگر Node مستقل جدید می‌سازی، برای آن Hostname، IP، DNS، TLS و config اختصاصی تنظیم کن و دستورهای مخصوص Clone/Port Forward را اجرا نکن.
+### محدوده و قواعد ایمنی
+
+- هنگام نصب Debian 13، در Software selection، گزینهٔ Debian desktop environment را بردار و SSH server و standard system utilities را نگه دار. نصب NGINX و وب‌سرور Panel در مراحل بعدی انجام می‌شود.
+- در VMware، دیسک VMDK قبلی یا نسخهٔ پشتیبان را به‌عنوان دیسک مقصد نصب تازه انتخاب و overwrite نکن.
+- پیش از هر عملیات Partition/Format/Mount، دستگاه را با lsblk و blkid شناسایی کن؛ نامی مثل /dev/sdb را حدس نزن.
+- TCP 80/443 برای TLS عمومی باید از اینترنت به IP داخلی رزروشدهٔ میزبان درست برسد. قانون UFW به‌تنهایی Port Forward روتر را تنظیم نمی‌کند.
+- SSH، MariaDB و Redis را بی‌دلیل در اینترنت عمومی نکن.
+- اگر از Clone موقت برای جایگزینی Node استفاده می‌کنی، VM اصلی و Clone را با هویت مشترک هم‌زمان روشن نکن. Node دوم مستقل باید Hostname، IP، DNS، TLS و config اختصاصی داشته باشد.
+- رمزهای حساب، MariaDB، Redis، APP_KEY، Token، GSLT، Webhook URL، فایل .env و محتوای محرمانهٔ /etc/pterodactyl/config.yml را در GitHub یا چت منتشر نکن.
+
+### قرارداد اجرای مرحله‌ای
+
+- هر بلوک را فقط در محل اجرای مشخص‌شده اجرا کن: Windows PowerShell، نشست SSH روی Debian، prompt دیتابیس، یا فایل تنظیمات.
+- JSON، YAML و NGINX config را در Bash اجرا نکن؛ آن‌ها باید در فایل مربوطه قرار گیرند.
+- اگر SSH ناگهان قطع شد، از نشست تازهٔ PowerShell دوباره وصل شو؛ نصب را از ابتدا تکرار نکن و فایل یا سرویس را بدون بررسی حذف/Restart نکن.
+- اگر مرحله‌ای FAIL شد، مرحلهٔ بعد را اجرا نکن؛ ابتدا فرمان‌های فقط‌خواندنی همان بخش و علت خطا را بررسی کن.
 
 ## 1. نصب Debian 13 از صفر — Console-only
 
@@ -68,10 +53,10 @@
 ### 1.1 تعیین نام میزبان و دامنه در نصاب
 
 نمونهٔ مقادیر برای محیط مرجع این ریپو:
-- **Hostname:** `fc-node-01`
-- **Domain name:** `fragcity.ir`
-- **FQDN موردنظر Node:** `fc-node-01.fragcity.ir`
-- **FQDN موردنظر Panel:** `panel.fragcity.ir`
+- **Hostname:** `<NODE_HOSTNAME>`
+- **Domain name:** `<BASE_DOMAIN>`
+- **FQDN موردنظر Node:** `<NODE_FQDN>`
+- **FQDN موردنظر Panel:** `<PANEL_FQDN>`
 
 برای محیط خودت، مقدارهای واقعی بخش 0.3 را وارد کن. اگر هنوز دامنه یا DNS آماده نیست، دامنهٔ متعلق به خودت را تعیین کن و پیش از صدور گواهی/انتشار عمومی DNS و Port Forward را تأیید کن.
 
@@ -180,7 +165,7 @@ timedatectl status
 systemd-detect-virt || true
 ~~~
 
-این مرحله تغییری نمی‌دهد. اگر سیستم با نامی غیر از `fc-node-01` بالا آمده یا دیسک مقصد غیرمنتظره است، پیش از مراحل بعدی خروجی را بفرست.
+این مرحله تغییری نمی‌دهد. اگر سیستم با نامی غیر از `<NODE_HOSTNAME>` بالا آمده یا دیسک مقصد غیرمنتظره است، پیش از مراحل بعدی خروجی را بفرست.
 
 ### 1.10 مرحلهٔ دوم — به‌روزرسانی Debian و آماده‌سازی sudo
 
@@ -240,8 +225,8 @@ Hostname و FQDN باید با جدول بخش 0.3 و DNS واقعی تو هما
 ~~~bash
 set -eu
 
-TARGET_HOST="fc-node-01"                 # Replace with your Linux hostname
-TARGET_FQDN="fc-node-01.fragcity.ir"     # Replace with your Node FQDN
+TARGET_HOST="<NODE_HOSTNAME>"                 # Replace with your Linux hostname
+TARGET_FQDN="<NODE_FQDN>"     # Replace with your Node FQDN
 
 if [[ "$TARGET_HOST" == *REPLACE* || "$TARGET_FQDN" == *REPLACE* ]]; then
   echo "STOP: set TARGET_HOST and TARGET_FQDN first."
@@ -325,8 +310,8 @@ lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 ~~~bash
 set -eu
 
-TARGET_HOST="fc-node-01"                 # Replace with your hostname
-TARGET_FQDN="fc-node-01.fragcity.ir"     # Replace with your Node FQDN
+TARGET_HOST="<NODE_HOSTNAME>"                 # Replace with your hostname
+TARGET_FQDN="<NODE_FQDN>"     # Replace with your Node FQDN
 IFACE="ens33"                            # Replace with the real LAN interface
 
 echo "=== Host identity and local resolution ==="
@@ -358,7 +343,7 @@ timedatectl show -p Timezone -p NTPSynchronized -p NTP
 هدف این است که MAC کارت شبکهٔ Node همیشه همان IP داخلی رزروشده را دریافت کند. فعلاً روی Debian آدرس استاتیک دستی تعریف نکن؛ رزرو DHCP و IP استاتیک داخل سیستم را هم‌زمان تنظیم نکن.
 
 1. از مرحلهٔ 1.15، MAC کارت شبکه و نام interface را یادداشت کن.
-2. در روتر/DHCP server شبکهٔ خودت subnet و gateway واقعی را بررسی کن. `192.168.1.0/24` و `192.168.1.1` فقط نمونه‌های این ریپو هستند.
+2. در روتر/DHCP server شبکهٔ خودت subnet و gateway واقعی را بررسی کن. `<LAN_CIDR>` و `<LAN_GATEWAY_IP>` فقط نمونه‌های این ریپو هستند.
 3. در رابط مدیریت DHCP، Lease همان MAC را پیدا کن و برای آن یک Reservation/Static Lease بساز. اگر از MikroTik/Winbox استفاده می‌کنی، مسیر معمول **IP → DHCP Server → Leases** است.
 4. یک IP آزاد و ثابت از subnet خودت انتخاب کن؛ قبل از رزرو مطمئن شو به دستگاه دیگری اختصاص نیافته است.
 5. پس از ذخیرهٔ رزرو، VM را با `sudo reboot` راه‌اندازی مجدد کن. اتصال SSH قطع می‌شود؛ این طبیعی است.
@@ -413,8 +398,8 @@ ip -4 route
 
 #### قدم A — ورود محلی به مودم/روتر
 
-1. از روی Debian در `ip route`، Gateway واقعی شبکه را شناسایی کن. `192.168.1.1` فقط یک نمونه است؛ Gateway را از روی خروجی خودت بخوان و حدس نزن.
-2. از مرورگر داخل همان LAN، صفحهٔ مدیریت محلی Gateway را باز کن، مثلاً `http://192.168.1.1/`. فقط از آدرس محلی استفاده کن.
+1. از روی Debian در `ip route`، Gateway واقعی شبکه را شناسایی کن. `<LAN_GATEWAY_IP>` فقط یک نمونه است؛ Gateway را از روی خروجی خودت بخوان و حدس نزن.
+2. از مرورگر داخل همان LAN، صفحهٔ مدیریت محلی Gateway را باز کن، مثلاً `http://<LAN_GATEWAY_IP>/`. فقط از آدرس محلی استفاده کن.
 3. در تنظیمات مودم/روتر دنبال گزینه‌هایی با نام‌هایی مانند **Remote Management**, **Web Access from WAN**, **WAN HTTP/HTTPS Access**, **Remote Web Administration** یا **Management from Internet** بگرد.
 4. دسترسی مدیریتی از WAN را برای HTTP و HTTPS خاموش کن؛ دسترسی مدیریتی از LAN را نگه دار تا بتوانی روتر را محلی مدیریت کنی. اگر نام گزینه‌ها یا عملکردشان نامشخص است، قبل از تغییر از صفحهٔ تنظیمات عکس بگیر و مدل دستگاه را مشخص کن؛ تنظیمات WAN، Bridge، PPPoE یا TR-069 را حدس‌زنان تغییر نده.
 5. اگر رمز مدیریت مودم ضعیف یا پیش‌فرض است، یک رمز یکتا و قوی تنظیم کن. رمز را در چت یا README ننویس.
@@ -437,9 +422,9 @@ ip -4 route
 
 ~~~bash
 set -eu
-BASE_DOMAIN="fragcity.ir"                  # Replace with your domain
-PANEL_FQDN="panel.fragcity.ir"             # Replace with the real Panel FQDN
-NODE_FQDN="fc-node-01.fragcity.ir"         # Replace with the real Node FQDN
+BASE_DOMAIN="<BASE_DOMAIN>"                  # Replace with your domain
+PANEL_FQDN="<PANEL_FQDN>"             # Replace with the real Panel FQDN
+NODE_FQDN="<NODE_FQDN>"         # Replace with the real Node FQDN
 
 if [[ "$BASE_DOMAIN" == *REPLACE* || "$PANEL_FQDN" == *REPLACE* || "$NODE_FQDN" == *REPLACE* ]]; then
   echo "STOP: replace all domain examples before querying DNS."
@@ -475,7 +460,7 @@ dig +short AAAA "$NODE_FQDN"
 SSH (Secure Shell) یک اتصال مدیریتی رمزنگاری‌شده بین Windows و Debian است. به‌جای تایپ‌کردن دستورها در کنسول VMware، دستورها را از Windows Terminal/PowerShell اجرا می‌کنی و روی Debian انجام می‌شوند.
 
 در احراز هویت با کلید، یک **جفت کلید** داریم:
-- **کلید خصوصی** با نام `id_ed25519_fragcity` روی کامپیوتر Windows می‌ماند؛ آن را به سرور یا چت نفرست.
+- **کلید خصوصی** با نام `id_ed25519` روی کامپیوتر Windows می‌ماند؛ آن را به سرور یا چت نفرست.
 - **کلید عمومی** با پسوند `.pub` روی Debian در `~/.ssh/authorized_keys` حساب کاربری ذخیره می‌شود.
 - هنگام اتصال، Windows ثابت می‌کند کلید خصوصی متناظر را دارد؛ لازم نیست رمز حساب Debian از طریق SSH استفاده شود.
 
@@ -483,7 +468,7 @@ SSH (Secure Shell) یک اتصال مدیریتی رمزنگاری‌شده بی
 
 **قانون بسیار مهم تشخیص پنجره:**
 - اگر خط فرمان `PS C:\...>` می‌بینی، در Windows PowerShell هستی.
-- اگر `sv1@fc-node-01:~$` می‌بینی، داخل Debian از طریق SSH هستی.
+- اگر `<LINUX_USER>@<NODE_HOSTNAME>:~$` می‌بینی، داخل Debian از طریق SSH هستی.
 - فرمان‌هایی که با `$env:USERPROFILE` و `Test-Path` شروع می‌شوند فقط برای PowerShell هستند. اگر آن‌ها را در Bash اجرا کنی، ممکن است خطای `keyPath: unbound variable` بگیری؛ این خطا به‌خودی‌خود به معنی خرابی SSH یا Debian نیست. یک پنجرهٔ PowerShell جدید باز کن و کد را همان‌جا اجرا کن.
 
 #### 1.19.1 ساخت کلید SSH در Windows
@@ -582,7 +567,7 @@ sudo apt install -y ufw
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 
-LAN_CIDR="192.168.1.0/24"  # Replace with your actual LAN subnet, e.g. 10.0.0.0/24
+LAN_CIDR="<LAN_CIDR>"  # Replace with your actual LAN subnet, e.g. 10.0.0.0/24
 if [[ "$LAN_CIDR" == *REPLACE* ]]; then echo "STOP: set LAN_CIDR first."; exit 1; fi
 sudo ufw allow from "$LAN_CIDR" to any port 22 proto tcp
 sudo ufw allow 80/tcp
@@ -694,7 +679,7 @@ ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthe
 ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
 ~~~
 
-هنگام اجرای این فرمان، انتهای دستور نباید عبارت `"hostname; id"` داشته باشد. وقتی prompt شبیه `sv1@fc-node-01:~### 1.21 ممیزی نهایی Base Debian و آزمون ماندگاری پس از reboot
+هنگام اجرای این فرمان، انتهای دستور نباید عبارت `"hostname; id"` داشته باشد. وقتی prompt شبیه `<LINUX_USER>@<NODE_HOSTNAME>:~### 1.21 ممیزی نهایی Base Debian و آزمون ماندگاری پس از reboot
 
 این هنوز بخشی از Chapter 1 است؛ در این گام سرویس‌های Panel نصب نمی‌شوند. هدف این است که سیستم‌عامل، APT، SSH، Firewall، زمان، شبکه و فضای دیسک را پس از راه‌اندازی مجدد دوباره تأیید کنیم. قبل از اجرای بلوک، مطمئن شو کار در نشست SSH با حساب عادیِ عضو گروه `sudo` انجام می‌شود.
 
@@ -735,7 +720,7 @@ sudo reboot
 
 دستور سادهٔ `$LinuxUser = Read-Host "Linux non-root username"
 $NodeIp = Read-Host "Node LAN IPv4"
-ssh "$LinuxUser@$NodeIp"` ممکن است شکست بخورد، چون کلید `id_ed25519_fragcity` را صریحاً معرفی نمی‌کند. پس از غیرفعال‌کردن PasswordAuthentication، باید کلید درست را ارائه دهی. همچنین `sv1` نام کاربری است؛ `fc-node-01` نام میزبان است، نه نام حساب.
+ssh "$LinuxUser@$NodeIp"` ممکن است شکست بخورد، چون کلید `id_ed25519_fragcity` را صریحاً معرفی نمی‌کند. پس از غیرفعال‌کردن PasswordAuthentication، باید کلید درست را ارائه دهی. همچنین `<LINUX_USER>` نام کاربری است؛ `<NODE_HOSTNAME>` نام میزبان است، نه نام حساب.
 
 
 **ج) پس از ورود تازه، بررسی نهایی روی Debian:**
@@ -821,7 +806,7 @@ Chapter 1 زمانی کامل است که تمام موارد زیر تأیید 
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
-$target = "sv1@192.168.1.7"
+$target = "<LINUX_USER>@<NODE_LAN_IP>"
 
 ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
 ~~~
@@ -841,7 +826,7 @@ ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthe
 
 در لاگ مرحلهٔ 1.21، APT قبلاً این مخزن را دیده بود: `https://packages.sury.org/php trixie InRelease`. بنابراین فعلاً کلید یا فایل منبع جدید نساز و فرمان `gpg --dearmor -o ...` را کورکورانه تکرار نکن؛ ممکن است فایل کلید/منبع از قبل وجود داشته باشد یا با نام دیگری تنظیم شده باشد.
 
-**محل اجرا: نشست SSH در Debian با کاربر عادی `sv1`.** این بلوک مخزن را تغییر نمی‌دهد؛ فقط فایل‌های تنظیمات فعلی، نسخهٔ قابل‌دسترس PHP، بسته‌های نصب‌شده و سلامت APT را بررسی می‌کند:
+**محل اجرا: نشست SSH در Debian با کاربر عادی `<LINUX_USER>`.** این بلوک مخزن را تغییر نمی‌دهد؛ فقط فایل‌های تنظیمات فعلی، نسخهٔ قابل‌دسترس PHP، بسته‌های نصب‌شده و سلامت APT را بررسی می‌کند:
 
 ~~~bash
 set -eu
@@ -1148,7 +1133,7 @@ EXIT;
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
-$target = "sv1@192.168.1.7"
+$target = "<LINUX_USER>@<NODE_LAN_IP>"
 
 ssh -v -N -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath -L 3307:127.0.0.1:3306 $target
 ~~~
@@ -1344,7 +1329,7 @@ sudo nano /etc/nginx/sites-available/pterodactyl.conf
 server {
     listen 80;
     listen [::]:80;
-    server_name panel.fragcity.ir;
+    server_name <PANEL_FQDN>;
     root /var/www/pterodactyl/public;
     index index.php;
 
@@ -1410,7 +1395,7 @@ fi
 sudo /usr/sbin/nginx -t
 sudo systemctl reload nginx
 sudo systemctl is-active nginx
-curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: panel.fragcity.ir' http://127.0.0.1/
+curl -sS -o /dev/null -w 'HTTP status: %{http_code}\n' -H 'Host: <PANEL_FQDN>' http://127.0.0.1/
 ~~~
 
 #### اگر محتوای NGINX اشتباهاً در Bash paste شد یا SSH قطع شد
@@ -1448,11 +1433,11 @@ sudo systemctl status nginx --no-pager -l
 
 پس از فعال‌سازی، دسترسی را از مرورگر Windows بررسی کن. این پیکربندی فقط برای LAN/HTTP است.
 
-اگر دامنه از LAN به IP عمومی resolve می‌شود ولی روتر NAT loopback ندارد، برای آزمایش محلی می‌توانی روی Windows، فایل hosts را با دسترسی Administrator ویرایش کنی و موقتاً این نگاشت را اضافه کنی: `<node-lan-ip> panel.fragcity.ir`. آدرس IP داخلی را از مرحلهٔ 1.15/1.16 بگیر؛ IP را حدس نزن. این تغییر فقط روی همان Windows اثر دارد.
+اگر دامنه از LAN به IP عمومی resolve می‌شود ولی روتر NAT loopback ندارد، برای آزمایش محلی می‌توانی روی Windows، فایل hosts را با دسترسی Administrator ویرایش کنی و موقتاً این نگاشت را اضافه کنی: `<node-lan-ip> <PANEL_FQDN>`. آدرس IP داخلی را از مرحلهٔ 1.15/1.16 بگیر؛ IP را حدس نزن. این تغییر فقط روی همان Windows اثر دارد.
 
 ### 3.6 عیب‌یابی مسیر `/admin` در LAN
 
-اگر `https://panel.fragcity.ir/admin` باز نمی‌شود، قبل از تغییر تنظیمات Node این بررسی‌های فقط‌خواندنی را روی Debian اجرا کن. خروجی ترمینال را به README اضافه نکن.
+اگر `https://<PANEL_FQDN>/admin` باز نمی‌شود، قبل از تغییر تنظیمات Node این بررسی‌های فقط‌خواندنی را روی Debian اجرا کن. خروجی ترمینال را به README اضافه نکن.
 
 ~~~bash
 set +e
@@ -1462,7 +1447,7 @@ for path in / /admin /auth/login; do
   printf '%-14s ' "$path"
   curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
     -w 'HTTP=%{http_code} redirect=%{redirect_url}\n' \
-    -H 'Host: panel.fragcity.ir' "http://127.0.0.1${path}"
+    -H 'Host: <PANEL_FQDN>' "http://127.0.0.1${path}"
 done
 
 echo
@@ -1499,7 +1484,7 @@ sudo -u www-data php8.3 artisan route:list --path=admin
 
 ~~~bash
 set -eu
-PANEL_FQDN="panel.fragcity.ir"  # Replace with the real Panel FQDN
+PANEL_FQDN="<PANEL_FQDN>"  # Replace with the real Panel FQDN
 
 if [[ "$PANEL_FQDN" == *REPLACE* || "$PANEL_FQDN" == "" ]]; then
   echo "STOP: set PANEL_FQDN first."
@@ -1515,7 +1500,7 @@ sudo certbot --nginx --redirect -d "$PANEL_FQDN"
 
 ~~~bash
 set -eu
-PANEL_FQDN="panel.fragcity.ir"  # Use the same FQDN for which Certbot issued the certificate
+PANEL_FQDN="<PANEL_FQDN>"  # Use the same FQDN for which Certbot issued the certificate
 PANEL_DIR="/var/www/pterodactyl"
 
 sudo sed -i -E "s#^APP_URL=.*#APP_URL=https://$PANEL_FQDN#" "$PANEL_DIR/.env"
@@ -1532,7 +1517,7 @@ sudo systemctl reload nginx
 
 ~~~bash
 set -eu
-PANEL_FQDN="panel.fragcity.ir"  # Replace with your real Panel FQDN
+PANEL_FQDN="<PANEL_FQDN>"  # Replace with your real Panel FQDN
 curl -fsSI --max-time 15 "https://$PANEL_FQDN/"
 sudo certbot certificates
 sudo certbot renew --dry-run
@@ -1562,7 +1547,7 @@ foreach ($name in @($PanelFqdn, $NodeFqdn)) {
 
 ~~~bash
 set -eu
-NODE_FQDN="fc-node-01.fragcity.ir"  # Replace with the real Node FQDN
+NODE_FQDN="<NODE_FQDN>"  # Replace with the real Node FQDN
 if [[ "$NODE_FQDN" == *REPLACE* || "$NODE_FQDN" == "" ]]; then
   echo "STOP: set NODE_FQDN first."
   exit 1
@@ -1575,8 +1560,8 @@ sudo certbot certonly --nginx -d "$NODE_FQDN"
 
 ~~~bash
 set -eu
-PANEL_FQDN="panel.fragcity.ir"          # Replace with the real Panel FQDN
-NODE_FQDN="fc-node-01.fragcity.ir"      # Replace with the real Node FQDN
+PANEL_FQDN="<PANEL_FQDN>"          # Replace with the real Panel FQDN
+NODE_FQDN="<NODE_FQDN>"      # Replace with the real Node FQDN
 PANEL_CERT="/etc/letsencrypt/live/$PANEL_FQDN"
 NODE_CERT="/etc/letsencrypt/live/$NODE_FQDN"
 
@@ -1657,7 +1642,7 @@ sudo systemctl status docker --no-pager -l || true
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
-$target = "sv1@192.168.1.7"
+$target = "<LINUX_USER>@<NODE_LAN_IP>"
 
 ssh -v -N `
   -o IdentitiesOnly=yes `
@@ -1668,7 +1653,7 @@ ssh -v -N `
   $target
 ~~~
 
-- اگر آدرس LAN رزروشدهٔ Node عوض شده است، پیش از اجرا `192.168.1.7` را با IP تأییدشدهٔ فعلی جایگزین کن؛ IP را حدس نزن.
+- اگر آدرس LAN رزروشدهٔ Node عوض شده است، پیش از اجرا `<NODE_LAN_IP>` را با IP تأییدشدهٔ فعلی جایگزین کن؛ IP را حدس نزن.
 - پنجرهٔ PowerShell را باز نگه دار تا تونل فعال بماند. در صورت درخواست، passphrase کلید SSH را وارد کن؛ هنگام تایپ نمایش داده نمی‌شود. برای بستن تونل، در همان پنجره `Ctrl+C` بزن.
 - در پنجرهٔ دوم PowerShell، اتصال TCP محلی را بررسی کن:
 
@@ -1813,11 +1798,11 @@ df -hT /
 - گواهی مستقل Node را طبق مرحلهٔ 3.7.2 صادر و مسیرهای `fullchain.pem` و `privkey.pem` را بررسی کن.
 
 در مرورگر Windows، پس از آماده‌شدن DNS و گواهی معتبر Node:
-1. وارد `https://panel.fragcity.ir` شو و مطمئن شو با حساب Administrator وارد شده‌ای. این مرحله فقط بعد از تنظیم DNS و گواهی TLS انجام می‌شود.
+1. وارد `https://<PANEL_FQDN>` شو و مطمئن شو با حساب Administrator وارد شده‌ای. این مرحله فقط بعد از تنظیم DNS و گواهی TLS انجام می‌شود.
 2. از **Admin → Locations** یک Location بساز یا Location موجود را انتخاب کن؛ مثلاً Short Code برابر `lan` و Description برابر `FragCity LAN`.
 3. به **Admin → Nodes → Create New** برو.
-4. در Identity: نام `fc-node-01`، توضیح اختیاری، و Location مرحلهٔ قبل را انتخاب کن.
-5. در Network/Daemon: FQDN برابر `fc-node-01.fragcity.ir`، SSL فعال پس از صدور و نصب گواهی معتبر برای همین نام، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد. DNS عمومی باید به IP عمومی Node برسد و قبل از ساخت Node باید TLS و فایروال بررسی شده باشند. از IP خصوصی در FQDN عمومی استفاده نکن.
+4. در Identity: نام `<NODE_HOSTNAME>`، توضیح اختیاری، و Location مرحلهٔ قبل را انتخاب کن.
+5. در Network/Daemon: FQDN برابر `<NODE_FQDN>`، SSL فعال پس از صدور و نصب گواهی معتبر برای همین نام، Daemon Port برابر `8080` و Daemon SFTP Port برابر `2022` باشد. DNS عمومی باید به IP عمومی Node برسد و قبل از ساخت Node باید TLS و فایروال بررسی شده باشند. از IP خصوصی در FQDN عمومی استفاده نکن.
 6. در بخش منابع، مقادیر Memory/Disk را بر اساس خروجی واقعی free -h و df -hT / تعیین کن. Overallocate را برای شروع 0 نگه دار و فضای کافی برای Debian، Docker و لاگ‌ها باقی بگذار. مقدار انتخاب‌شدهٔ فعلی برای این Node برابر 4096 MiB (4 GiB) است؛ این سقف مجموع RAM قابل‌تخصیص در Panel است، نه رزرو فیزیکی RAM و نه مقدار خودکار برای هر سرور.
 7. اگر فیلد Server File Directory نمایش داده شد، فعلاً مقدار پیش‌فرض `/var/lib/pterodactyl/volumes` را حفظ کن. **آن را روی `/home/steam` تنظیم نکن**؛ طرح استفادهٔ مجدد از بازی موجود هنوز طراحی نشده است.
 8. Node را ذخیره کن. سپس وارد صفحهٔ همان Node شو و نتیجهٔ ساخت را بررسی کن.
@@ -1828,19 +1813,19 @@ df -hT /
 
 فایل /etc/pterodactyl/config.yml به‌صورت خودکار هنگام نصب باینری Wings ساخته نمی‌شود. این فایل باید بعد از ساخت Node از فرمان Auto-Deploy خود Panel یا از محتوای تب Configuration ایجاد شود. در این مرحله روش Auto-Deploy را استفاده کن.
 
-1. در مرورگر Windows وارد https://panel.fragcity.ir شو و به Admin → Nodes برو.
-2. Node ساخته‌شدهٔ fc-node-01 را باز کن و وارد تب Configuration شو. اگر Node هنوز ذخیره نشده، ابتدا به مرحلهٔ 6.3 برگرد و آن را کامل بساز.
+1. در مرورگر Windows وارد https://<PANEL_FQDN> شو و به Admin → Nodes برو.
+2. Node ساخته‌شدهٔ <NODE_HOSTNAME> را باز کن و وارد تب Configuration شو. اگر Node هنوز ذخیره نشده، ابتدا به مرحلهٔ 6.3 برگرد و آن را کامل بساز.
 3. در بخش Auto-Deploy روی Generate Token بزن. Panel یک فرمان Bash تولید می‌کند که شامل آدرس Panel، token و Node ID واقعی است.
 4. از Windows PowerShell یک نشست SSH تعاملی تازه باز کن:
 
 ~~~powershell
 $keyPath = "$env:USERPROFILE\.ssh\id_ed25519_fragcity"
-$target = "sv1@192.168.1.7"
+$target = "<LINUX_USER>@<NODE_LAN_IP>"
 
 ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
 ~~~
 
-5. وقتی prompt شبیه sv1@fc-node-01:~$ دیدی، همان فرمانی را که Panel در Auto-Deploy نشان داده، کامل و بدون ویرایش در ترمینال SSH دبیان paste کن و اجرا کن. فرمان را در PowerShell ویندوز اجرا نکن و خودت token یا Node ID نساز.
+5. وقتی prompt شبیه <LINUX_USER>@<NODE_HOSTNAME>:~$ دیدی، همان فرمانی را که Panel در Auto-Deploy نشان داده، کامل و بدون ویرایش در ترمینال SSH دبیان paste کن و اجرا کن. فرمان را در PowerShell ویندوز اجرا نکن و خودت token یا Node ID نساز.
 6. token و فرمان تولیدشده را در چت، README، عکس یا لاگ عمومی نفرست. اگر command خروجی خطا داد، متن را پیش از ارسال بررسی کن و هر token یا secret را حذف کن.
 
 پس از اجرای موفق فرمان Auto-Deploy، فقط وجود فایل و metadata آن را بررسی کن:
@@ -1864,14 +1849,14 @@ fi
 
 ### 6.5 بررسی گواهی TLS مخصوص Node
 
-پیش از اجرای Wings، مطمئن شو گواهی جداگانهٔ `fc-node-01.fragcity.ir` در مسیر مورد انتظار موجود و معتبر است. اگر گواهی وجود ندارد، مراحل صدور و بررسی را در **3.7.2** اجرا کن.
+پیش از اجرای Wings، مطمئن شو گواهی جداگانهٔ `<NODE_FQDN>` در مسیر مورد انتظار موجود و معتبر است. اگر گواهی وجود ندارد، مراحل صدور و بررسی را در **3.7.2** اجرا کن.
 
 ~~~bash
 set -eu
-sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem
-sudo test -s /etc/letsencrypt/live/fc-node-01.fragcity.ir/privkey.pem
-sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem -noout -checkhost fc-node-01.fragcity.ir
-sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem -noout -checkend 0
+sudo test -s /etc/letsencrypt/live/<NODE_FQDN>/fullchain.pem
+sudo test -s /etc/letsencrypt/live/<NODE_FQDN>/privkey.pem
+sudo openssl x509 -in /etc/letsencrypt/live/<NODE_FQDN>/fullchain.pem -noout -checkhost <NODE_FQDN>
+sudo openssl x509 -in /etc/letsencrypt/live/<NODE_FQDN>/fullchain.pem -noout -checkend 0
 ~~~
 
 ### 6.6 اجرای آزمایشی Wings در foreground
@@ -1960,10 +1945,10 @@ sudo ss -ltnp | grep -E ':(8080|2022)\b'
 برای تأیید پس از اعمال قوانین روتر، از دستگاهی خارج از LAN (مثلاً گوشی با Wi-Fi خاموش و دیتای موبایل روشن) مرورگر را به آدرس زیر ببر:
 
 ~~~text
-https://fc-node-01.fragcity.ir:8080/
+https://<NODE_FQDN>:8080/
 ~~~
 
-پاسخ `401 Unauthorized` با گواهی معتبر برای درخواست بدون ورود، به‌تنهایی خطا نیست و نشان می‌دهد endpoint پاسخ داده است. Timeout یا ناتوانی در اتصال، نیازمند بررسی IP مقصد، Port Forward، UFW و دسترسی WAN است. اگر اتصال عمومی موفق شد، صفحهٔ **Admin → Nodes → fc-node-01** را refresh کن و وضعیت Node را بررسی کن.
+پاسخ `401 Unauthorized` با گواهی معتبر برای درخواست بدون ورود، به‌تنهایی خطا نیست و نشان می‌دهد endpoint پاسخ داده است. Timeout یا ناتوانی در اتصال، نیازمند بررسی IP مقصد، Port Forward، UFW و دسترسی WAN است. اگر اتصال عمومی موفق شد، صفحهٔ **Admin → Nodes → <NODE_HOSTNAME>** را refresh کن و وضعیت Node را بررسی کن.
 
 تست از داخل همان LAN ممکن است به‌دلیل نداشتن NAT loopback در روتر، نتیجهٔ گمراه‌کننده بدهد؛ برای سنجش Port Forward از شبکهٔ خارجی تست کن. راهنمای رسمی: https://docs.pterodactyl.io/v1/panel/troubleshooting
 
@@ -2115,4 +2100,4 @@ fi
 
 پس از تأیید Debian، Panel، Docker و Wings، برای نصب CS2 به [راهنمای K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Multi Instance](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) برو. ترتیب استاندارد آن است: آماده‌سازی i386 روی Debian amd64، واردکردن Egg کامل، ساخت Instance آزمایشی، نصب با فرمان مشخص `sudo /tmp/cs2node install`، تأیید Shared Base و سپس آزمایش Instance دوم.
 
-این سند آموزش زیرساخت است، نه محل ثبت گزارش یک اجرای خاص. در هر نصب، معیارهای بخش 9 را بررسی کن و وضعیت واقعی را از خروجی‌های فقط‌خواندنی خودت ارزیابی کن؛ لاگ خام، رمزها، APP_KEY، Token، `.env`، Webhook URL یا محتویات محرمانهٔ `config.yml` را در ریپو ذخیره نکن.
+این سند آموزش زیرساخت است، نه محل ثبت گزارش یک اجرای خاص. در هر نصب، معیارهای چک‌لیست را روی همان ماشین بررسی کن؛ لاگ خام، رمزها، APP_KEY، Token، GSLT، `.env`، Webhook URL یا محتویات محرمانهٔ `config.yml` را در ریپو ذخیره نکن.
