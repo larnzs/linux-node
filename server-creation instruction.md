@@ -498,20 +498,47 @@ VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را
 - [x] فایل‌سیستم ریشه از خروجی `df -hT`: اندازهٔ حدود `268G`، مصرف `73G` و فضای آزاد حدود `182G`.
 - [x] خروجی فعلی `lsblk` فقط دیسک `sda` با اندازهٔ `300G` (پارتیشن Boot، پارتیشن LVM، Logical Volume ریشه و Swap) و درایو نوری `sr0` را نشان داده است؛ هیچ دیسک دیتای ثانویه در آن خروجی مشاهده نشده.
 - [x] Volume سرور در میزبان شناسایی شده است: `/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b/`.
-- [ ] وجود و مقدار buildid در مسیر صحیح $VOL/steamapps/appmanifest_730.acf هنوز بررسی نشده؛ جستجوی قبلی به‌اشتباه روی game/steamapps انجام شده بود.
+- [x] Manifest در مسیر صحیح $VOL/steamapps/appmanifest_730.acf وجود دارد؛ خروجی شامل appid=730، StateFlags=4 و buildid=25966348 بود.
 - [ ] آزمون کامل Vanilla (Running، بارگذاری Map، اتصال و Stop/Start) هنوز به‌طور صریح تأیید نشده است.
 - [x] تصمیم گرفته شد برای PoC فعلی از فایل‌سیستم موجود استفاده کنیم؛ VMDK دوم پیش‌نیاز `cs2node`/`vpksync` نیست.
 - [ ] `cs2node`، ماژول `vpksync` و Shared Base هنوز نصب/فعال نشده‌اند؛ نصب مرکزی ممکن است یک دانلود 35–40 GB جداگانه انجام دهد.
 
-### پنج گام اجرایی اول از همین‌جا
+### پنج گام بعدی — بررسی حجم غیرمنتظره پیش از Seed
 
-این پنج گام فقط برای بررسی و حفظ نصب فعلی‌اند؛ هنوز daemon را نصب یا فایل‌ها را کپی نکن.
+بررسی اولیه موفق بود: manifest با appid=730 و buildid=25966348 دیده شده و 739 فایل VPK پیدا شده است. اما حجم game/ برابر 69 GB است؛ پیش از کپی‌کردن آن به Shared Base، توزیع این حجم را فقط‌خواندنی بررسی می‌کنیم. هنوز هیچ rsync اجرا نشده است.
 
-1. اگر Installer هنوز روی Proceed? ایستاده، n بزن. اگر به پرسش‌های Wizard رفته‌ای ولی نصب نهایی نشده، با Ctrl+C خارج شو.
-2. در پنل، fc-cs2-test-01 را Stop کن و مطمئن شو Offline شده؛ Debian، Docker، Wings و Panel روشن بمانند.
-3. بلوک فقط‌خواندنی بخش 8.1 را اجرا کن؛ به‌خصوص manifest را از مسیر $VOL/steamapps/appmanifest_730.acf بررسی کن.
-4. خروجی مسیرهای game و steamapps، اندازهٔ پوشه‌ها، تعداد VPKها و وضعیت /srv/cs2-shared را بررسی کن. در این گام rsync یا دستور تغییردهنده اجرا نکن.
-5. کل خروجی را در گفتگو بفرست. بعد تعیین می‌کنیم seed کردن از دانلود فعلی امن و ممکن است یا باید مسیر رسمی دانلود مرکزی را به کار ببریم.
+1. مطمئن شو fc-cs2-test-01 همچنان Offline است. چیزی را Uninstall نکن.
+2. حجم زیرپوشه‌های سطح اول game/ را نشان بده:
+
+   ~~~bash
+   VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
+   echo "=== First-level game directory sizes ==="
+   sudo du -xhd1 "$VOL/game" | sort -h
+   ~~~
+
+3. حجم زیرپوشه‌های اصلی game/csgo را نشان بده:
+
+   ~~~bash
+   echo "=== First-level csgo directory sizes ==="
+   sudo du -xhd1 "$VOL/game/csgo" | sort -h | tail -n 35
+   ~~~
+
+4. این دستور 30 فایل بزرگ‌تر را نشان می‌دهد و مشخص می‌کند VPKها یا فایل‌های دیگر عامل حجم هستند:
+
+   ~~~bash
+   echo "=== Largest files under game/ ==="
+   sudo find "$VOL/game" -xdev -type f -printf '%s\t%p\n' |
+     sort -nr | head -n 30 | numfmt --field=1 --to=iec
+   echo
+   echo "=== Regular-file VPK total ==="
+   sudo find "$VOL/game" -xdev -type f -name '*.vpk' -printf '%s\n' |
+     awk '{bytes += $1; count++} END {printf "count=%d total_GiB=%.2f\n", count, bytes/1024/1024/1024}'
+   echo
+   echo "=== Symlink count ==="
+   sudo find "$VOL/game" -xdev -type l | wc -l
+   ~~~
+
+5. خروجی کامل را بفرست. فعلاً Shared Base را نساز و rsync اجرا نکن. بعد از دیدن توزیع حجم 69 GB و بررسی فضای باقی‌مانده، دربارهٔ Seed تصمیم می‌گیریم.
 
 ### منابع رسمی
 
