@@ -643,6 +643,8 @@ SCRIPT
 
 ## 13. اتصال CS2 Node و Shared Base
 
+برای وضعیت زندهٔ یک اجرای مشخص، به [checkpoint عملیاتی دانلود cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) مراجعه کن. این فایل فقط وضعیت اجرای جاری را ثبت می‌کند؛ آموزش عمومی نصب، دانلود و انتقال فایل‌ها در راهنمای مستقل K4ryuu قرار دارد.
+
 ساخت Instance CS2، نصب cs2node، Runtimeهای i386، VPK Sync، Workshop Cache و Multi Instance در این سند تکرار نمی‌شود؛ برای آن مراحل به [راهنمای آموزشی K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) برو.
 
 پیش از افزودن VMDK اختیاری:
