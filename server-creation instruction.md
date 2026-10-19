@@ -2,7 +2,7 @@
 
 > **هدف این فصل:** روی Clone آزمایشگاهی FragCity، Egg رسمی **KitsuneLab CS2 Go** متعلق به K4ryuu را وارد Pterodactyl کنیم، یک سرور پایه بسازیم و پیش از فعال‌کردن Shared Base، خود Egg را به‌تنهایی آزمایش کنیم.
 >
-> **وضعیت مستندات (2026-10-19، به‌روزرسانی مرحله‌ای):** پنل و شبکه طبق تأیید کاربر عملیاتی‌اند؛ Clone با hostname برابر `fc-node-01` و IP برابر `192.168.1.9` فعال است؛ Queue Worker و Scheduler روی Clone تنظیم شده‌اند. اولین Instance به نام `fc-cs2-test-01` ساخته شده و کاربر گزارش کرده دانلود اولیهٔ بازی پایان یافته است. بررسی فقط‌خواندنی روی Clone کرنل `6.12.113+deb13-amd64` و حدود `182 GB` فضای آزاد در فایل‌سیستم ریشه نشان داده است. در خروجی `lsblk` فعلی هیچ VMDK ثانویه‌ای دیده نشده؛ بنابراین Shared Base، `cs2node` و `vpksync` هنوز نصب/فعال نشده‌اند. VM اصلی با IP `192.168.1.7` باید خاموش بماند.
+> **وضعیت مستندات (2026-10-19، به‌روزرسانی مرحله‌ای):** پنل و شبکه طبق تأیید کاربر عملیاتی‌اند؛ Clone با hostname برابر `fc-node-01` و IP برابر `192.168.1.9` فعال است؛ Queue Worker و Scheduler روی Clone تنظیم شده‌اند. اولین Instance به نام `fc-cs2-test-01` ساخته شده و کاربر گزارش کرده دانلود اولیهٔ بازی پایان یافته است. بررسی فقط‌خواندنی روی Clone کرنل `6.12.113+deb13-amd64` و حدود `182 GB` فضای آزاد در فایل‌سیستم ریشه نشان داده است. در خروجی `lsblk` فعلی VMDK ثانویه‌ای دیده نشده، اما این مانع تست نیست: فعلاً Shared Base روی فایل‌سیستم فعلی در مسیر پیش‌فرض `/srv/cs2-shared` قرار می‌گیرد؛ حدود `182 GB` فضای آزاد مشاهده شده است. VMDK دوم فقط گزینهٔ جداسازی Storage برای فاز بعد/Production است. `cs2node` و `vpksync` هنوز نصب/فعال نشده‌اند. VM اصلی با IP `192.168.1.7` باید خاموش بماند.
 >
 > **منبع اصلی:** https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md  
 > راهنمای Node daemon: https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md
@@ -14,7 +14,7 @@
 - ابتدا فقط **یک سرور آزمایشی** می‌سازیم و آن را بدون Node daemon اجرا می‌کنیم. این همان اولین گام پیشنهادی مستندات K4ryuu است؛ Egg بدون daemon هم با SteamCMD فایل‌های بازی را دریافت می‌کند.
 - از Egg اصلیِ قابل‌استفاده با Node daemon استفاده می‌کنیم: **KitsuneLab CS2 Go @ K4ryuu**. فعلاً Image نسخهٔ `stable` را انتخاب می‌کنیم، نه `beta`.
 - نخستین دانلود CS2 حدود 35 GB است؛ طبق راهنمای K4ryuu برای تست بدون VPK sync، سقف دیسک سرور را **40 GB** در نظر می‌گیریم. این فایل‌ها داخل Volume معمول سرور Pterodactyl قرار می‌گیرند. قبل از ساخت سرور، فضای آزاد میزبان Volume را دوباره بررسی کن.
-- VMDK دادهٔ دوم هنوز آماده و mount نشده است. بنابراین **Node daemon، VPK sync و Shared Base را تا آماده‌شدن Storage مستقل نصب یا فعال نکن**؛ مسیر پیش‌فرض فایل‌های مشترک Node برابر `/srv/cs2-shared` است و باید به‌درستی روی Storage طراحی‌شده قرار بگیرد.
+- VMDK دادهٔ دوم برای اجرای آزمایشی `cs2node`/`vpksync` الزامی نیست. با حدود `182 GB` فضای آزاد گزارش‌شده، فعلاً از فایل‌سیستم فعلی و مسیر پیش‌فرض `/srv/cs2-shared` استفاده می‌کنیم. قبل از Production می‌توان Storage جداگانه انتخاب کرد؛ این تصمیم نباید تست فعلی را مسدود کند.
 - فقط روی Clone کار کن؛ VM اصلی باید خاموش بماند. این راهنما ریپوی `cs2-kus-addons` را تغییر نمی‌دهد و قانون UFW مربوط به `29001/udp` را دست‌نخورده نگه می‌دارد.
 - GSLT، رمزها و tokenها را داخل GitHub، README، اسکرین‌شات عمومی یا چت ثبت نکن؛ در صورت نیاز فقط در فیلد امن پنل وارد کن.
 
@@ -282,19 +282,96 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 - [ ] مصرف RAM/CPU در حالت Vanilla و در حالت Pluginها جداگانه مقایسه شود.
 - [ ] هیچ فایل VIP ناخواسته‌ای در Manifest یا Instance وجود نداشته باشد.
 
-**این نسخه زمانی برای آزمایش FragCity قبول می‌شود که هم Baseline بازی و هم Plugin/Fun Modeهای منتخب پاس شوند.** تا زمان آماده‌شدن VMDK داده، پلاگین‌ها و configs داخل Volume مستقل همان Instance باقی می‌مانند؛ Shared Base برای فایل‌های بازی طراحی می‌شود، نه برای اشتراک‌گذاری writable پلاگین‌ها یا configs بین مشتریان.
+**ترتیب فعلی PoC:** اول بازی دانلودشده را به‌عنوان Baseline حفظ می‌کنیم، سپس `cs2node` و Shared VPK Base را فعال و Instance دوم را آزمایش می‌کنیم؛ پس از قبولی Multi Instance، CounterStrikeSharp و Plugin/Fun Modeهای FragCity در مرحلهٔ جداگانه نصب می‌شوند. Shared Base فقط برای فایل‌های بازی است؛ پلاگین‌ها و configs نوشتنی هر Instance خصوصی می‌مانند.
 
-## 8. Node daemon و Shared Base — مرحلهٔ بعد، نه الان
+## 8. نصب Node daemon و فعال‌سازی Shared VPK Base
 
-پس از موفقیت اولین سرور مستقل، مرحلهٔ بعد از راهنمای [Install the node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md) پیروی می‌کند. تا آماده‌شدن Storage مستقل، `cs2node install` را اجرا نکن:
+طبق راهنمای رسمی [Install the node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)، Node daemon اختیاری است؛ اما برای Share کردن فایل‌های بازی بین Instanceها به آن نیاز داریم. **VMDK دوم شرط نصب نیست.** فعلاً با فایل‌سیستم فعلی Clone پیش می‌رویم؛ خروجی `df -hT` حدود 182 GB فضای آزاد روی root نشان داده است و مسیر پیش‌فرض Base برابر `/srv/cs2-shared` خواهد بود.
 
-1. VMDK داده فقط به Clone اضافه شود و دستگاه واقعی با `lsblk` و `blkid` شناسایی گردد.
-2. Mount دائمی Storage مشترک طراحی شود. مسیر پیش‌فرض K4ryuu برای Base برابر `/srv/cs2-shared` است؛ اگر هدف جداسازی Storage بازی از دیسک سیستم است، آن را به Storage طراحی‌شده منتقل می‌کنیم.
-3. پس از mount و بررسی ظرفیت، نصب `cs2node` از منبع رسمی و تنظیم `vpksync` انجام شود.
-4. `sudo cs2node doctor` و `sudo cs2node status` بررسی شوند؛ سپس یک Restart کنترل‌شده از پنل انجام شود.
-5. Console باید تشخیص دهد فایل‌های بازی تحت مدیریت Node هستند و در این حالت SteamCMD در هر سرور تکرار نشود. تنها پس از تأیید این رفتار، سقف دیسک حدود 5 GB برای Instanceهای بعدی اعمال شود.
+### 8.1 قبل از نصب
 
-چند سرور را به یک Volume نوشتنیِ مشترک با Mount دستی وصل نکن؛ VPK sync روش مدیریت‌شدهٔ خودش را دارد و نباید با طرح آزمایش‌نشده ترکیب شود.
+1. در پنل، `fc-cs2-test-01` را Stop کن و صبر کن تا کاملاً Offline شود. پنل، Wings و سایر سرویس‌های Node روشن بمانند.
+2. فعلاً فایل‌های بازی را دستی Copy/Move نکن. Egg Go از مسیر رسمی خودش با daemon handshake می‌کند.
+3. توجه کن: بازی که در Volume فعلی دانلود شده **به‌طور خودکار به Shared Base تبدیل نمی‌شود**. اولین اجرای `vpksync` روی Node یک نصب مرکزی با SteamCMD زیر `/srv/cs2-shared` آماده می‌کند؛ در نتیجه برای این تست حدود 35–40 GB دانلود مرکزی یک‌باره هم لازم است. سپس هنگام Start شدن سرور، daemon فایل‌های VPK را با Base مرکزی همگام می‌کند. 182 GB فضای آزاد فعلی برای این تست کافی به نظر می‌رسد.
+4. متغیر Egg را تغییر نده؛ همان Image رسمی `ghcr.io/k4ryuu/cs2-egg-go:stable` باید باقی بماند.
+
+### 8.2 اجرای Installer رسمی K4ryuu
+
+از SSH به Clone، کل بلوک رسمی زیر را اجرا کن:
+
+~~~bash
+curl -fsSL https://github.com/K4ryuu/CS2-Egg-Go/releases/latest/download/cs2node_linux_amd64 -o /tmp/cs2node
+chmod +x /tmp/cs2node
+sudo /tmp/cs2node install
+~~~
+
+این دستورها باینری رسمی را می‌گیرند و Wizard نصب را باز می‌کنند. در Wizard:
+
+- Update channel: `stable`.
+- Auto-update: فعلاً مقدار پیش‌فرض را بپذیر.
+- وقتی فهرست Moduleها می‌آید، برای **`vpksync` پاسخ `y`** بده؛ برای ماژول‌های دیگر فعلاً `n` بده. چون در نصب تازه ممکن است پاسخ پیش‌فرض همهٔ Moduleها Yes باشد، هر پرسش را با دقت پاسخ بده؛ به‌ویژه `guard` را در این مرحله فعال نکن.
+- برای تنظیمات `vpksync` این مقادیر را انتخاب کن:
+
+| پرسش | مقدار |
+|---|---|
+| `steamcmd_dir` | `/root/steamcmd` |
+| `cs2_dir` | `/srv/cs2-shared` |
+| `push_method` | `symlink` |
+| `max_workers` | `8` |
+| `auto_restart` | `y` |
+| `restart_policy` | `empty` |
+| `max_delay_hours` | `12` |
+| `warn_minutes` | `5` |
+| `validate` | `n` |
+| `check_minutes` | `1` |
+
+`symlink` روش پیشنهادی ماست: daemon مسیر مرکزی را read-only داخل Container mount می‌کند و VPKها به آن اشاره می‌کنند. در صورت رسیدن به Summary، قبل از تأیید نهایی مرور کن که فقط `vpksync` روشن است و مسیرها دقیقاً مطابق جدول بالا هستند. اگر Wizard پرسشی غیرمنتظره نشان داد، حدس نزن؛ متن همان پرسش را بفرست.
+
+### 8.3 اولین بررسی پس از نصب
+
+بعد از اتمام Wizard و نصب سرویس، این بلوک را اجرا کن:
+
+~~~bash
+echo "=== cs2node service ==="
+sudo systemctl status cs2node --no-pager
+
+echo
+echo "=== cs2node version ==="
+sudo cs2node version
+
+echo
+echo "=== central files and disk space ==="
+sudo ls -ld /srv/cs2-shared
+df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
+
+echo
+echo "=== cs2node doctor ==="
+sudo cs2node doctor
+
+echo
+echo "=== cs2node status ==="
+sudo cs2node status
+~~~
+
+اولین دانلود Base ممکن است بلافاصله شروع شود؛ لاگ زنده را با `sudo journalctl -u cs2node -f` ببین. تا پایان به‌روزرسانی مرکزی، سرور Pterodactyl را Start نکن. خروجی `doctor`/ `status` را بفرست تا نتیجه و هر warning را بررسی کنیم؛ بعد از تأیید Base، سرور را Start می‌کنیم.
+
+### 8.4 معیار موفقیت VPK Sync
+
+1. `sudo cs2node doctor`، Build ID معتبر و تعداد VPKهای مرکزی را نشان دهد.
+2. پس از Start سرور از پنل، Console این پیام موفق را نمایش دهد:
+
+~~~text
+KitsuneLab | OK | Daemon-managed game files, SteamCMD skipped
+~~~
+
+3. `sudo cs2node status`، اتصال Egg را نشان دهد و خطای Mount نداشته باشیم.
+4. سرور بالا بیاید و Map/اتصال آن آزمایش شود. پس از تأیید واقعی Sync، سهم فضای Volume را بررسی می‌کنیم؛ تا پیش از اثبات موفقیت Sync، Disk Limit را از 40 GB به 5 GB کاهش نده.
+
+### 8.5 ساخت Instance دوم
+
+فقط بعد از قبولی معیارهای بالا، Instance دوم را با همان Egg و Image `stable` و Allocation جداگانه بساز. برای اولین تست از Map/config متفاوت یا تنظیم مستقل استفاده کن و Console را بررسی کن. قرار است دانلود کامل CS2 برای Instance دوم تکرار نشود؛ `cs2node status` و پیام `SteamCMD skipped` را معیار قرار بده.
+
+VMDK دوم بعداً می‌تواند Base را از root جدا کند، ولی برای PoC فعلی ضروری نیست. هیچ‌گاه دو Instance را به یک Volume نوشتنیِ مشترک Mount دستی نکن؛ روش مدیریت‌شدهٔ `vpksync` باید مسئول اشتراک VPKها باشد.
 
 ## 9. وضعیت واقعی و ادامهٔ مرحله‌ای — بررسی 2026-10-19
 
@@ -309,34 +386,14 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 - [x] Volume سرور در میزبان شناسایی شده است: `/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b/`.
 - [ ] وجود و مقدار `buildid` در `game/steamapps/appmanifest_730.acf` هنوز در خروجی ثبت‌شده تأیید نشده است.
 - [ ] آزمون کامل Vanilla (Running، بارگذاری Map، اتصال و Stop/Start) هنوز به‌طور صریح تأیید نشده است.
-- [ ] VMDK دیتای ثانویه هنوز باید به Clone متصل و سپس با `lsblk`/ `blkid` شناسایی شود.
-- [ ] `cs2node`، ماژول `vpksync` و Shared Base هنوز نصب/فعال نشده‌اند.
+- [x] تصمیم گرفته شد برای PoC فعلی از فایل‌سیستم موجود استفاده کنیم؛ VMDK دوم پیش‌نیاز `cs2node`/`vpksync` نیست.
+- [ ] `cs2node`، ماژول `vpksync` و Shared Base هنوز نصب/فعال نشده‌اند؛ نصب مرکزی ممکن است یک دانلود 35–40 GB جداگانه انجام دهد.
 
-### گام بعدی — آماده‌کردن دیسک داده
+### گام بعدی — فعال‌کردن VPK Sync روی Storage فعلی
 
-طبق طرح فعلی FragCity، Shared Base روی Storage جداگانه قرار می‌گیرد تا فضای سیستم با فایل‌های بازی درهم نیامیزد. با اینکه ریشه فعلاً فضای آزاد کافی دارد، تا وقتی دیسک دیتای موردنظر شناسایی نشده، آن را فرمت یا Mount نکن و `cs2node install` را اجرا نکن.
+**الان نیازی به خاموش‌کردن VM یا افزودن VMDK نیست.** مسیر آزمایشی انتخاب‌شده روی همین فایل‌سیستم Debian است، چون حدود 182 GB فضای آزاد گزارش شده است. ابتدا در پنل سرور `fc-cs2-test-01` را Stop کن؛ سپس طبق بخش 8، `cs2node` رسمی را نصب کن و فقط `vpksync` را با `symlink` و مسیر `/srv/cs2-shared` فعال کن.
 
-1. در پنل Pterodactyl، سرور `fc-cs2-test-01` را Stop کن و منتظر Offline شدن آن بمان.
-2. سیستم Clone را با `sudo poweroff` خاموش کن؛ مطمئن شو VM اصلی نیز خاموش می‌ماند.
-3. در VMware Workstation، تنظیمات **Clone VM** را باز کن و دیسک دادهٔ موردنظر را به همین Clone متصل کن. اگر VMDK داده از قبل ساخته شده، همان فایل صحیح را انتخاب کن؛ VMDK سیستم‌عامل یا دیسک VM اصلی را به‌عنوان دیسک داده انتخاب نکن. اگر هویت/محتوای دیسک مشخص نیست، پیش از افزودن/ساخت/حذف چیزی توقف کن و وضعیت فایل‌های VMDK را بررسی کن.
-4. Clone را روشن کن و فقط همین بررسی خواندنی را اجرا کن:
-
-   ~~~bash
-   echo "=== Block devices ==="
-   lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,UUID,MOUNTPOINTS
-
-   echo
-   echo "=== Filesystem UUIDs ==="
-   sudo blkid
-
-   echo
-   echo "=== Root and candidate data-disk space ==="
-   df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
-   ~~~
-
-5. خروجی کامل را بررسی کن. **تا زمانی که دیسک جدید، اندازه و وضعیت فایل‌سیستمش مشخص نشده، هیچ دستور `mkfs`، `fdisk`، `parted`، `wipefs`، `pvcreate` یا Mount دائمی اجرا نکن.** مرحلهٔ بعد از شناسایی امن دیسک، طراحی mount دائمی برای Shared Base است.
-
-پس از تأیید دیسک داده، مراحل نصب `cs2node` طبق منبع رسمی K4ryuu انجام می‌شود؛ در Wizard، ماژول `vpksync` روشن و روش `symlink` انتخاب می‌شود، مسیر `cs2_dir` روی Storage دادهٔ تأییدشده تنظیم می‌شود، و سپس `sudo cs2node doctor` / `sudo cs2node status` بررسی خواهند شد. این کارها هنوز اجرا نشده‌اند.
+به خاطر داشته باش که Egg بازی فعلی را داخل Volume خودش دانلود کرده است؛ این به معنای ساخته‌شدن Base مرکزی نیست. اولین به‌روزرسانی `vpksync` با SteamCMD نسخهٔ مرکزی جداگانه‌ای آماده می‌کند؛ این رفتار در راهنمای رسمی K4ryuu شرح داده شده است. پس از پایان دانلود مرکزی، `doctor` و `status` را بررسی کن و فقط بعد از دریافت خروجی، سرور را Start و پیام `Daemon-managed game files, SteamCMD skipped` را تأیید می‌کنیم.
 
 ### منابع رسمی
 
