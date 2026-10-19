@@ -245,156 +245,87 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 
 این فصل با مستندات رسمی K4ryuu تطبیق داده شده است: [Install](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md)، [Node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)، [VPK Sync](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/vpk-sync.md)، [Node config](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)، [Protocol](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/protocol.md)، [Security](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/security.md) و [Troubleshooting](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/troubleshooting.md).
 
-### تصمیم معماری
+### تصمیم معماری — دانلود تازه از SteamCMD
 
-- Egg رسمی **KitsuneLab CS2 Go @ K4ryuu** انتخاب درستی است؛ این Egg/image کلاینت پروتکل cs2node را دارد و هنگام boot منتظر نتیجهٔ VPK Sync می‌ماند. Egg standalone فقط برای حالتی است که اصلاً daemon نمی‌خواهیم؛ برای Multi Instance ما همان Egg کامل لازم است.
-- cs2node روی خود Debian اجرا می‌شود. ماژول vpksync فایل‌های مرکزی بازی را با Volume هر Instance همگام می‌کند. در روش symlink، VPKها به Base مرکزی read-only لینک می‌شوند؛ فایل‌های عادی لازم نیز sync می‌شوند و cfg/gameinfo برای هر Instance طبق منطق Egg محافظت می‌شوند.
-- برای PoC از فایل‌سیستم فعلی استفاده می‌کنیم؛ حدود 182 GB فضای آزاد root گزارش شده است. VMDK دوم شرط لازم نیست.
-- پیش از دانلود دوبارهٔ کامل، بررسی می‌کنیم آیا نصب فعلی می‌تواند seed نسخهٔ مرکزی /srv/cs2-shared شود. این seed کردن، مرحلهٔ بهینه‌سازی محلی FragCity است (نه روال اصلی‌ای که مستندات K4ryuu به‌صورت خودکار انجام می‌دهند)؛ فقط وقتی manifest و فایل‌های نصب کامل باشند انجام می‌شود. اگر بررسی شکست بخورد، از نصب مرکزی معمول SteamCMD استفاده می‌کنیم.
-- فایل‌های نصب فعلی را Move نمی‌کنیم. ابتدا با rsync یک کپی مستقل می‌سازیم تا اگر seed یا SteamCMD ناموفق بود، Volume فعلی قابل بازیابی بماند.
+- طبق تصمیم کاربر، **هیچ فایل بازی از Windows یا از Volume فعلی Pterodactyl به Shared Base کپی/Seed نمی‌شود**. پوشهٔ `/srv/cs2-shared` باید با `cs2node` و SteamCMD از ابتدا آماده شود.
+- Instance فعلی `fc-cs2-test-01` را حذف نکن؛ در پنل Offline نگهش دار. Volume موجود صرفاً برای عیب‌یابی/بازیابی حفظ می‌شود و منبع Base مرکزی نیست.
+- از Egg کامل **KitsuneLab CS2 Go @ K4ryuu** استفاده می‌کنیم؛ این Egg با پروتکل cs2node سازگار است. Egg standalone انتخاب نشود.
+- `cs2node` روی Debian به‌عنوان سرویس host اجرا می‌شود؛ ماژول `vpksync` یک نصب مرکزی تولید می‌کند و VPKها را به‌شکل read-only از Base می‌دهد. configs و فایل‌های نوشتنی هر Instance خصوصی می‌مانند.
+- PoC فعلاً روی فایل‌سیستم فعلی با حدود 182 GB فضای آزاد انجام می‌شود؛ VMDK دوم لازم نیست.
+- مرحلهٔ فعلی فقط اثبات Fresh Base، اتصال Instance اول و بعد Instance دوم است. CounterStrikeSharp و پلاگین‌های FragCity را قبل از قبولی این آزمون نصب نکن.
 
-### 8.1 — تفسیر نصب موجود و آماده‌کردن منبع ویندوز
+### 8.1 — پیش‌بررسی قبل از نصب daemon
 
-بازرسی انجام‌شده در 2026-10-19 کامل است؛ حجم 69 GB یک خطا محسوب نمی‌شود و دیگر لازم نیست برای توضیح آن اسکن جداگانه اجرا شود. خروجی گزارش‌شده:
-
-- `game/csgo`: حدود 61 GB؛ `game/csgo/maps`: حدود 9.6 GB.
-- `game/csgo_community_addons`: حدود 6.4 GB؛ این مسیر محتوای Community/Workshop را نگه می‌دارد.
-- کل فایل‌های VPK داخل `game/`: تعداد 739 و مجموع 67.75 GiB؛ تعداد symlink برابر صفر بود.
-- Manifest لینوکسی موجود در `$VOL/steamapps/appmanifest_730.acf`: appid=730، StateFlags=4 و buildid=25966348.
-- `/srv/cs2-shared` هنوز ساخته نشده و `cs2node` هنوز نصب نیست.
-
-**روش انتخاب‌شده:** نصب فعلیِ دانلودشده روی Debian پایهٔ مورداعتماد برای فایل‌های بازی و manifest باقی می‌ماند؛ فایل‌های Windows برای اضافه‌کردن Library کامل Workshop استفاده می‌شوند. این کار از جایگزین‌شدن تصادفی runtime/باینری‌های لینوکس با فایل‌های ویندوز جلوگیری می‌کند. `steamapps`، `Steam`، `.steam`، `steamcmd` یا فایل‌های اجرایی/کتابخانه‌های Windows را از نصب Windows به Shared Base کپی نکن. پس از آماده‌شدن Base، `cs2node`/SteamCMD مسئول بررسی و تکمیل فایل‌های نصب مرکزی خواهد بود.
-
-### 8.2 — اشتراک‌گذاری فقط‌خواندنی نصب Windows و بررسی محتوای Workshop
-
-در Windows، از Steam روی Counter-Strike 2 برو به **Properties → Installed Files → Browse** تا مسیر واقعی نصب را ببینی. در تنظیمات همان Clone در VMware Workstation، بخش **Options → Shared Folders** را باز کن، Shared Folders را روی **Always enabled** بگذار و ریشهٔ نصب بازی را به‌عنوان Folder جدید با نام `CS2WIN` اضافه کن. گزینهٔ **Read-only** را فعال کن؛ لازم نیست کل Steam Library یا کل درایو Windows را Share کنی.
-
-در SSH روی Debian فقط بررسی کن که Share و ساختار آن دیده می‌شوند؛ هنوز هیچ کپی‌ای انجام نده:
+1. در پنل Pterodactyl مطمئن شو `fc-cs2-test-01` وضعیت **Offline** دارد. آن را Delete یا Reinstall نکن.
+2. در SSH این بلوک فقط‌خواندنی را اجرا کن. اگر `/srv/cs2-shared` وجود دارد و خالی نیست، آن را پاک نکن و ادامه نده؛ خروجی را بفرست.
 
 ~~~bash
-set -eu
-WINROOT="/mnt/hgfs/CS2WIN"
-VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
-
-echo "=== VMware shared folders ==="
-ls -lah /mnt/hgfs 2>/dev/null || true
-findmnt -t fuse.vmhgfs-fuse || true
+echo "=== Existing cs2node ==="
+command -v cs2node || true
+sudo systemctl is-active cs2node 2>/dev/null || true
 
 echo
-echo "=== Windows CS2 source root ==="
-if [ ! -d "$WINROOT/game" ]; then
-  echo "STOP: $WINROOT/game not found; do not copy anything."
-  exit 1
-fi
-ls -lah "$WINROOT"
-echo
-echo "=== Windows game folders ==="
-for p in "$WINROOT/game/csgo" "$WINROOT/game/csgo_community_addons" "$WINROOT/game/csgo/maps"; do
-  if [ -d "$p" ]; then
-    sudo du -sh "$p"
-    sudo find "$p" -maxdepth 2 -type d | head -n 25
-  else
-    echo "MISSING: $p"
-  fi
-done
-
-echo
-echo "=== Windows Workshop VPK count and total bytes ==="
-if [ -d "$WINROOT/game/csgo_community_addons" ]; then
-  sudo find "$WINROOT/game/csgo_community_addons" -type f -name '*.vpk' -printf '%s\n' |
-    awk '{bytes += $1; count++} END {printf "count=%d total_GiB=%.2f\n", count, bytes/1024/1024/1024}'
+echo "=== Existing central base ==="
+if sudo test -d /srv/cs2-shared; then
+  sudo ls -lah /srv/cs2-shared
+  sudo du -sh /srv/cs2-shared
+  sudo find /srv/cs2-shared -mindepth 1 -maxdepth 1 -printf '%f\t%y\n' | head -n 30
+else
+  echo "/srv/cs2-shared does not exist"
 fi
 
 echo
-echo "=== Current free space ==="
+echo "=== Free space and kernel ==="
 df -hT /
-echo
-echo "=== Current server workshop folder ==="
-sudo du -sh "$VOL/game/csgo_community_addons" 2>/dev/null || true
+uname -r
 ~~~
 
-اگر Share مسیر متفاوتی دارد، `game/` پیدا نمی‌شود یا `csgo_community_addons` روی Windows وجود ندارد، متوقف شو و خروجی را بفرست. مسیر را حدس نزن و هنوز `rsync`، نصب `cs2node` یا ایجاد Base را اجرا نکن.
+### 8.2 — دریافت باینری رسمی cs2node
 
-### 8.2.1 — روش Seed پس از تأیید خروجی Share
-
-فقط پس از اینکه مسیر Windows و حجم واقعی Workshop را دیدیم، کار کپی انجام می‌شود. سرور `fc-cs2-test-01` باید کاملاً **Offline** باشد و `/srv/cs2-shared` نباید قبلاً دادهٔ ناشناخته داشته باشد.
-
-ابتدا نسخهٔ مستقل Base را از نصب Linux فعلی و manifest خودش بساز؛ Volume اصلی را Move/Delete نکن:
-
-~~~bash
-set -eu
-VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
-BASE="/srv/cs2-shared"
-
-sudo test -d "$VOL/game/csgo" || { echo "STOP: Linux source game missing"; exit 1; }
-sudo test -f "$VOL/steamapps/appmanifest_730.acf" || { echo "STOP: Linux appmanifest missing"; exit 1; }
-if sudo test -d "$BASE" && [ -n "$(sudo find "$BASE" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
-  echo "STOP: $BASE is non-empty; inspect it before copying"
-  exit 1
-fi
-
-sudo mkdir -p "$BASE/game" "$BASE/steamapps"
-sudo rsync -a --chown=root:root --info=progress2 "$VOL/game/" "$BASE/game/"
-sudo rsync -a --chown=root:root --info=progress2 "$VOL/steamapps/" "$BASE/steamapps/"
-~~~
-
-بعد از تأیید مسیر و موجودبودن کامل Workshop روی Windows، محتوای پوشهٔ Workshop را با Merge غیرحذفی به Base اضافه کن. **از `--delete` استفاده نکن** و پوشهٔ `game/` را از Windows به‌صورت کامل روی نسخهٔ Linux جایگزین نکن:
-
-~~~bash
-set -eu
-WINROOT="/mnt/hgfs/CS2WIN"
-BASE="/srv/cs2-shared"
-SRC="$WINROOT/game/csgo_community_addons"
-DST="$BASE/game/csgo_community_addons"
-
-sudo test -d "$SRC" || { echo "STOP: Windows Workshop source missing"; exit 1; }
-sudo test -f "$BASE/steamapps/appmanifest_730.acf" || { echo "STOP: Linux appmanifest missing from Base"; exit 1; }
-
-sudo mkdir -p "$DST"
-sudo rsync -a --chown=root:root --info=progress2 "$SRC/" "$DST/"
-
-echo
-echo "=== Shared Base result ==="
-sudo grep -E '"(appid|buildid|StateFlags)"' "$BASE/steamapps/appmanifest_730.acf"
-sudo du -sh "$BASE/game" "$BASE/game/csgo_community_addons" "$BASE/steamapps"
-sudo find "$BASE/game/csgo_community_addons" -type f -name '*.vpk' | wc -l
-df -hT /
-~~~
-
-این Merge فایل‌های موجود روی Base را که در Share ویندوز نیستند حذف نمی‌کند. قبل از نصب daemon، Build ID و تعداد/حجم Workshop نهایی باید ثبت شود. در اولین راه‌اندازی central SteamCMD ممکن است دانلود افزایشی/اصلاح فایل‌ها انجام دهد؛ جلوگیری از هرگونه دانلود تضمین‌شده نیست.
-
-### 8.3 گام سوم — نصب رسمی cs2node
-
-فقط پس از بررسی 8.1 و در صورت امکان تکمیل seed مرحلهٔ 8.2، Installer رسمی را اجرا کن:
+پس از تأیید اینکه سرویس نصب نیست و Base قبلی/دادهٔ ناشناخته‌ای در مقصد وجود ندارد، این دستورها را اجرا کن:
 
 ~~~bash
 curl -fsSL https://github.com/K4ryuu/CS2-Egg-Go/releases/latest/download/cs2node_linux_amd64 -o /tmp/cs2node
 chmod +x /tmp/cs2node
+file /tmp/cs2node
+~~~
+
+اگر `curl` یا `file` خطا داد، قبل از اجرا خروجی را بفرست.
+
+### 8.3 — اجرای Wizard و تنظیم Fresh Base
+
+حالا Installer را به‌شکل تعاملی اجرا کن؛ از `--yes` استفاده نکن، چون همهٔ پیش‌فرض‌های Moduleها را بدون پرسیدن می‌پذیرد:
+
+~~~bash
 sudo /tmp/cs2node install
 ~~~
 
-در پرسش Proceed? پاسخ y بده؛ سپس:
-- Update channel: stable
-- Auto-update: y
-- فقط vpksync را فعال کن (y).
-- برای guard، alerts، addoncache، workshop، backup، cleanup، crashes، consolelog و metrics فعلاً n بزن. در نصب تازه پیش‌فرض فعال‌سازی Moduleها ممکن است Yes باشد؛ Enter خالی نزن.
+مقادیر موردنظر FragCity:
 
-تنظیمات vpksync:
+- **Proceed:** `y`
+- **Update channel:** `stable`
+- **Auto-update:** `y`
+- **Moduleها:** فقط `vpksync` را `y` کن؛ برای `guard`، `alerts`، `addoncache`، `workshop`، `backup`، `cleanup`، `crashes`، `consolelog` و `metrics` در این PoC مقدار `n` بده. Enter خالی نزن، چون بعضی پیش‌فرض‌ها ممکن است روشن باشند. ماژول Workshop را بعد از اثبات Base و Multi Instance جداگانه ارزیابی می‌کنیم.
+- در تنظیمات `vpksync` این مقادیر را وارد کن:
 
-| پرسش | مقدار FragCity |
+| پرسش | مقدار |
 |---|---|
-| steamcmd_dir | /root/steamcmd |
-| cs2_dir | /srv/cs2-shared |
-| push_method | symlink |
-| max_workers | 8 |
-| auto_restart | y |
-| restart_policy | empty |
-| max_delay_hours | 12 |
-| warn_minutes | 5 |
-| validate | n |
-| check_minutes | 60 |
+| `steamcmd_dir` | `/root/steamcmd` |
+| `cs2_dir` | `/srv/cs2-shared` |
+| `push_method` | `symlink` |
+| `max_workers` | `8` |
+| `auto_restart` | `y` |
+| `restart_policy` | `empty` |
+| `max_delay_hours` | `12` |
+| `warn_minutes` | `5` |
+| `validate` | `n` |
+| `check_minutes` | `60` |
 
-check_minutes برابر 60 تنظیم FragCity برای بررسی ساعتی است؛ پیش‌فرض upstream یک دقیقه است. restart_policy روی empty می‌ماند تا سرور ترجیحاً هنگام خالی بودن restart شود. پیش از نصب نهایی، Summary را چک کن: فقط vpksync روشن باشد و Base دقیقاً /srv/cs2-shared باشد. اگر prompt متفاوت بود، حدس نزن؛ همان prompt را بفرست.
+`check_minutes=60` انتخاب FragCity برای بررسی ساعتی است؛ پیش‌فرض upstream یک دقیقه است. `restart_policy=empty` اجازه می‌دهد بعد از Update تا خالی‌شدن سرور یا رسیدن مهلت صبر شود.
+
+**قبل از تأیید Summary** مطمئن شو فقط `vpksync` فعال است و `cs2_dir` برابر `/srv/cs2-shared` است. اگر prompt با جدول فرق داشت یا دربارهٔ overwrite/مهاجرت از نصب موجود پرسید، حدس نزن و همان prompt را بفرست.
+
+پس از تکمیل Wizard، `cs2node` ممکن است SteamCMD را به‌صورت خودکار اجرا و نصب مرکزی را از نو دانلود کند. این بار حجم و مدت دانلود را از لاگ واقعی ثبت می‌کنیم؛ هیچ فایل بازی از Windows یا Volume فعلی برای کوتاه‌کردن دانلود استفاده نمی‌شود.
 
 ### 8.4 گام چهارم — بررسی daemon و Base مرکزی
 
@@ -510,15 +441,15 @@ VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را
 - [x] تصمیم گرفته شد برای PoC فعلی از فایل‌سیستم موجود استفاده کنیم؛ VMDK دوم پیش‌نیاز `cs2node`/`vpksync` نیست.
 - [ ] `cs2node`، ماژول `vpksync` و Shared Base هنوز نصب/فعال نشده‌اند؛ در اولین Update مرکزی ممکن است SteamCMD دانلود افزایشی یا فایل‌های مخصوص پلتفرم را دریافت کند. میزان واقعی را از لاگ و Build ID ثبت می‌کنیم و دانلودنشدن کامل را تضمین نمی‌کنیم.
 
-### پنج گام بعدی — اتصال منبع Windows و بررسی Workshop
+### پنج گام بعدی — Fresh Download و نصب cs2node
 
-خروجی فقط‌خواندنیِ ارسال‌شده در 2026-10-19 نشان داد حجم 69 GB قابل توضیح است: `game/csgo` حدود 61 GB، `game/csgo/maps` حدود 9.6 GB و `game/csgo_community_addons` حدود 6.4 GB است. در مجموع 739 فایل VPK برابر با 67.75 GiB دیده شده و Symlink فعلی صفر است. این عدد را نقص فرض نکنیم؛ مرحلهٔ بعد استفاده از محتوای Windows برای کامل‌کردن Workshop است.
+بازرسی read-only انجام‌شده در 2026-10-19 ثبت شد: `game/csgo` حدود 61 GB، `game/csgo/maps` حدود 9.6 GB، `game/csgo_community_addons` حدود 6.4 GB، و 739 فایل VPK با مجموع 67.75 GiB؛ حجم 69 GB را خطا فرض نمی‌کنیم. طبق تصمیم جدید کاربر، این فایل‌ها نه از Windows و نه از Volume موجود Seed نمی‌شوند؛ Base مرکزی باید با SteamCMD تازه دانلود شود.
 
-1. در Steam روی Windows از **Counter-Strike 2 → Properties → Installed Files → Browse** مسیر واقعی بازی را پیدا کن.
-2. تنظیمات VMware مربوط به **Clone** را باز کن: Options → Shared Folders → Always enabled → Add؛ ریشهٔ نصب بازی را با نام `CS2WIN` اضافه کن و حتماً Read-only را فعال کن. کل درایو را Share نکن.
-3. داخل Debian، ابتدا `/mnt/hgfs/CS2WIN/game` را بررسی کن. اگر مسیر پیدا نشد، هیچ کپی‌ای انجام نده.
-4. فرمان بازرسی read-only بخش 8.2 را اجرا کن تا ساختار `csgo_community_addons`، حجم آن، تعداد VPKها و فضای آزاد دیسک مشخص شود.
-5. خروجی را بفرست. فعلاً `/srv/cs2-shared` را نساز، `rsync` اجرا نکن و `cs2node` را نصب نکن؛ پس از تأیید ساختار و فضای لازم، Seed لینوکسی و Merge محتوای Workshop را مرحله‌ای انجام می‌دهیم.
+1. سرور `fc-cs2-test-01` را در پنل Offline نگه دار و حذف نکن.
+2. فرمان پیش‌بررسی بخش 8.1 را اجرا کن؛ اگر `/srv/cs2-shared` از قبل non-empty است، هیچ چیز پاک نکن.
+3. باینری رسمی cs2node را طبق بخش 8.2 بگیر و `file /tmp/cs2node` را بررسی کن.
+4. Wizard را طبق بخش 8.3 اجرا کن: فقط `vpksync`، مسیر `/srv/cs2-shared` و روش `symlink`.
+5. بعد از تمام‌شدن Wizard، سرور را Start نکن؛ خروجی تنظیمات/وضعیت سرویس را بفرست تا دانلود مرکزی را با `journalctl` و `cs2node doctor/status` بررسی کنیم.
 
 ### منابع رسمی
 
