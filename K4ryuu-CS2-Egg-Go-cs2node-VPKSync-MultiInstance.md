@@ -649,7 +649,7 @@ ps -eo pid,etime,stat,args | grep -E '[s]teamcmd|[l]inux32/steamcmd|[l]inux64/st
 
 ## 15. ادامهٔ نصب بعد از توقف یا خطا
 
-این بخش برای هر Node قابل استفاده است؛ وضعیت یک VM یا IP مشخص را ثبت نمی‌کند.
+این بخش برای هر Node قابل استفاده است؛ وضعیت یک VM یا IP مشخص را ثبت نمی‌کند. وضعیت زندهٔ PoC فعلی، از جمله بررسی 58 GiB داده و پردازش فعال SteamCMD، در [checkpoint عملیاتی جداگانه](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) ثبت می‌شود تا این آموزش عمومی و قابل‌استفاده برای Nodeهای دیگر بماند.
 
 1. اگر روی Debian amd64 پیام `cannot execute: required file not found` و `exit status 127` دیدی، به بخش 2 برگرد و وجود `i386` و بسته‌های `libc6:i386`، `libstdc++6:i386` و `libgcc-s1:i386` را بررسی کن.
 2. اگر `cs2node` فعال است اما `central build` خالی است، وجود دایرکتوری را موفقیت نصب حساب نکن. `sudo cs2node doctor`، `sudo cs2node status`، Journal، پردازش‌های SteamCMD و رشد `/srv/cs2-shared` را بررسی کن.
