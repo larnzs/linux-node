@@ -645,28 +645,27 @@ SCRIPT
 5. دیسک تازه را با تطبیق اندازه، type، filesystem و mountpoint شناسایی کن. نام دستگاه را حدس نزن؛ ممکن است /dev/sdb باشد اما تضمینی نیست.
 6. تا وقتی دیسک جدید با اطمینان از دیسک root جدا تشخیص داده و تأیید نشده، هیچ mkfs، partitioning، mount یا ویرایش /etc/fstab اجرا نکن. دستورات formatting عمداً در این سند نیامده‌اند؛ بعد از ارائهٔ خروجی lsblk و blkid دربارهٔ دستگاه واقعی تصمیم می‌گیریم.
 
-## 13. محدودهٔ تست CS2-Egg-Go و Shared Base
+## 13. ادامهٔ PoC: دانلود مستقل CS2 با cs2node
 
-این Clone صرفاً محل آزمایش است؛ VM اصلی خاموش می‌ماند. طبق تصمیم کاربر در 2026-10-19، ابتدا یک Instance پایه با Egg رسمی K4ryuu و بدون Node daemon تست می‌شود. این ترتیب با مستند رسمی K4ryuu هماهنگ است و می‌تواند حدود 40 GB از Volume معمول Pterodactyl مصرف کند؛ پیش از Start باید فضای آزاد بررسی شود. راهنمای اختصاصی: [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md).
+این بخش برای Clone با IP `192.168.1.9` است. در تمام مدت تست، VM اصلی با IP `192.168.1.7` خاموش بماند.
 
-**VMDK دادهٔ دوم برای PoC فعلی پیش‌نیاز Shared Base نیست.** با حدود 182 GB فضای آزاد گزارش‌شده روی root، طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) ابتدا `cs2node` و `vpksync` روی مسیر پیش‌فرض `/srv/cs2-shared` نصب و تست می‌شوند. بخش افزودن VMDK در این runbook فقط وقتی لازم است که بعداً بخواهیم Storage بازی را از root جدا کنیم.
+طبق تصمیم کاربر، **فایل‌های بازی از Windows و از Volume فعلی Pterodactyl به Shared Base کپی نمی‌شوند**. Base مرکزی باید توسط `cs2node`/SteamCMD از ابتدا دانلود شود. Volume موجود `fc-cs2-test-01` را حذف نکن؛ فقط در پنل Offline نگهش دار.
 
-ترتیب اجرایی PoC موردنظر:
+ترتیب اجرا:
 
-1. Egg رسمی وارد شده و اولین Instance fc-cs2-test-01 ساخته شده؛ کاربر پایان دانلود اولیه را گزارش کرده است.
-2. نصب Linux بررسی شد: manifest در مسیر /var/lib/pterodactyl/volumes/<UUID>/steamapps/appmanifest_730.acf دارای appid=730، StateFlags=4 و buildid=25966348 است. تعداد 739 VPK با مجموع 67.75 GiB یافت شد؛ game/csgo حدود 61 GB، maps حدود 9.6 GB و csgo_community_addons حدود 6.4 GB هستند. حجم 69 GB به‌تنهایی خطا نیست.
-3. در VMware Shared Folders پوشهٔ ریشهٔ نصب Windows CS2 را با نام CS2WIN و حالت Read-only به Clone اضافه کن. فقط ساختار و حجم game/csgo_community_addons و تعداد VPKهایش را بررسی کن؛ هنوز هیچ کپی انجام نده.
-4. پس از تأیید ساختار منبع، game/ و steamapps/ را از نصب Linux فعلی به /srv/cs2-shared کپی کن و محتوای csgo_community_addons از Windows را با rsync غیرحذفی Merge کن. Volume را Move/Delete نکن و Windows game/bin یا Windows manifest/steamapps را جایگزین نکن.
-4. نصب cs2node روی همان فایل‌سیستم فعلی؛ VMDK دوم برای PoC لازم نیست.
-5. در Wizard فقط vpksync را فعال کن و cs2_dir=/srv/cs2-shared, push_method=symlink بگذار؛ مسیر و فایل‌های دیگر در راهنمای ساخت سرور آمده‌اند.
-6. cs2node doctor و cs2node status را تأیید کن؛ سپس سرور اول را Start کن و Console با پیام Daemon-managed game files, SteamCMD skipped را ببین.
-7. Instance دوم را با همان Egg کامل و Allocation آزاد مجزا بساز؛ مطمئن شو Console می‌گوید SteamCMD skipped.
-8. فقط بعد از قبولی VPK Sync و Instance دوم، CounterStrikeSharp/MetaMod و سپس پلاگین‌های Fun Mode منتخب را مرحله‌ای نصب کن. configs و addons writable هر Instance مستقل بمانند؛ محتوای VIP حذف‌شده برنگردد.
-9. (اختیاری برای Production) VMDK داده را فقط به Clone اضافه کن، با lsblk و blkid شناسایی کن و پیش از تأیید آن را فرمت نکن؛ Mount و تنظیم cs2_dir باید هماهنگ باشند.
+1. در پنل مطمئن شو `fc-cs2-test-01` Offline است.
+2. فرمان‌های پیش‌بررسی بخش 8.1 در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) را اجرا کن. اگر `/srv/cs2-shared` وجود دارد و non-empty است، آن را پاک نکن و ادامه نده.
+3. باینری رسمی را با دستورهای بخش 8.2 بگیر و `file /tmp/cs2node` را بررسی کن.
+4. `sudo /tmp/cs2node install` را اجرا کن و Wizard بخش 8.3 را کامل کن: channel=stable، auto-update=y، فقط `vpksync` روشن، `cs2_dir=/srv/cs2-shared`، `push_method=symlink` و سایر تنظیمات طبق جدول.
+5. اجازه بده SteamCMD مرکزی فایل‌های Base را از ابتدا دانلود/آماده کند. هیچ Windows Shared Folder یا rsync/Seed در این مسیر لازم نیست.
+6. پس از اتمام دانلود، `cs2node doctor` و `cs2node status` را اجرا کن و build ID، VPK count، فضای دیسک و لاگ را بررسی کن.
+7. فقط پس از قبولی Base مرکزی، سرور اول را Start کن و در Console پیام `Daemon-managed game files, SteamCMD skipped` را تأیید کن.
+8. Instance دوم را با همان Egg کامل و Allocation آزاد جدا بساز. پیش از قبولی Shared Base، سراغ پلاگین‌های KUS/FragCity نرو.
+9. (اختیاری برای Production) VMDK داده را فقط به Clone اضافه کن، با `lsblk` و `blkid` شناسایی کن و پیش از تأیید آن را فرمت نکن؛ mount و تنظیم `cs2_dir` باید هماهنگ باشند.
 10. مصرف دیسک، Map/Console، Stop/Start، Update، Backup/Restore و جدایی configهای Instanceها را اندازه‌گیری و مستند کن.
 
 مراجع فنی برای ادامه:
-- معماری FragCity Multi-Instance: https://github.com/larnzs/FragCity-RawPHPbackend/blob/main/docs/CS2-MULTI-INSTANCE.md
+- راهنمای ساخت سرور و cs2node: https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md
 - CS2-Egg-Go: https://github.com/K4ryuu/CS2-Egg-Go
 - مستند Mountهای سفارشی Pterodactyl: https://docs.pterodactyl.io/v1/guides/configuration/mounts
 - مستند Linux OverlayFS: https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html
@@ -691,12 +690,13 @@ SCRIPT
 - [x] Egg رسمی CS2-Egg-Go وارد شده و اولین Instance `fc-cs2-test-01` ساخته شده است؛ کاربر پایان دانلود اولیه را گزارش کرده است.
 - [x] خروجی اولیه نشان داد Kernel `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB است.
 - [x] Volume فعلی manifest با appid=730، StateFlags=4، buildid=25966348 و 739 فایل VPK دارد؛ /srv/cs2-shared هنوز وجود ندارد و cs2node نصب نیست.
-- [x] بازرسی read-only پایان یافت: game/csgo حدود 61 GB، game/csgo/maps حدود 9.6 GB، game/csgo_community_addons حدود 6.4 GB و مجموع VPKها 67.75 GiB؛ حجم 69 GB مشکل تلقی نمی‌شود.
-- [ ] پوشهٔ نصب Windows از طریق VMware Shared Folders با نام CS2WIN و حالت Read-only اضافه و محتوای Workshop آن به‌صورت read-only بررسی شود.
-- [ ] پس از تأیید منبع، Seed نصب Linux موجود به /srv/cs2-shared و Merge غیرحذفی پوشهٔ Windows game/csgo_community_addons؛ هنوز انجام نشده است.
-- [ ] نصب `cs2node` و فعال‌کردن `vpksync` روی Storage فعلی؛ VMDK دوم برای این PoC لازم نیست.
+- [x] بازرسی read-only پایان یافت: game/csgo حدود 61 GB، game/csgo/maps حدود 9.6 GB، game/csgo_community_addons حدود 6.4 GB و مجموع VPKها 67.75 GiB؛ حجم 69 GB خطا تلقی نمی‌شود.
+- [x] تصمیم گرفته شد فایل‌های بازی از Windows یا Volume فعلی برای Seed استفاده نشوند؛ Shared Base باید از ابتدا با SteamCMD دانلود شود.
+- [ ] پیش‌بررسی بخش 8.1 راهنمای server-creation؛ `fc-cs2-test-01` در حالت Offline بماند.
+- [ ] نصب رسمی `cs2node` با تنها `vpksync` فعال و `cs2_dir=/srv/cs2-shared`.
+- [ ] دانلود تازهٔ Base مرکزی، بررسی `cs2node doctor/status` و قبولی پیام SteamCMD skipped؛ VMDK دوم برای این PoC لازم نیست.
 - [ ] پس از قبولی Shared Base و Instance دوم، CounterStrikeSharp/MetaMod و پلاگین‌های Fun Mode منتخب طبق بخش 9 راهنمای ساخت سرور نصب و تأیید شوند؛ configs و addons هر Instance مستقل بمانند.
 - [ ] پس از قبولی PoC، در صورت نیاز VMDK داده جداگانه به Clone اضافه و شناسایی شود؛ این کار برای نصب اولیهٔ Shared Base الزامی نیست.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone با IP 192.168.1.9 و hostname fc-node-01 موقتاً جای VM اصلی را گرفته است. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. هشدار جداگانهٔ systemd-analyze verify دربارهٔ PIDFile مسیر قدیمی wings.service هنوز برای بررسی مستقل باقی است. پورت 29001/udp را تغییر نده. اولین Instance fc-cs2-test-01 ساخته شده و پایان دانلود گزارش شده است. manifest با appid=730، buildid=25966348، تعداد 739 VPK و مجموع 67.75 GiB تأیید شده است؛ game/csgo حدود 61 GB، maps حدود 9.6 GB و community_addons حدود 6.4 GB هستند. مرحلهٔ جاری: Windows CS2 root به‌صورت Read-only در VMware Shared Folders با نام CS2WIN اضافه شود و محتوای Workshop آن فقط‌خواندنی بررسی شود؛ هنوز Seed/rsync و نصب cs2node انجام نشده‌اند. VMDK دوم برای PoC لازم نیست. بعد از قبولی VPK Sync و Instance دوم، Framework و Plugin/Fun Mode آزمایش می‌شوند. VM اصلی تا پایان تست خاموش بماند؛ تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
+**آخرین checkpoint:** Clone با IP 192.168.1.9 و hostname fc-node-01 موقتاً جای VM اصلی را گرفته است. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. هشدار جداگانهٔ systemd-analyze verify دربارهٔ PIDFile مسیر قدیمی wings.service هنوز برای بررسی مستقل باقی است. پورت 29001/udp را تغییر نده. اولین Instance fc-cs2-test-01 ساخته شده و پایان دانلود گزارش شده است. manifest با appid=730، buildid=25966348، تعداد 739 VPK و مجموع 67.75 GiB تأیید شده است؛ game/csgo حدود 61 GB، maps حدود 9.6 GB و community_addons حدود 6.4 GB هستند. طبق تصمیم کاربر، از فایل‌های Windows یا Volume موجود برای Seed استفاده نمی‌شود. مرحلهٔ جاری نصب cs2node با vpksync و دانلود تازهٔ Shared Base از SteamCMD است؛ هنوز cs2node نصب نشده است. VMDK دوم برای PoC لازم نیست. بعد از قبولی VPK Sync و Instance دوم، Framework و Plugin/Fun Mode آزمایش می‌شوند. VM اصلی تا پایان تست خاموش بماند؛ تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
