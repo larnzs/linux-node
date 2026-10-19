@@ -272,30 +272,75 @@ sudo cs2node status
 
 Base فقط وقتی آماده محسوب می‌شود که Manifest با appid=730 و Build ID وجود داشته باشد، فایل‌های بازی/VPKها حاضر باشند و cs2node doctor/status نبودن Base را گزارش نکند. صرف وجود /srv/cs2-shared کافی نیست.
 
-### 7.2 اگر Base هنوز خالی است
+### 7.2 اگر Base هنوز خالی است یا دانلود کامل به نظر نمی‌رسد
 
-اگر build=0، Manifest غایب یا VPK count صفر است، سرور را Start نکن و هیچ فایل یا پوشه‌ای را پاک نکن. این بلوک فقط‌خواندنی را اجرا کن:
+اگر central build خالی است، Build ID صفر است یا VPK count صفر نشان داده می‌شود، سرور بازی را Start نکن و هیچ فایلی را حذف نکن. این بلوک فقط‌خواندنی است و هم‌زمان کمک می‌کند بفهمی فایل‌ها هنوز در پوشهٔ موقت دانلود Steam هستند یا خیر.
 
 ~~~bash
+BASE="/srv/cs2-shared"
+
 echo "=== Recent journal ==="
 sudo journalctl -u cs2node -n 120 --no-pager -o short-iso
 
 echo
 echo "=== SteamCMD processes ==="
 ps -eo pid,etime,stat,%cpu,%mem,args |
-  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
+  grep -E '[s]teamcmd\\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
 
 echo
 echo "=== Directory sizes ==="
-sudo du -sh /root/steamcmd /root/Steam /srv/cs2-shared 2>/dev/null || true
+sudo du -sh /root/steamcmd /root/Steam "$BASE" 2>/dev/null || true
 
 echo
-echo "=== Central files ==="
-sudo find /srv/cs2-shared -maxdepth 3 -type f \
-  -printf '%s\t%p\n' 2>/dev/null | head -n 50
+echo "=== Size by central subdirectory ==="
+sudo du -xhd2 "$BASE" 2>/dev/null | sort -h | tail -n 40
+
+echo
+echo "=== Steam depot staging directories ==="
+if sudo test -d "$BASE/steamapps"; then
+  sudo find "$BASE/steamapps" -maxdepth 4 -type d -print | head -n 100
+else
+  echo "No steamapps directory yet."
+fi
+
+echo
+echo "=== File count by extension under central Base ==="
+sudo find "$BASE" -xdev -type f -printf '%f\\n' 2>/dev/null |
+  awk '{
+    name=$0
+    if (name ~ /\\./) {
+      sub(/^.*\\./, "", name)
+      ext=tolower(name)
+    } else {
+      ext="[no extension]"
+    }
+    count[ext]++
+  }
+  END {
+    for (ext in count) printf "%-24s %d\\n", ext, count[ext]
+  }' | sort -k2,2nr | head -n 25
+
+echo
+echo "=== Largest files under central Base ==="
+sudo find "$BASE" -xdev -type f -printf '%s\\t%p\\n' 2>/dev/null |
+  sort -nr | head -n 25 | numfmt --field=1 --to=iec
+
+echo
+echo "=== Steam log files ==="
+sudo find /root/Steam/logs -maxdepth 1 -type f \\
+  -printf '%TY-%Tm-%Td %TH:%TM %s %p\\n' 2>/dev/null | sort
+
+for log in /root/Steam/logs/content_log.txt /root/Steam/logs/stderr.txt /root/Steam/logs/connection_log.txt; do
+  if sudo test -f "$log"; then
+    echo
+    echo "=== Tail: $log ==="
+    sudo tail -n 40 "$log"
+  fi
+done
 ~~~
 
-اگر پردازش SteamCMD زنده است و مسیر مرکزی رشد می‌کند، اجازه بده ادامه دهد. اگر پردازش زنده نیست، خطای واقعی را از Journal پیدا کن. اگر Runtimeهای i386 نصب نشده باشند، SteamCMD ممکن است با cannot execute: required file not found و Exit Code 127 شکست بخورد؛ بخش 2 پیش‌نیاز این خطاست.
+**تفسیر:** اگر پردازش SteamCMD هنوز زنده است، اول خروجی اندازهٔ زیرپوشه‌ها را بررسی کن. در حین Update ممکن است داده‌ها داخل steamapps/downloading/730 باشند و هنوز به game/ نهایی منتقل نشده باشند؛ در این وضعیت VPK count صفر به‌تنهایی شکست قطعی نیست. پردازش فعال را Stop/Restart نکن و WinSCP upload هم‌زمان انجام نده. اگر SteamCMD دیگر زنده نیست اما Build ID صفر/Manifest نهایی غایب است، علت خروج را از Journal و لاگ‌های Steam پیدا کن. خطای cannot execute: required file not found با Exit Code 127 نشان می‌دهد Runtime مربوط به i386 را طبق بخش 2 بررسی کن.
+
 
 ## 8. اتصال Instance اول به Shared Base
 
