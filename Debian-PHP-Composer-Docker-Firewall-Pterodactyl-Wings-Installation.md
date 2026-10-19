@@ -2,7 +2,7 @@
 
 > **هدف این فایل:** Runbook ترتیبی برای نصب Debian 13، PHP و Composer، Pterodactyl Panel، Docker Engine، Wings، Firewall و سرویس‌های لازم است. هر مرحله هدف، فرمان و روش تأیید دارد. پیش از اجرای مرحله‌ای که Firewall، SSH، دیسک یا سرویس‌ها را تغییر می‌دهد، پیش‌نیاز و راه بازگشت همان بخش را بخوان.
 >
-> این نسخه بر اساس پیاده‌سازی مرجع FragCity نوشته شده است؛ بعضی دامنه‌ها، IPها، نام میزبان‌ها و مسیرها نمونهٔ همین محیط‌اند، نه مقادیر عمومی. قبل از استفاده برای Node دیگری، جدول بخش **0.3** را پر کن و تمام مقادیر محیطی را با مقادیر خودت تطبیق بده. وضعیت اجرای آزمایش CS2 فقط در README ریشه نگه داشته می‌شود.
+> این Runbook یک آموزش قابل‌تکرار است؛ hostname، IP، دامنه‌ها و مسیرهای نمونه به‌صورت خودکار با مقادیر تو جایگزین نمی‌شوند. پیش از Copy/Paste، جدول بخش **0.3** را تکمیل کن و هر مقدار نمونه را در دستورها با مقدار محیط خودت تطبیق بده. این فایل محل ثبت گزارش/لاگ یک VM مشخص نیست.
 >
 > **قانون محرمانگی:** رمز MariaDB، رمز حساب، APP_KEY، Tokenها، URLهای Webhook، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. فرمان‌ها و مقادیر نمونه را فقط به‌شکل محلی جایگزین کن.
 
@@ -11,9 +11,8 @@
 ## 0. وضعیت، محدوده و خط قرمزها
 
 - هدف، آموزش نصب Debian 13 و اجزای لازم برای یک Linux Node با Pterodactyl است. مقدارهای نمونهٔ این راهنما در بخش 0.3 آمده‌اند؛ پیش از اجرای روی محیط دیگری آن‌ها را با تنظیمات واقعی خودت هماهنگ کن.
-- Hostname، Domain name، Panel FQDN و Node FQDN باید در نصاب، DNS، TLS و تنظیمات Panel/Wings یکسان باشند. در نمونهٔ این ریپو، نام‌ها `fc-node-01`، `fragcity.ir`، `panel.fragcity.ir` و `fc-node-01.fragcity.ir` هستند.
-- هر دو رکورد A باید به IPv4 عمومی فعلی اشاره کنند؛ روش بررسی DNS در مرحلهٔ 3.7.2 آمده است. Domain name داخل نصاب Debian به‌تنهایی DNS، IP عمومی، Port Forwarding یا HTTPS را تنظیم نمی‌کند.
-- پرکردن فیلد Domain name در نصاب به‌تنهایی DNS، IP عمومی، Port Forwarding یا HTTPS را فعال نمی‌کند.
+- Hostname، Domain name، Panel FQDN و Node FQDN باید در نصاب، DNS، TLS و تنظیمات Panel/Wings یکسان باشند. نمونه‌های FragCity در جدول 0.3 آمده‌اند؛ در محیط خودت مقادیر واقعی را به کار ببر.
+- رکوردهای DNS عمومی باید به IPv4 عمومی فعلی اشاره کنند، نه IP خصوصی LAN. مقدار Domain name در نصاب Debian به‌تنهایی DNS، Port Forwarding یا HTTPS را تنظیم نمی‌کند. روش بررسی DNS در مرحلهٔ 3.7.2 آمده است.
 - هنگام نصب Debian 13، در صفحهٔ Software selection گزینهٔ `Debian desktop environment` را بردار و `SSH server` و `standard system utilities` را نگه دار. مدیریت با SSH از Windows و مرورگر Windows انجام می‌شود؛ محیط گرافیکی Debian لازم نیست. راهنما: https://wiki.debian.org/DesktopEnvironment
 - نمونه‌های نصب این ریپو از VMware و Debian 13/Trixie استفاده می‌کنند؛ توزیع، منابع و نام دیسک واقعی محیط خودت را با بلوک‌های بررسی مشخص کن، نه با مقدارهای نمونه.
 - مسیر Panel در نمونه `/var/www/pterodactyl` و دامنهٔ آن `https://panel.fragcity.ir` است. اگر Panel روی مسیر یا دامنهٔ دیگری نصب شده، مقدارهای تمام مراحل مربوط به آن را هماهنگ کن.
@@ -148,7 +147,7 @@ Debian عموماً استفاده از network mirror را پیشنهاد می�
 
 ### 1.9 مرحلهٔ اول — شناسایی اولیهٔ سیستم
 
-پس از نمایش `fc-node-01 Login:` وارد حسابی شو که هنگام نصب ساخته‌ای. نام حساب و رمز را در README یا چت ننویس. سپس این بلوک فقط‌خواندنی را اجرا کن:
+پس از نمایش صفحهٔ login متنی Debian، با حسابی که هنگام نصب ساختی وارد شو. نام حساب و رمز را در README یا چت ننویس. سپس این بلوک فقط‌خواندنی را اجرا کن:
 
 ~~~bash
 set -u
@@ -998,50 +997,24 @@ sudo ss -ltnp
 
 ## 3. نصب Pterodactyl Panel — فاز آینده، پیش از اجرا نسخه را بازبینی کن
 
-### 3.0 بررسی نسخه‌ها و تصمیم معماری (بازبینی 2026-10-18)
+### 3.0 انتخاب نسخه و بررسی سازگاری پیش از نصب
 
-#### وضعیت انتشار رسمی
+**قبل از هر نصب تازه، نسخهٔ رسمی را از منابع زیر بررسی کن؛ نسخه‌ها را از یک آموزش قدیمی یا یک پیام قبلی کپی نکن.**
 
-- **Pterodactyl Panel 1.x:** آخرین نسخهٔ پایدارِ قابل‌مشاهده در صفحهٔ رسمی Releases، `v1.15.1` است.
-- **Pterodactyl Panel 2.x:** آخرین پیش‌انتشارِ قابل‌مشاهده، `v2.0.0-beta.2` است که در 14 اکتبر 2026 منتشر شده و Release آن صراحتاً Open Beta / Pre-release است. صفحهٔ معرفی Beta توصیه می‌کند آن را روی محیط آزمایشگاهی تست کنید و برای Production روی 1.x بمانید.
-- لینک‌های مرجع: https://github.com/pterodactyl/panel/releases ، https://docs.pterodactyl.io/v1/panel/getting-started و https://docs.pterodactyl.io/v2/panel/getting-started
+- Releases رسمی: https://github.com/pterodactyl/panel/releases
+- راهنمای نصب شاخهٔ v1: https://docs.pterodactyl.io/v1/panel/getting-started
+- راهنمای نصب شاخهٔ v2: https://docs.pterodactyl.io/v2/panel/getting-started
+- مستندات رسمی Wings: https://docs.pterodactyl.io/v1/wings/installation
 
-#### تفاوت‌های مهم v1 و v2
+ترتیب انتخاب:
+1. برای سرویس اصلی/Production از آخرین نسخهٔ **Stable** که Release رسمی اعلام کرده استفاده کن.
+2. از نسخهٔ Beta/Pre-release تنها وقتی استفاده کن که هدفت عمداً آزمایش قابلیت‌های نسخهٔ پیش‌انتشار باشد و Backup/Clone مستقل برای بازیابی داشته باشی.
+3. نسخهٔ Panel، نسخه/الزامات Wings، نسخهٔ PHP و Composer و سیستم‌عامل را از **همان شاخهٔ مستندات** تطبیق بده. دستورهای v1 و v2 را با هم مخلوط نکن.
+4. بعد از انتخاب نسخه، Tag رسمی آن را در متغیر `PANEL_VERSION` بخش 3.1 وارد کن. اگر Release Tag یا نیازمندی‌ها روشن نیست، ادامه نده و ابتدا آن را بررسی کن.
 
-| موضوع | Panel 1.x (پایدار) | Panel 2.0 (Open Beta) |
-|---|---|---|
-| وضعیت برای Production | خط پایدار فعلی؛ انتخاب محافظه‌کارانه‌تر برای سرویس واقعی | پیش‌انتشار؛ برای تست و ارزیابی، نه انتخاب اصلی Production در وضعیت فعلی |
-| رابط مدیریت | رابط و معماری قدیمی‌تر 1.x | رابط کاربری جدیدتر و یکپارچه‌تر برای Admin و User |
-| توسعه و سفارشی‌سازی | Theme/Addonهای 1.x ممکن است با نسخه و روش نصب وابسته باشند؛ تغییر مستقیم Core نگهداری و ارتقا را دشوار می‌کند | سیستم رسمی Extensions و Themes برای افزودن صفحه، تب جزئیات، ستون، تنظیم، API و UI بدون patch کردن Core |
-| ظاهر Panel | در صورت تغییر فایل‌های اصلی، نگهداری تغییرات بین آپدیت‌ها دشوار است | Theme می‌تواند رنگ‌ها و بخش‌هایی از رابط را تغییر بدهد؛ برای سفارشی‌سازی UI روش ساختاریافته‌تری دارد |
-| Egg grouping | Eggها زیر Nest گروه‌بندی می‌شوند | Tags جای Nest را می‌گیرند؛ یک Egg می‌تواند چند Tag بگیرد و Nodeها هم Tag دارند |
-| API | Client API و Application API | Client و Application API عمدتاً باقی‌اند، Admin API جدید اضافه شده؛ endpointهای مربوط به Nest در Application API حذف شده‌اند و باید از Tags/Eggs استفاده شود |
-| فناوری Frontend | خط قدیمی‌تر frontend در 1.x | Laravel 13، React 19، TanStack، Tailwind 4 و Vite |
-| نیازمندی‌های نصب | وابسته به نسخهٔ 1.x انتخابی | PHP 8.3/8.4، Composer 2، Redis، و MariaDB 10.11/11 یا MySQL 8/9؛ افزونهٔ intl لازم است |
-| Wings | از جدول سازگاری مستندات 1.x استفاده می‌کنیم | فعلاً جدول رسمی کامل نسخه‌های Wings وجود ندارد؛ مستندات v2 صراحتاً Wings 1.13.2 و 1.13.3 را در تست تأیید کرده‌اند. سازگاری نسخهٔ دیگر را حدس نزن |
-| ریسک مهاجرت | در همان خط پایدار آپدیت می‌شود | برای ارتقا از 1.x به 2.0 باید راهنمای جداگانه و Backup/آزمون روی کپی اجرا شود؛ Nestها، کدهای سفارشی و ادغام Billing نیازمند بازبینی‌اند |
+این Runbook برای Debian 13 نوشته شده و مراحل PHP آن از PHP 8.3 استفاده می‌کنند. اگر مستندات نسخه‌ای که انتخاب کرده‌ای PHP دیگری را می‌خواهد، پیش از اجرای بخش 2 تصمیم نسخه/معماری را اصلاح کن؛ تغییر یک شمارهٔ نسخه به‌تنهایی، سازگاری کل سیستم را تضمین نمی‌کند.
 
-#### امکانات v2 دقیقاً کجا برای FragCity کاربرد دارند؟
-
-1. **Themes:** اگر بخواهیم خود پنل Pterodactyl (به‌ویژه بخش مدیریت داخلی) رنگ‌بندی و ظاهر اختصاصی داشته باشد. این با طراحی سایت مشتریان FragCity یکی نیست.
-2. **Extensions:** اگر بعداً بخواهیم داخل خود Pterodactyl صفحه یا تنظیمات داخلی مخصوص عملیات FragCity، جزئیات Node/Server، فیلدهای فرم یا API داخلی اضافه کنیم، بدون ویرایش مستقیم Core این مسیر هدفمندتر است. اما Extension با دسترسی خود Panel اجرا می‌شود و بالقوه به دیتابیس و اطلاعات کاربران دسترسی دارد؛ فقط کدی را نصب کن که به توسعه‌دهنده‌اش اعتماد داری.
-3. **Tags به‌جای Nests:** اگر Eggها را بر اساس بازی، دستهٔ عملکرد یا قابلیت Node برچسب‌گذاری کنیم و یک Egg در چند دسته قرار بگیرد. اما این تفاوت بر API و کد Billing/Provisioning هم اثر می‌گذارد.
-4. **Admin API:** برای اتوماسیون مدیریت امکانات خود Panel مثل Eggها، Tags، Settings و Extensions. ساخت، تعلیق یا حذف Server برای سیستم Billing هنوز معمولاً از Application API انجام می‌شود؛ لازم نیست صرفاً برای ساخت سایت FragCity همه‌چیز را داخل Panel پیاده کنیم.
-5. **سایت مشتری FragCity:** در معماری فعلی، ثبت‌نام/ورود، Wallet، پرداخت، اشتراک مدت‌دار، تاریخ انقضا و تجربهٔ مشتری در Raw PHP خود FragCity می‌مانند. Pterodactyl موتور مدیریت Server است. بنابراین قابلیت Theme در v2 مزیت مفیدی است، اما پیش‌نیاز ساخت پنل مشتری نیست.
-
-نکتهٔ سازگاری API: در v2 مسیرهای `/api/application/nests` حذف شده‌اند؛ مسیرهای معادل Tags/Eggs به‌کار می‌روند. درخواست‌های دیگر Application API مثل ساخت، Suspend و Delete سرور و کلیدهای Client/Application عموماً حفظ می‌شوند. چون Backend فروش FragCity هنوز در حال توسعه است، این تفاوت را در طراحی API Client ثبت می‌کنیم و endpoint مربوط به Nest را به‌عنوان قرارداد دائمی جدید نمی‌سازیم.
-
-#### تصمیم برای همین نصب
-
-**نسخهٔ پیشنهادی برای مسیر اصلی فعلی: Panel 1.15.1 Stable.**
-
-دلیل انتخاب:
-- این VM قرار است پایهٔ عملیاتی FragCity Node/Panel شود، نه صرفاً یک UI demo.
-- هنوز نیازی نداریم مشتریان را با حساب، Wallet یا Billing به داخل UI خود Pterodactyl منتقل کنیم؛ آن بخش‌ها در سایت خودمان خواهند بود.
-- Open Beta بودن v2 ریسک و تغییرات اضافه برای provisioning، API Client، Eggs/Tags و هماهنگ‌کردن Wings ایجاد می‌کند. برای Production، مستندات خود پروژه فعلاً v1.x را توصیه می‌کنند.
-- قابلیت‌های Extension/Theme در v2 ارزشمندند؛ بعداً می‌توانیم با Clone جداگانه از Snapshot آزمایشگاهی آن‌ها را ارزیابی کنیم و فقط پس از Stable شدن و تست سازگاری، مهاجرت را تصمیم بگیریم.
-
-این تصمیم به‌معنی کنارگذاشتن v2 نیست؛ فقط بین **پنل اصلی که باید قابل‌اعتماد باشد** و **محیط آزمایش ویژگی‌های جدید** تفکیک می‌کنیم. تا قبل از اجرای مرحلهٔ 3.1، Release رسمی را دوباره چک کن. اگر سیاست پروژه عوض شد و همین VM قرار بود فقط آزمایشگاه Beta باشد، دستورات نصب v2 باید به‌صورت جداگانه و صریح نوشته شوند؛ URL نسخهٔ 1.x را به‌جای v2 عوض کردن به‌تنهایی کافی نیست.
+تفاوت‌هایی که باید هنگام بررسی v1/v2 به آن‌ها توجه کنی عبارت‌اند از APIهای موجود، مدل Nest/Tag، Extension/Theme، الزامات Frontend و سازگاری Wings. اگر backend یا provisioning فعلی به endpointهای Nest تکیه دارد، مستندات مهاجرت و API همان نسخه را پیش از تغییر بخوان.
 
 ### وضعیت لازم قبل از نصب 3.1
 
@@ -1061,7 +1034,16 @@ if sudo test -e .env; then
   exit 1
 fi
 
-sudo curl -fL https://github.com/pterodactyl/panel/releases/download/v1.15.1/panel.tar.gz -o /tmp/panel.tar.gz
+# Before running this block, set the official stable Release tag you verified in section 3.0.
+# Example shape: v1.x.y. Do not use a beta tag for Production without an explicit decision.
+PANEL_VERSION="REPLACE_WITH_VERIFIED_STABLE_TAG"
+
+if [[ "$PANEL_VERSION" == *REPLACE* || ! "$PANEL_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]; then
+  echo "STOP: set PANEL_VERSION to the explicit official Release tag first."
+  exit 1
+fi
+
+sudo curl -fL "https://github.com/pterodactyl/panel/releases/download/$PANEL_VERSION/panel.tar.gz" -o /tmp/panel.tar.gz
 sudo tar -xzf /tmp/panel.tar.gz -C /var/www/pterodactyl
 sudo chown -R www-data:www-data /var/www/pterodactyl
 sudo find storage bootstrap/cache -type d -exec chmod 750 {} +
@@ -1948,7 +1930,7 @@ sudo ss -ltnup | grep -E ':(8080|2022)\b' || true
 
 ### 6.8 تنظیم Firewall و Port Forward برای Wings/SFTP
 
-راه‌اندازی سرویس Wings و گواهی TLS به‌تنهایی برای اتصال عمومی کافی نبود؛ علت مشکل، نبودن Port Forward روتر به Node بود. با اجازه‌دادن TCP پورت‌های `8080` و `2022` در UFW و هدایت آن‌ها از روتر به IP رزروشدهٔ Node، ارتباط Node با پنل برقرار شد. این بخش را برای نصب‌های بعدی به‌صورت راهنمای تکرارپذیر نگه می‌داریم؛ خروجی ترمینال در README ثبت نمی‌شود.
+فعال‌بودن سرویس Wings و معتبر بودن گواهی TLS به‌تنهایی اتصال عمومی را تضمین نمی‌کنند. برای اتصال Panel به Node، باید هم Firewall میزبان و هم Port Forward روتر به IP داخلی رزروشدهٔ Node درست باشند. روش قابل‌تکرار در بخش‌های زیر آمده است؛ دسترسی واقعی را بعد از پیکربندی با آزمون از بیرون LAN و وضعیت Node در Panel تأیید کن.
 
 #### 6.8.1 اجازهٔ ورودی در UFW — در Debian
 
@@ -1990,7 +1972,7 @@ https://fc-node-01.fragcity.ir:8080/
 
 ## 7. Storage، Shared Base و Multi Instance
 
-Wings و سرویس systemd راه‌اندازی شده‌اند. **فعلاً هیچ سرور CS2 نساز، هیچ Egg/Installer را اجرا نکن، فایل‌های `/home/steam` را جابه‌جا یا حذف نکن و پورت بازی را روی روتر باز نکن.** ابتدا باید وضعیت دیسک‌ها، فایل‌های موجود و محل ذخیره‌سازی Docker/Pterodactyl را فقط‌خواندنی بررسی کنیم.
+پیش از راه‌اندازی CS2، محل Storage و داده‌های موجود را فقط‌خواندنی بررسی کن. اگر قبلاً سرور بازی/فایل نصب داری، چیزی را جابه‌جا یا حذف نکن تا مسیر مالکیت و پشتیبان‌گیری روشن شود. پورت بازی را تا زمانی که Allocation آن در Panel مشخص نشده به اینترنت منتشر نکن.
 
 سبک‌بودن Debian Console-only ممکن است سربار سیستم‌عامل را نسبت به Desktop کاهش دهد، اما به‌تنهایی تضمین نمی‌کند مشکل slow frame در CS2 برطرف شود. بعداً باید baseline سرور را با بار کنترل‌شده بسنجیم و مشخص کنیم slow frame به server timing اشاره دارد یا FPS/frametime کلاینت.
 
@@ -2054,7 +2036,7 @@ fi
 - `docker system df` و `docker ps -a --size` کمک می‌کنند بفهمیم Docker از قبل فضایی مصرف کرده یا Container/Volume موجودی دارد.
 - خروجی ترمینال را در README نگذار؛ فقط اگر لازم شد برای تحلیل در همین گفت‌وگو بفرست و هر مقدار حساس را حذف کن.
 
-**نتیجهٔ بررسی فقط‌خواندنی:** روی Node فعلی هنوز `/home/steam`، مسیرهای Volume/Archive/Backup مربوط به سرورهای Pterodactyl و هیچ Container یا Docker Volume مربوط به سرور بازی وجود ندارد. این VM فعلاً Base Game را نصب نکرده است؛ از این وضعیت پاک به‌عنوان مبنای آزمایش استفاده کن. خروجی خام ترمینال یا لاگ به README اضافه نشود.
+**تفسیر خروجی:** اگر مسیرهایی مانند `/home/steam`، `/var/lib/pterodactyl/volumes`، `archives` یا `backups` وجود ندارند، این لزوماً خطا نیست؛ این‌ها بسته به زمان نصب و پیکربندی ایجاد می‌شوند. اگر مسیر یا Container/Volume موجود است، پیش از شروع دانلود، مشخص کن داده به کدام Instance تعلق دارد و چه فضای آزادی باقی مانده است. بر اساس خروجی واقعی خودت تصمیم بگیر؛ نصب یا حذف فایل را صرفاً بر مبنای این نمونه انجام نده.
 
 ### 7.2 انتخاب روش Storage و Shared Base
 
@@ -2066,14 +2048,14 @@ fi
 - `install_docker.sh` بازی را با SteamCMD در مسیر پایدار `/home/steam/cs2` نصب/Update می‌کند و سپس payload ردیابی‌شده را روی درخت بازی overlay می‌کند. این اسکریپت یک provisioner برای Shared Base چندمشتری‌ای نیست و مستقیماً نباید به‌عنوان Egg هر Instance استفاده شود.
 - [Compose اصلی KUS](https://github.com/kus/cs2-modded-server/blob/master/docker-compose.yml) نیز یک سرویس و یک Volume پایدار تعریف می‌کند؛ یادداشت Docker اصلی KUS می‌گوید Volume نصب بازی را بین اجراها حفظ می‌کند. این الگو جلوی دانلود دوباره در هر restart همان deployment را می‌گیرد، اما به‌تنهایی برای چند Instance مستقل با Base خواندنی مشترک کافی نیست.
 - [Linux instance template](https://github.com/larnzs/cs2-kus-addons/tree/integration/kus-monorepo/linux/instances/instance-template) از `/home/steam/cs2` مشترک استفاده می‌کند و فایل‌های `CUSTOM_FOLDER/cfg` و `CUSTOM_FOLDER/addons` را پیش از Start به همان runtime کپی می‌کند. README خودش هشدار می‌دهد که این overlay فایل‌ها را بین دو سرور فعال ایزوله نمی‌کند؛ بنابراین برای چند مشتری هم‌زمان بدون اصلاح معماری استفاده نشود.
-- Shared Base برای PoC در سند FragCity انتخاب شده، ولی مکانیزم اتصال Base و Volume خصوصی (mount، OverlayFS یا روش دیگر) هنوز پیاده‌سازی منتخب یا آزمایش‌شده نیست. این بخش هیچ‌یک از دو ریپوی KUS یا FragCity را تغییر نمی‌دهد.
+- برای Shared Base چند Instance، از الگوی نصب تک‌سرور یا یک Volume نوشتنی مشترک به‌عنوان جایگزین VPK Sync استفاده نکن. راهنمای اختصاصی K4ryuu روش مدیریت‌شدهٔ Shared Base و VPK Sync را شرح می‌دهد؛ تا وقتی روش آن راهنما آزموده نشده، payload/پلاگین سفارشی را روی Base مرکزی ادغام نکن.
 
 **نامزدهای فنی برای PoC، نه تصمیم نهایی:**
 
 - [Pterodactyl custom mounts](https://docs.pterodactyl.io/v1/guides/configuration/mounts) اجازه می‌دهد مسیر میزبان به Container mount شود؛ منبع باید در `allowed_mounts` مربوط به Wings مجاز شده و Mount نیز در Panel تنظیم شود. محدودیت مهم: Mountهای سفارشی در File Manager و SFTP نمایش داده نمی‌شوند. پس به‌تنهایی ممکن است نیاز File Manager مشتری به فایل‌های خصوصی را برآورده نکنند.
 - [Linux OverlayFS](https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html) امکان ترکیب lower/upper را دارد، اما upper و work باید روی یک filesystem باشند و رفتار copy-up/delete/whiteout باید در آزمون واقعی سنجیده شود. این فقط نامزد آزمایش است، نه روش انتخاب‌شده.
 
-**ممنوعیت تا پایان PoC:** اسکریپت‌های `docker/update.sh`، `docker/install_docker.sh`، `linux/install.sh` یا هر Egg مربوط به نصب CS2 را روی Node اصلی اجرا نکن. هیچ payload یا پلاگین سفارشی KUS را روی Base مرکزی copy/merge نکن و از runtime مشترک نوشتنی برای دو Instance استفاده نکن. طبق تصمیم تازهٔ کاربر، پس از رفع خطای SteamCMD قرار است بخشی از VPKهای asset از Windows با WinSCP به‌شکل کنترل‌شده Seed و سپس با SteamCMD بررسی شوند؛ باینری/manifest لینوکس و runtimeهای Windows نباید جایگزین شوند. فایل‌های Workshop باید از مسیر و metadata معتبر خودش عبور کنند، نه کپی خام به `/srv/cs2-workshop`.
+**قاعدهٔ ایمنی:** اسکریپت‌های `docker/update.sh`، `docker/install_docker.sh` و `linux/install.sh` متعلق به مدل‌های نصب دیگرند؛ آن‌ها را به‌عنوان Egg هر Instance یا جایگزین cs2node به کار نبر. از runtime مشترک نوشتنی برای چند Instance استفاده نکن. اگر قرار است VPKهای asset از یک منبع دیگر Seed شوند، این کار را فقط با دستورهای کنترل‌شدهٔ راهنمای K4ryuu انجام بده؛ manifest و executableهای Linux را با نسخهٔ Windows جایگزین نکن. Workshop نیز مسیر و metadata جداگانه دارد؛ فایل‌های خام را مستقیماً داخل `/srv/cs2-workshop` نریز.
 
 ### 7.3 نصب CS2 و Shared Base — راهنمای اختصاصی
 
@@ -2092,9 +2074,9 @@ fi
 
 برای PoC، Shared Base می‌تواند در مسیر `/srv/cs2-shared` روی فایل‌سیستم فعلی باشد، اگر فضای آزاد و سیاست Storage این Node اجازه دهد. VMDK دادهٔ دوم یک گزینهٔ جداسازی Storage است، نه پیش‌نیاز خود cs2node.
 
-### 7.4 تصمیم Storage — PoC فعلی و Production
+### 7.4 انتخاب Storage برای PoC و Production
 
-برای PoC، Shared Base در مسیر /srv/cs2-shared روی فایل‌سیستم فعلی قرار می‌گیرد؛ آخرین خروجی حدود 182 GB فضای آزاد root نشان داده است. روش symlink زیر مدیریت cs2node دسترسی read-only فراهم می‌کند؛ فایل‌های configs/plugins writable بین Instanceها مشترک نمی‌شوند. VMDK مجزا می‌تواند بعداً برای Production انتخاب شود، ولی این کار اجرای فعلی را مسدود نمی‌کند.
+برای آزمون اولیه می‌توان Shared Base را روی فایل‌سیستم موجود در `/srv/cs2-shared` قرار داد، به شرط آنکه `df -hT /` و `df -hT /srv` فضای آزاد کافی نشان دهند و سیاست Backup/Recovery آن را بپذیرد. دیسک مجزا می‌تواند Storage بازی را از root جدا کند، اما برای اجرای خود cs2node پیش‌نیاز نیست. اگر VMDK اضافه می‌کنی، آن را با `lsblk` و `blkid` شناسایی کن و پیش از شناسایی قطعی هیچ Format/Mount انجام نده.
 
 ### 7.5 Shared Base و Instanceهای بعدی
 
