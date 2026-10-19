@@ -660,48 +660,52 @@ SCRIPT
 - `vpksync`، `alerts`، `addoncache`، `workshop`، `backup`، `cleanup`، `crashes`، `consolelog` و `metrics` روشن‌اند؛ `guard` خاموش است.
 - URL وب‌هوک Discord در لاگ چت افشا شده است. آن را در Discord باطل و یک وب‌هوک تازه بساز؛ URL وب‌هوک را در GitHub یا خروجی قابل‌اشتراک نگذار.
 
-### تشخیص فعلی و رفع SteamCMD
+### تشخیص فعلی — Runtime اصلاح شد؛ دانلود هنوز تأیید نشده
 
-خروجی گزارش‌شده در 2026-10-19:
+این دستورهای Runtime را قبل از نصب `cs2node` باید اجرا کرد؛ مرحلهٔ دقیق در ابتدای بخش 8.0 راهنمای K4ryuu قرار دارد. روی Clone این بسته‌ها نصب شدند:
 
-- `cs2node.service` برابر `enabled` و `active` است.
-- `cs2node status` نشان می‌دهد `central build: no central install yet`.
-- `cs2node doctor` نشان می‌دهد SteamCMD در `/root/steamcmd` پیدا شده، اما Update مرکزی با خطای `/root/steamcmd/steamcmd.sh: line 37: /root/steamcmd/linux32/steamcmd: cannot execute: required file not found` و exit status 127 شکست خورده است.
-- `/srv/cs2-shared` فقط حدود 4 KiB است؛ `game/` و `steamapps/appmanifest_730.acf` هنوز وجود ندارند. Root filesystem حدود 182 GiB فضای آزاد دارد.
-- خطای اتصال Discord مطابق گزارش کاربر ناشی از محدودیت/قطع ارتباط شبکه است و blocker اصلی SteamCMD نیست.
+- `libc6:i386`
+- `libstdc++6:i386`
+- `libgcc-s1:i386`
 
-ابتدا Runtime سی‌ودو بیتی را نصب کن:
+بعد از نصب، `sudo /root/steamcmd/steamcmd.sh +quit` موفق شد و `Loading Steam API...OK` و `Unloading Steam API...OK` را چاپ کرد.
 
-~~~bash
-set -eu
-dpkg --print-architecture
-dpkg --print-foreign-architectures
-file /root/steamcmd/linux32/steamcmd
-readelf -l /root/steamcmd/linux32/steamcmd | grep -i interpreter || true
+بعد از Restart سرویس `cs2node` در `09:03:51 UTC`، ماژول `vpksync` هنوز `build=0` گزارش کرد. اسکن بعدی Manifest مرکزی را پیدا نکرد و VPK count برابر صفر بود. این خروجی هنوز معلوم نمی‌کند که `app_update 730` در پس‌زمینه ادامه دارد یا تلاش جدید به خطا ختم شده است.
 
-sudo dpkg --add-architecture i386
-sudo apt-get update
-sudo apt-get install -y libc6:i386 libstdc++6:i386 libgcc-s1:i386
-
-sudo /root/steamcmd/steamcmd.sh +quit
-~~~
-
-اگر آخرین فرمان SteamCMD با خطا تمام شد، سرویس را Restart نکن؛ خروجی خطا را نگه دار. اگر اجرا موفق بود، دانلود مرکزی را از daemon شروع کن:
+طبق کد upstream، Update مرکزی اولین بار تقریباً 10 ثانیه بعد از شروع daemon اجرا می‌شود، سپس با فاصلهٔ `check_minutes` تکرار می‌شود. خروجی پیشرفت خود SteamCMD در Journal نمایش داده نمی‌شود؛ برای همین، پردازش واقعی را بررسی کن:
 
 ~~~bash
-sudo systemctl restart cs2node
-sudo journalctl -u cs2node -f
+echo "=== Recent cs2node journal ==="
+sudo journalctl -u cs2node -n 80 --no-pager -o short-iso
+
+echo
+echo "=== SteamCMD process ==="
+ps -eo pid,etime,stat,args |
+  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
+
+echo
+echo "=== Directory size ==="
+sudo du -sh /root/steamcmd /srv/cs2-shared 2>/dev/null || true
+
+echo
+echo "=== Central manifest and VPK count ==="
+sudo test -s /srv/cs2-shared/steamapps/appmanifest_730.acf &&
+  sudo grep -E '"(appid|buildid|StateFlags)"' /srv/cs2-shared/steamapps/appmanifest_730.acf ||
+  echo "Central manifest not present"
+sudo find /srv/cs2-shared/game -type f -name '*.vpk' 2>/dev/null | wc -l
 ~~~
 
-وقتی SteamCMD واقعاً شروع به اجرای `app_update 730` کرد، برای انتقال فایل‌ها هم‌زمان با آن کار نکن. قبل از WinSCP:
+اگر قصد داری دانلود جاری را برای WinSCP قطع کنی، ابتدا پردازش را ثبت کن و سپس:
 
 ~~~bash
 sudo systemctl stop cs2node
+sleep 2
 sudo systemctl is-active cs2node || true
-pgrep -af 'steamcmd.sh|linux32/steamcmd' || true
+ps -eo pid,etime,stat,args |
+  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
 ~~~
 
-ادامه فقط وقتی مجاز است که سرویس متوقف شده و هیچ پردازش SteamCMD در حال نوشتن نباشد.
+تا وقتی هیچ پردازش SteamCMD باقی نمانده، سرور را Offline نگه دار و فایل‌ها را منتقل نکن.
 
 ### برنامهٔ انتقال کنترل‌شده با WinSCP
 
@@ -734,10 +738,11 @@ pgrep -af 'steamcmd.sh|linux32/steamcmd' || true
 - [x] تصمیم جدید کاربر: پس از آغاز موفق SteamCMD، برای کاهش دانلود از WinSCP استفاده شود؛ فقط VPKهای asset با مسیر نسبی مناسب seed می‌شوند و SteamCMD پس از آن depots را بررسی/اصلاح می‌کند. فایل‌های اجرایی/manifest Windows جایگزین فایل‌های Linux نمی‌شوند.
 - [ ] پیش‌بررسی بخش 8.1 راهنمای server-creation؛ `fc-cs2-test-01` در حالت Offline بماند.
 - [x] نصب رسمی `cs2node` انجام شده؛ `vpksync` فعال است و `cs2_dir=/srv/cs2-shared` ثبت شده است. ماژول‌های `alerts`, `addoncache`, `workshop`, `backup`, `cleanup`, `crashes`, `consolelog`, `metrics` نیز روشن و `guard` خاموش است.
-- [ ] فعال‌کردن i386 runtime و رفع خطای SteamCMD exit 127؛ تست `steamcmd.sh +quit` و آغاز `app_update 730`.
+- [x] i386 runtime نصب شد و `steamcmd.sh +quit` با موفقیت اجرا شد.
+- [ ] بررسی پردازش زنده/لاگ برای مشخص‌شدن وضعیت واقعی `app_update 730`; manifest مرکزی وجود ندارد و VPK count صفر است.
 - [ ] سپس انتقال کنترل‌شدهٔ VPKهای asset via WinSCP، reconcile با SteamCMD و import جداگانهٔ Workshop با ACF/metadata معتبر. VMDK دوم برای این PoC لازم نیست.
 - [ ] پس از قبولی Shared Base و Instance دوم، CounterStrikeSharp/MetaMod و پلاگین‌های Fun Mode منتخب طبق بخش 9 راهنمای ساخت سرور نصب و تأیید شوند؛ configs و addons هر Instance مستقل بمانند.
 - [ ] پس از قبولی PoC، در صورت نیاز VMDK داده جداگانه به Clone اضافه و شناسایی شود؛ این کار برای نصب اولیهٔ Shared Base الزامی نیست.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone با IP `192.168.1.9` و hostname `fc-node-01` فعال است و VM اصلی باید خاموش بماند. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. پورت `29001/udp` را تغییر نده. اولین Instance `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده؛ manifest موجود در Volume با `appid=730` و `buildid=25966348` دیده شده است. طبق تصمیم جدید کاربر، VPKهای asset از Windows با WinSCP به‌صورت کنترل‌شده Seed خواهند شد؛ فایل‌های Windows جایگزین manifest و executableهای لینوکس نمی‌شوند. Installer رسمی `cs2node` گزارش کرده config و systemd unit نوشته شده و سرویس فعال/اجرا شده است؛ `vpksync` به `/srv/cs2-shared` با روش `symlink` پیکربندی شده و Moduleهای addoncache, workshop, backup, cleanup, crashes, consolelog, metrics و alerts نیز روشن‌اند. محتوای Shared Base هنوز تأیید نشده؛ SteamCMD با خطای 32-bit `cannot execute: required file not found` و exit 127 شکست خورده است. قدم بعدی فعال‌کردن i386 runtime، تست `steamcmd.sh +quit` و شروع مجدد `app_update 730` است. URL وب‌هوک افشاشده باید در Discord باطل و جایگزین شود. VMDK دوم برای PoC لازم نیست. پس از قبولی Base و Instance دوم، پلاگین‌ها آزمایش می‌شوند. تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
+**آخرین checkpoint:** Clone با IP `192.168.1.9` و hostname `fc-node-01` فعال است و VM اصلی باید خاموش بماند. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. پورت `29001/udp` را تغییر نده. اولین Instance `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده؛ manifest موجود در Volume با `appid=730` و `buildid=25966348` دیده شده است. طبق تصمیم جدید کاربر، VPKهای asset از Windows با WinSCP به‌صورت کنترل‌شده Seed خواهند شد؛ فایل‌های Windows جایگزین manifest و executableهای لینوکس نمی‌شوند. Installer رسمی `cs2node` گزارش کرده config و systemd unit نوشته شده و سرویس فعال/اجرا شده است؛ `vpksync` به `/srv/cs2-shared` با روش `symlink` پیکربندی شده و Moduleهای addoncache, workshop, backup, cleanup, crashes, consolelog, metrics و alerts نیز روشن‌اند. محتوای Shared Base هنوز تأیید نشده؛ ابتدا SteamCMD با خطای 32-bit exit 127 شکست خورد، سپس پس از نصب i386 runtime آزمون `steamcmd.sh +quit` موفق شد. پس از Restart، `build=0` و صفر VPK/بدون Manifest مرکزی ثبت شد. گام بعدی بررسی پردازش زنده، Journal و رشد مسیر مرکزی است. URL وب‌هوک افشاشده باید در Discord باطل و جایگزین شود. VMDK دوم برای PoC لازم نیست. پس از قبولی Base و Instance دوم، پلاگین‌ها آزمایش می‌شوند. تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
