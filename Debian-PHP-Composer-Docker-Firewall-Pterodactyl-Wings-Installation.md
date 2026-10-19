@@ -235,22 +235,29 @@ sudo apt install -y \
 
 ### 1.12 مرحلهٔ چهارم — تثبیت Hostname/FQDN و ساعت
 
-نامی که در نصاب وارد شد باید روی سیستم نیز ثابت باشد. این بلوک hostname را روی `fc-node-01` می‌گذارد و FQDN موردنظر را در hosts محلی تعریف می‌کند. تعریف محلی hosts جای رکورد DNS عمومی را نمی‌گیرد.
+Hostname و FQDN باید با جدول بخش 0.3 و DNS واقعی تو هماهنگ باشند. قبل از اجرا، دو مقدار زیر را با نام‌های خودت جایگزین کن؛ این‌ها فقط نمونه‌اند. تعریف محلی `/etc/hosts` جای رکورد DNS عمومی را نمی‌گیرد.
 
 ~~~bash
 set -eu
 
-sudo hostnamectl set-hostname fc-node-01
+TARGET_HOST="fc-node-01"                 # Replace with your Linux hostname
+TARGET_FQDN="fc-node-01.fragcity.ir"     # Replace with your Node FQDN
 
-sudo sed -i -E '/^127\.0\.1\.1[[:space:]]/d' /etc/hosts
-printf '%s\n' '127.0.1.1 fc-node-01.fragcity.ir fc-node-01' \
-  | sudo tee -a /etc/hosts >/dev/null
+if [[ "$TARGET_HOST" == *REPLACE* || "$TARGET_FQDN" == *REPLACE* ]]; then
+  echo "STOP: set TARGET_HOST and TARGET_FQDN first."
+  exit 1
+fi
+
+sudo hostnamectl set-hostname "$TARGET_HOST"
+sudo sed -i -E '/^127\.0\.1[[:space:]]/d' /etc/hosts
+printf '127.0.1.1 %s %s\n' "$TARGET_FQDN" "$TARGET_HOST" |
+  sudo tee -a /etc/hosts >/dev/null
 
 sudo timedatectl set-timezone UTC
 sudo systemctl enable --now chrony
 ~~~
 
-برای سرور، UTC را در سیستم‌عامل نگه می‌داریم تا زمان‌های لاگ و عیب‌یابی یکدست باشند. منطقهٔ زمانی نمایشی سایت، در صورت نیاز، جداگانه در خود Panel تنظیم می‌شود.
+برای سرور، UTC را در سیستم‌عامل نگه می‌داریم تا زمان‌های لاگ و عیب‌یابی یکدست باشند. منطقهٔ زمانی نمایشی سایت در صورت نیاز جداگانه تنظیم می‌شود.
 
 ### 1.13 مرحلهٔ پنجم — فعال‌سازی و بررسی SSH
 
@@ -313,23 +320,29 @@ lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 
 ### 1.15 مرحلهٔ هفتم — بررسی نهایی hostname، شبکه و وضعیت سرویس‌ها
 
-این بلوک فقط‌خواندنی است و مطمئن می‌شود هشدار قبلی مربوط به تغییر hostname تکرار نمی‌شود. مقدار MAC برای رزرو DHCP در مرحلهٔ بعد استفاده خواهد شد.
+این بلوک فقط‌خواندنی است. نام‌های نمونه را با hostname/FQDN خودت هماهنگ کن و interface را از خروجی `ip -br address` در مرحلهٔ 1.14 انتخاب کن.
 
 ~~~bash
 set -eu
 
+TARGET_HOST="fc-node-01"                 # Replace with your hostname
+TARGET_FQDN="fc-node-01.fragcity.ir"     # Replace with your Node FQDN
+IFACE="ens33"                            # Replace with the real LAN interface
+
 echo "=== Host identity and local resolution ==="
 hostname -s
 hostname -f
-getent hosts fc-node-01
-getent hosts fc-node-01.fragcity.ir
+getent hosts "$TARGET_HOST" || true
+getent hosts "$TARGET_FQDN" || true
 
 echo
 echo "=== LAN identity ==="
-ip -4 -o address show dev ens33
+ip -4 -o address show dev "$IFACE"
+cat "/sys/class/net/$IFACE/address"
+
+echo
+echo "=== Default route ==="
 ip route
-printf 'MAC: '
-cat /sys/class/net/ens33/address
 
 echo
 echo "=== Services and time ==="
@@ -338,37 +351,36 @@ systemctl is-active ssh chrony
 timedatectl show -p Timezone -p NTPSynchronized -p NTP
 ~~~
 
-اگر hostname به‌درستی resolve نشد یا هشدار `sudo: unable to resolve host` همچنان تکرار شد، قبل از مراحل شبکه خروجی را بفرست؛ پیکربندی‌های بیشتری را حدس‌زنان تغییر نده.
+اگر hostname یا FQDN resolve نشد، یا هشدار `sudo: unable to resolve host` تکرار شد، پیش از ادامه فایل `/etc/hosts` و مقدارهای بالای بلوک را بررسی کن. از hostname یا interface حدسی استفاده نکن.
 
 ### 1.16 مرحلهٔ هشتم — رزرو DHCP برای IP داخلی ثابت
 
-هدف این است که MAC کارت شبکهٔ `ens33` همیشه همان IP داخلی را دریافت کند. فعلاً روی Debian آدرس استاتیک دستی تعریف نکن؛ رزرو DHCP و تنظیم IP استاتیک داخل سیستم را هم‌زمان انجام نده.
+هدف این است که MAC کارت شبکهٔ Node همیشه همان IP داخلی رزروشده را دریافت کند. فعلاً روی Debian آدرس استاتیک دستی تعریف نکن؛ رزرو DHCP و IP استاتیک داخل سیستم را هم‌زمان تنظیم نکن.
 
-1. از مرحلهٔ 1.15، MAC کارت شبکه را یادداشت کن.
-2. وارد دستگاهی شو که DHCP شبکهٔ فعلی `192.168.1.0/24` را مدیریت می‌کند. Gateway فعلی `192.168.1.1` است، اما فرض نکن که حتماً خودش DHCP Server است.
-3. اگر از MikroTik/Winbox استفاده می‌کنی: به **IP → DHCP Server → Leases** برو، Lease مربوط به IP `192.168.1.7` را با MAC مرحلهٔ قبل تطبیق بده و **Make Static** را بزن. اگر DHCP را دستگاه دیگری مدیریت می‌کند، همان‌جا رزرو مشابه بساز.
-4. مطمئن شو رزرو از همان IP `192.168.1.7` برای همان MAC استفاده می‌کند؛ آدرس متعلق به دستگاه دیگری را رزرو یا جابه‌جا نکن.
-5. بعد از ذخیرهٔ رزرو، VM را از SSH با فرمان زیر reboot کن. این فرمان اتصال SSH را قطع می‌کند؛ طبیعی است.
+1. از مرحلهٔ 1.15، MAC کارت شبکه و نام interface را یادداشت کن.
+2. در روتر/DHCP server شبکهٔ خودت subnet و gateway واقعی را بررسی کن. `192.168.1.0/24` و `192.168.1.1` فقط نمونه‌های این ریپو هستند.
+3. در رابط مدیریت DHCP، Lease همان MAC را پیدا کن و برای آن یک Reservation/Static Lease بساز. اگر از MikroTik/Winbox استفاده می‌کنی، مسیر معمول **IP → DHCP Server → Leases** است.
+4. یک IP آزاد و ثابت از subnet خودت انتخاب کن؛ قبل از رزرو مطمئن شو به دستگاه دیگری اختصاص نیافته است.
+5. پس از ذخیرهٔ رزرو، VM را با `sudo reboot` راه‌اندازی مجدد کن. اتصال SSH قطع می‌شود؛ این طبیعی است.
 
-~~~bash
-sudo reboot
-~~~
-
-پس از بالا آمدن VM، از PowerShell دوباره وصل شو:
+پس از بالا آمدن VM، از Windows PowerShell با نام کاربر و IP واقعی خودت دوباره وصل شو:
 
 ~~~powershell
-ssh sv1@192.168.1.7
+$LinuxUser = Read-Host "Linux username"
+$NodeIp = Read-Host "Reserved Node LAN IPv4"
+ssh "$LinuxUser@$NodeIp"
 ~~~
 
-و IP/route را بررسی کن:
+در نشست SSH نام interface را با مقدار واقعی جایگزین کن و IP/route/MAC را بررسی کن:
 
 ~~~bash
-ip -4 -o address show dev ens33
+IFACE="ens33"  # Replace with the interface shown by ip -br address
+ip -4 -o address show dev "$IFACE"
 ip route
-cat /sys/class/net/ens33/address
+cat "/sys/class/net/$IFACE/address"
 ~~~
 
-ادامه فقط وقتی انجام شود که IP و MAC با رزرو DHCP مطابق باشند. اگر IP تغییر کرد، آدرس تازه را از کنسول VMware پیدا کن و قبل از ادامهٔ راهنما آن را تأیید کن.
+ادامه فقط وقتی انجام شود که IP و MAC با رزرو DHCP مطابقت داشته باشند. اگر IP تغییر کرد، آدرس تازه را از کنسول VM پیدا کن و قبل از ادامه آن را تأیید کن.
 
 ### 1.17 مرحلهٔ نهم — بررسی IPv4 عمومی، NAT و CGNAT
 
@@ -421,31 +433,40 @@ ip -4 route
 
 ### 1.18 مرحلهٔ دهم — بررسی و آماده‌سازی DNS عمومی
 
-ابتدا Nameserverهای دامنه و رکوردهای واقعی را بررسی کن. فرمان `dig` از DNS استفاده می‌کند و ورودی محلی `/etc/hosts` را دور می‌زند.
+ابتدا FQDNهای واقعی Panel و Node را در متغیرهای زیر وارد کن. نام‌های نمونه باید با دامنه‌ای جایگزین شوند که مالک آن هستی و DNS آن را مدیریت می‌کنی. فرمان `dig`، DNS را می‌خواند و ورودی محلی `/etc/hosts` را دور می‌زند.
 
 ~~~bash
 set -eu
+BASE_DOMAIN="fragcity.ir"                  # Replace with your domain
+PANEL_FQDN="panel.fragcity.ir"             # Replace with the real Panel FQDN
+NODE_FQDN="fc-node-01.fragcity.ir"         # Replace with the real Node FQDN
+
+if [[ "$BASE_DOMAIN" == *REPLACE* || "$PANEL_FQDN" == *REPLACE* || "$NODE_FQDN" == *REPLACE* ]]; then
+  echo "STOP: replace all domain examples before querying DNS."
+  exit 1
+fi
+
 echo "=== Authoritative DNS servers ==="
-dig +short NS fragcity.ir
+dig +short NS "$BASE_DOMAIN"
 
 echo
 echo "=== Public A records ==="
-dig +short A panel.fragcity.ir
-dig +short A fc-node-01.fragcity.ir
+dig +short A "$PANEL_FQDN"
+dig +short A "$NODE_FQDN"
 
 echo
 echo "=== Existing IPv6 records ==="
-dig +short AAAA panel.fragcity.ir
-dig +short AAAA fc-node-01.fragcity.ir
+dig +short AAAA "$PANEL_FQDN"
+dig +short AAAA "$NODE_FQDN"
 ~~~
 
 1. از روی NS مشخص کن مدیریت DNS واقعاً در کدام سرویس انجام می‌شود و فقط در همان پنل Zone را ویرایش کن.
-2. پس از تأیید داشتن IPv4 عمومی قابل‌استفاده در مرحلهٔ 1.17، رکوردهای **A** برای `panel.fragcity.ir` و `fc-node-01.fragcity.ir` را به همان IPv4 عمومی تنظیم کن؛ هرگز IP داخلی `192.168.1.7` را به‌عنوان رکورد عمومی قرار نده.
-3. اگر Cloudflare داری، برای راه‌اندازی اولیهٔ Wings رکورد Node را **DNS only** نگه دار؛ پراکسی عادی Cloudflare نباید بدون طراحی و پشتیبانی از پورت‌ها فرض گرفته شود.
+2. پس از تأیید داشتن IPv4 عمومی قابل‌استفاده در مرحلهٔ 1.17، رکوردهای **A** مربوط به Panel و Node را به همان IP عمومی تنظیم کن؛ هرگز IP خصوصی LAN را به‌عنوان رکورد عمومی قرار نده.
+3. اگر Cloudflare داری، برای راه‌اندازی اولیهٔ Wings رکورد Node را **DNS only** نگه دار؛ پراکسی عمومی را بدون طراحی و پشتیبانی از پورت‌ها فرض نگیر.
 4. رکورد **AAAA** نساز یا نگه ندار مگر IPv6 عمومی، مسیر ورودی، سرویس و Firewall همگی واقعاً تنظیم و آزمایش شده باشند.
-5. برای تأیید نهایی، فرمان‌های `dig` بالا را دوباره اجرا کن. خروجی A باید با IPv4 عمومی تأییدشده مطابقت داشته باشد. اگر رکوردها هنوز به‌روز نشده‌اند یا مقدار نامناسب دارند، قبل از ادامه علت را مشخص کن.
+5. خروجی A را با IPv4 عمومی تأییدشده تطبیق بده. اگر رکوردها هنوز به‌روز نشده‌اند یا مقدار نامناسب دارند، قبل از ادامه علت را مشخص کن.
 
-ساخت رکورد DNS به‌تنهایی Port Forwarding، TLS یا قابلیت دسترسی ورودی را فعال نمی‌کند.
+ساخت رکورد DNS به‌تنهایی Port Forwarding، TLS یا دسترسی ورودی را فعال نمی‌کند.
 
 ### 1.19 مرحلهٔ یازدهم — کلید SSH، سخت‌سازی ورود و Firewall میزبان
 
