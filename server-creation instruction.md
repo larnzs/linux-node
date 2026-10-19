@@ -241,9 +241,212 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 
 اگر Start شکست خورد، اول Console/Activity و وضعیت سرویس را بررسی کن؛ Panel را reinstall نکن و سرور را عجولانه حذف نکن.
 
-### 7.1 مرحلهٔ ضروری FragCity — نصب CounterStrikeSharp و پلاگین‌های Fun Mode
+## 8. تبدیل دانلود فعلی به Shared Base و فعال‌کردن VPK Sync
 
-**سرور Vanilla تنها Baseline فنی است؛ تحویل آزمایشی FragCity بدون پلاگین‌های موردنیاز و Fun Modeها کامل نیست.** این مرحله بعد از آن انجام می‌شود که بازی پایه بدون افزونه به‌درستی Boot، Map، Console و Stop/Start را پاس کرده باشد.
+این فصل با مستندات رسمی K4ryuu تطبیق داده شده است: [Install](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md)، [Node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)، [VPK Sync](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/vpk-sync.md)، [Node config](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)، [Protocol](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/protocol.md)، [Security](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/security.md) و [Troubleshooting](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/troubleshooting.md).
+
+### تصمیم معماری
+
+- Egg رسمی **KitsuneLab CS2 Go @ K4ryuu** انتخاب درستی است؛ این Egg/image کلاینت پروتکل cs2node را دارد و هنگام boot منتظر نتیجهٔ VPK Sync می‌ماند. Egg standalone فقط برای حالتی است که اصلاً daemon نمی‌خواهیم؛ برای Multi Instance ما همان Egg کامل لازم است.
+- cs2node روی خود Debian اجرا می‌شود. ماژول vpksync فایل‌های مرکزی بازی را با Volume هر Instance همگام می‌کند. در روش symlink، VPKها به Base مرکزی read-only لینک می‌شوند؛ فایل‌های عادی لازم نیز sync می‌شوند و cfg/gameinfo برای هر Instance طبق منطق Egg محافظت می‌شوند.
+- برای PoC از فایل‌سیستم فعلی استفاده می‌کنیم؛ حدود 182 GB فضای آزاد root گزارش شده است. VMDK دوم شرط لازم نیست.
+- پیش از دانلود دوبارهٔ کامل، بررسی می‌کنیم آیا نصب فعلی می‌تواند seed نسخهٔ مرکزی /srv/cs2-shared شود. این seed کردن، مرحلهٔ بهینه‌سازی محلی FragCity است (نه روال اصلی‌ای که مستندات K4ryuu به‌صورت خودکار انجام می‌دهند)؛ فقط وقتی manifest و فایل‌های نصب کامل باشند انجام می‌شود. اگر بررسی شکست بخورد، از نصب مرکزی معمول SteamCMD استفاده می‌کنیم.
+- فایل‌های نصب فعلی را Move نمی‌کنیم. ابتدا با rsync یک کپی مستقل می‌سازیم تا اگر seed یا SteamCMD ناموفق بود، Volume فعلی قابل بازیابی بماند.
+
+### 8.1 گام اول — خروج امن از Wizard و بررسی فقط‌خواندنی
+
+اگر ترمینال هنوز روی پرسش Proceed? از دستور sudo /tmp/cs2node install است، فعلاً n بزن و Enter کن. اگر از آن عبور کرده‌ای ولی نصب نهایی نشده، با Ctrl+C خارج شو. تا پایان بررسی نصب را نهایی نکن.
+
+در پنل Pterodactyl، سرور fc-cs2-test-01 را Stop کن و منتظر Offline شدن آن بمان. خود Debian، Docker، Wings و Panel باید روشن بمانند.
+
+نکتهٔ مهم: در چیدمان Egg، پوشه‌های game و steamapps در ریشهٔ Volume خواهر/هم‌سطح یکدیگرند. مسیر manifest مورد انتظار، steamapps/appmanifest_730.acf است؛ جستجوی قبلی روی game/steamapps انجام شده بود و مسیر درستی نبود.
+
+در SSH این بلوک را اجرا کن. هیچ تغییری ایجاد نمی‌کند.
+
+~~~bash
+VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
+
+echo "=== Top-level entries in current server volume ==="
+sudo find "$VOL" -mindepth 1 -maxdepth 1 -printf '%f\t%y\n' | sort
+
+echo
+echo "=== Key paths ==="
+for p in game steamapps steamcmd Steam .steam egg; do
+  if sudo test -e "$VOL/$p"; then
+    sudo ls -ld "$VOL/$p"
+  else
+    echo "MISSING: $VOL/$p"
+  fi
+done
+
+echo
+echo "=== Disk usage ==="
+sudo du -sh "$VOL/game" "$VOL/steamapps" "$VOL/steamcmd" "$VOL/Steam" "$VOL/.steam" "$VOL/egg" 2>/dev/null || true
+
+echo
+echo "=== App manifest and build id ==="
+if sudo test -f "$VOL/steamapps/appmanifest_730.acf"; then
+  sudo grep -E '"(appid|buildid|StateFlags)"' "$VOL/steamapps/appmanifest_730.acf" || true
+else
+  echo "NO ROOT STEAM APPMANIFEST FOUND"
+fi
+
+echo
+echo "=== VPK file count ==="
+sudo find "$VOL/game" -type f -name '*.vpk' 2>/dev/null | wc -l
+
+echo
+echo "=== Existing shared base (read-only) ==="
+if sudo test -d /srv/cs2-shared; then
+  sudo ls -ld /srv/cs2-shared
+  sudo find /srv/cs2-shared -mindepth 1 -maxdepth 1 -printf '%f\t%y\n' | head -n 30
+else
+  echo "/srv/cs2-shared does not exist yet"
+fi
+
+echo
+echo "=== Existing cs2node state (read-only) ==="
+command -v cs2node || true
+sudo systemctl is-active cs2node 2>/dev/null || true
+sudo test -f /etc/cs2node/config.json && echo "Node config exists" || echo "No node config yet"
+~~~
+
+خروجی این بررسی را قبل از هرگونه کپی بفرست. اگر /srv/cs2-shared از قبل وجود دارد و خالی نیست، آن را overwrite نکن.
+
+### 8.2 گام دوم — seed کردن Base از نصب موجود، فقط بعد از تأیید
+
+این دستورها را تا زمان بررسی خروجی بخش 8.1 اجرا نکن. شرایط لازم:
+- مسیر game/csgo و manifest ریشهٔ steamapps وجود داشته باشند.
+- manifest مربوط به App ID 730 و دارای buildid عددی باشد.
+- تعداد VPKها بیشتر از صفر باشد.
+- سرور کاملاً متوقف باشد.
+- مقصد /srv/cs2-shared وجود نداشته باشد یا خالی باشد.
+- هنوز پلاگین یا payload سفارشی روی Instance نصب نشده باشد.
+
+اگر همهٔ شرط‌ها تأیید شدند، فقط game و steamapps را به Shared Base کپی می‌کنیم؛ پوشه‌های egg و steamcmd از Volume کپی نمی‌شوند.
+
+~~~bash
+VOL="/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b"
+BASE="/srv/cs2-shared"
+
+sudo test -d "$VOL/game/csgo" || { echo "STOP: source game/csgo is missing"; exit 1; }
+sudo test -f "$VOL/steamapps/appmanifest_730.acf" || { echo "STOP: appmanifest is missing"; exit 1; }
+sudo grep -Eq '"buildid"[[:space:]]+"[0-9]+"' "$VOL/steamapps/appmanifest_730.acf" || { echo "STOP: manifest buildid not found"; exit 1; }
+VPK_COUNT="$(sudo find "$VOL/game" -type f -name '*.vpk' | wc -l)"
+[ "$VPK_COUNT" -gt 0 ] || { echo "STOP: no VPK files found"; exit 1; }
+
+if sudo test -d "$BASE" && [ -n "$(sudo find "$BASE" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+  echo "STOP: $BASE already contains files; inspect it before doing anything"
+  exit 1
+fi
+
+sudo mkdir -p "$BASE/game" "$BASE/steamapps"
+sudo rsync -a --chown=root:root --info=progress2 "$VOL/game/" "$BASE/game/"
+sudo rsync -a --chown=root:root --info=progress2 "$VOL/steamapps/" "$BASE/steamapps/"
+
+echo
+echo "=== Seeded central install ==="
+sudo grep -E '"(appid|buildid|StateFlags)"' "$BASE/steamapps/appmanifest_730.acf"
+sudo find "$BASE/game" -type f -name '*.vpk' | wc -l
+sudo du -sh "$BASE/game" "$BASE/steamapps"
+df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
+~~~
+
+اگر هر شرطی شکست خورد، ادامه نده و خروجی را بفرست. اگر manifest یا فایل‌های بازی ناقص باشند، از seed کردن صرف‌نظر می‌کنیم و می‌گذاریم vpksync نصب مرکزی را با SteamCMD آماده کند.
+
+بعد از seed هم cs2node در اولین اجرا SteamCMD را اجرا می‌کند. اگر manifest و فایل‌ها سالم و هم‌نسخه باشند، انتظار داریم دانلود کامل مجدد لازم نشود؛ ممکن است آپدیت افزایشی به‌دلیل انتشار build جدید لازم باشد. این موضوع را با خروجی SteamCMD و Build ID واقعی تأیید می‌کنیم.
+
+### 8.3 گام سوم — نصب رسمی cs2node
+
+فقط پس از بررسی 8.1 و در صورت امکان تکمیل seed مرحلهٔ 8.2، Installer رسمی را اجرا کن:
+
+~~~bash
+curl -fsSL https://github.com/K4ryuu/CS2-Egg-Go/releases/latest/download/cs2node_linux_amd64 -o /tmp/cs2node
+chmod +x /tmp/cs2node
+sudo /tmp/cs2node install
+~~~
+
+در پرسش Proceed? پاسخ y بده؛ سپس:
+- Update channel: stable
+- Auto-update: y
+- فقط vpksync را فعال کن (y).
+- برای guard، alerts، addoncache، workshop، backup، cleanup، crashes، consolelog و metrics فعلاً n بزن. در نصب تازه پیش‌فرض فعال‌سازی Moduleها ممکن است Yes باشد؛ Enter خالی نزن.
+
+تنظیمات vpksync:
+
+| پرسش | مقدار FragCity |
+|---|---|
+| steamcmd_dir | /root/steamcmd |
+| cs2_dir | /srv/cs2-shared |
+| push_method | symlink |
+| max_workers | 8 |
+| auto_restart | y |
+| restart_policy | empty |
+| max_delay_hours | 12 |
+| warn_minutes | 5 |
+| validate | n |
+| check_minutes | 60 |
+
+check_minutes برابر 60 تنظیم FragCity برای بررسی ساعتی است؛ پیش‌فرض upstream یک دقیقه است. restart_policy روی empty می‌ماند تا سرور ترجیحاً هنگام خالی بودن restart شود. پیش از نصب نهایی، Summary را چک کن: فقط vpksync روشن باشد و Base دقیقاً /srv/cs2-shared باشد. اگر prompt متفاوت بود، حدس نزن؛ همان prompt را بفرست.
+
+### 8.4 گام چهارم — بررسی daemon و Base مرکزی
+
+پس از نصب، اولین Update مرکزی ممکن است خودکار شروع شود. لاگ زنده:
+
+~~~bash
+sudo journalctl -u cs2node -f
+~~~
+
+بعد از پایان کار، با Ctrl+C فقط از دنبال‌کردن لاگ خارج شو (این کار سرویس را متوقف نمی‌کند)، و اجرا کن:
+
+~~~bash
+echo "=== Service ==="
+sudo systemctl status cs2node --no-pager
+
+echo
+echo "=== Version ==="
+sudo cs2node version
+
+echo
+echo "=== Doctor ==="
+sudo cs2node doctor
+
+echo
+echo "=== Status ==="
+sudo cs2node status
+
+echo
+echo "=== Central build and VPK count ==="
+sudo grep -E '"(appid|buildid|StateFlags)"' /srv/cs2-shared/steamapps/appmanifest_730.acf
+sudo find /srv/cs2-shared/game -type f -name '*.vpk' | wc -l
+df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
+~~~
+
+اگر doctor می‌گوید Base وجود ندارد، Build ID ندارد یا تعداد VPK صفر است، سرور را Start نکن. خروجی doctor/status و لاگ مربوطه را بفرست.
+
+### 8.5 گام پنجم — اتصال سرور اول به Base
+
+فقط وقتی Base مرکزی تأیید شد:
+1. از پنل fc-cs2-test-01 را Start کن.
+2. در Console انتظار این پیام موفق را داشته باش:
+
+~~~text
+KitsuneLab | OK | Daemon-managed game files, SteamCMD skipped
+~~~
+
+3. اگر KL-DMN-03 یا KL-DMN-04 دیده شد، موفقیت حسابش نکن؛ احتمال fallback به SteamCMD محلی وجود دارد. doctor/status و journal را بررسی کن.
+4. بارگذاری Map و پاسخ Console را تأیید کن.
+5. پس از موفقیت، مصرف واقعی Volume و فضای دیسک را بررسی کن. تا پیش از تأیید VPK Sync، Limit دیسک را 40 GB نگه دار.
+
+### 8.6 گام ششم — ساخت Instance دوم
+
+بعد از تأیید سرور اول، یک سرور دیگر با همان Egg کامل KitsuneLab CS2 Go @ K4ryuu و Image برابر ghcr.io/k4ryuu/cs2-egg-go:stable بساز. Allocation آزاد و جداگانه برای آن انتخاب کن؛ پورت جدید را حدس نزن. بعد از Start باید پیام Daemon-managed game files, SteamCMD skipped ظاهر شود و cs2node status باید Instance دوم را بشناسد. Disk Limit حدود 5 GB را تنها پس از اندازه‌گیری مصرف واقعی Volume و تأیید موفقیت Shared Base تنظیم کن.
+
+VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را به یک Volume نوشتنی مشترک وصل نکن؛ اشتراک فایل بازی باید از مسیر مدیریت‌شدهٔ vpksync انجام شود.
+
+## 9. نصب CounterStrikeSharp و پلاگین‌های Fun Mode — پس از قبولی Multi Instance
+
+**طبق ترتیب مورد توافق، تا وقتی VPK Sync و دو Instance مستقل تأیید نشده‌اند، سراغ پلاگین‌ها و ریپوی KUS نمی‌رویم.** این مرحله فقط پس از قبولی Shared Base و Instance دوم اجرا می‌شود.
 
 #### A. فعال‌کردن Framework
 
@@ -282,98 +485,9 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 - [ ] مصرف RAM/CPU در حالت Vanilla و در حالت Pluginها جداگانه مقایسه شود.
 - [ ] هیچ فایل VIP ناخواسته‌ای در Manifest یا Instance وجود نداشته باشد.
 
-**ترتیب فعلی PoC:** اول بازی دانلودشده را به‌عنوان Baseline حفظ می‌کنیم، سپس `cs2node` و Shared VPK Base را فعال و Instance دوم را آزمایش می‌کنیم؛ پس از قبولی Multi Instance، CounterStrikeSharp و Plugin/Fun Modeهای FragCity در مرحلهٔ جداگانه نصب می‌شوند. Shared Base فقط برای فایل‌های بازی است؛ پلاگین‌ها و configs نوشتنی هر Instance خصوصی می‌مانند.
+**Shared Base فقط برای فایل‌های بازی است؛ پلاگین‌ها و configs نوشتنی هر Instance خصوصی می‌مانند.**
 
-## 8. نصب Node daemon و فعال‌سازی Shared VPK Base
-
-طبق راهنمای رسمی [Install the node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)، Node daemon اختیاری است؛ اما برای Share کردن فایل‌های بازی بین Instanceها به آن نیاز داریم. **VMDK دوم شرط نصب نیست.** فعلاً با فایل‌سیستم فعلی Clone پیش می‌رویم؛ خروجی `df -hT` حدود 182 GB فضای آزاد روی root نشان داده است و مسیر پیش‌فرض Base برابر `/srv/cs2-shared` خواهد بود.
-
-### 8.1 قبل از نصب
-
-1. در پنل، `fc-cs2-test-01` را Stop کن و صبر کن تا کاملاً Offline شود. پنل، Wings و سایر سرویس‌های Node روشن بمانند.
-2. فعلاً فایل‌های بازی را دستی Copy/Move نکن. Egg Go از مسیر رسمی خودش با daemon handshake می‌کند.
-3. توجه کن: بازی که در Volume فعلی دانلود شده **به‌طور خودکار به Shared Base تبدیل نمی‌شود**. اولین اجرای `vpksync` روی Node یک نصب مرکزی با SteamCMD زیر `/srv/cs2-shared` آماده می‌کند؛ در نتیجه برای این تست حدود 35–40 GB دانلود مرکزی یک‌باره هم لازم است. سپس هنگام Start شدن سرور، daemon فایل‌های VPK را با Base مرکزی همگام می‌کند. 182 GB فضای آزاد فعلی برای این تست کافی به نظر می‌رسد.
-4. متغیر Egg را تغییر نده؛ همان Image رسمی `ghcr.io/k4ryuu/cs2-egg-go:stable` باید باقی بماند.
-
-### 8.2 اجرای Installer رسمی K4ryuu
-
-از SSH به Clone، کل بلوک رسمی زیر را اجرا کن:
-
-~~~bash
-curl -fsSL https://github.com/K4ryuu/CS2-Egg-Go/releases/latest/download/cs2node_linux_amd64 -o /tmp/cs2node
-chmod +x /tmp/cs2node
-sudo /tmp/cs2node install
-~~~
-
-این دستورها باینری رسمی را می‌گیرند و Wizard نصب را باز می‌کنند. در Wizard:
-
-- Update channel: `stable`.
-- Auto-update: فعلاً مقدار پیش‌فرض را بپذیر.
-- وقتی فهرست Moduleها می‌آید، برای **`vpksync` پاسخ `y`** بده؛ برای ماژول‌های دیگر فعلاً `n` بده. چون در نصب تازه ممکن است پاسخ پیش‌فرض همهٔ Moduleها Yes باشد، هر پرسش را با دقت پاسخ بده؛ به‌ویژه `guard` را در این مرحله فعال نکن.
-- برای تنظیمات `vpksync` این مقادیر را انتخاب کن:
-
-| پرسش | مقدار |
-|---|---|
-| `steamcmd_dir` | `/root/steamcmd` |
-| `cs2_dir` | `/srv/cs2-shared` |
-| `push_method` | `symlink` |
-| `max_workers` | `8` |
-| `auto_restart` | `y` |
-| `restart_policy` | `empty` |
-| `max_delay_hours` | `12` |
-| `warn_minutes` | `5` |
-| `validate` | `n` |
-| `check_minutes` | `1` |
-
-`symlink` روش پیشنهادی ماست: daemon مسیر مرکزی را read-only داخل Container mount می‌کند و VPKها به آن اشاره می‌کنند. در صورت رسیدن به Summary، قبل از تأیید نهایی مرور کن که فقط `vpksync` روشن است و مسیرها دقیقاً مطابق جدول بالا هستند. اگر Wizard پرسشی غیرمنتظره نشان داد، حدس نزن؛ متن همان پرسش را بفرست.
-
-### 8.3 اولین بررسی پس از نصب
-
-بعد از اتمام Wizard و نصب سرویس، این بلوک را اجرا کن:
-
-~~~bash
-echo "=== cs2node service ==="
-sudo systemctl status cs2node --no-pager
-
-echo
-echo "=== cs2node version ==="
-sudo cs2node version
-
-echo
-echo "=== central files and disk space ==="
-sudo ls -ld /srv/cs2-shared
-df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
-
-echo
-echo "=== cs2node doctor ==="
-sudo cs2node doctor
-
-echo
-echo "=== cs2node status ==="
-sudo cs2node status
-~~~
-
-اولین دانلود Base ممکن است بلافاصله شروع شود؛ لاگ زنده را با `sudo journalctl -u cs2node -f` ببین. تا پایان به‌روزرسانی مرکزی، سرور Pterodactyl را Start نکن. خروجی `doctor`/ `status` را بفرست تا نتیجه و هر warning را بررسی کنیم؛ بعد از تأیید Base، سرور را Start می‌کنیم.
-
-### 8.4 معیار موفقیت VPK Sync
-
-1. `sudo cs2node doctor`، Build ID معتبر و تعداد VPKهای مرکزی را نشان دهد.
-2. پس از Start سرور از پنل، Console این پیام موفق را نمایش دهد:
-
-~~~text
-KitsuneLab | OK | Daemon-managed game files, SteamCMD skipped
-~~~
-
-3. `sudo cs2node status`، اتصال Egg را نشان دهد و خطای Mount نداشته باشیم.
-4. سرور بالا بیاید و Map/اتصال آن آزمایش شود. پس از تأیید واقعی Sync، سهم فضای Volume را بررسی می‌کنیم؛ تا پیش از اثبات موفقیت Sync، Disk Limit را از 40 GB به 5 GB کاهش نده.
-
-### 8.5 ساخت Instance دوم
-
-فقط بعد از قبولی معیارهای بالا، Instance دوم را با همان Egg و Image `stable` و Allocation جداگانه بساز. برای اولین تست از Map/config متفاوت یا تنظیم مستقل استفاده کن و Console را بررسی کن. قرار است دانلود کامل CS2 برای Instance دوم تکرار نشود؛ `cs2node status` و پیام `SteamCMD skipped` را معیار قرار بده.
-
-VMDK دوم بعداً می‌تواند Base را از root جدا کند، ولی برای PoC فعلی ضروری نیست. هیچ‌گاه دو Instance را به یک Volume نوشتنیِ مشترک Mount دستی نکن؛ روش مدیریت‌شدهٔ `vpksync` باید مسئول اشتراک VPKها باشد.
-
-## 9. وضعیت واقعی و ادامهٔ مرحله‌ای — بررسی 2026-10-19
+## 10. وضعیت واقعی و ادامهٔ مرحله‌ای — بررسی 2026-10-19
 
 این بخش فقط نتیجه‌هایی را ثبت می‌کند که کاربر واقعاً اجرا/گزارش کرده است؛ نصب‌های آینده را Completed فرض نکن.
 
@@ -384,16 +498,20 @@ VMDK دوم بعداً می‌تواند Base را از root جدا کند، و�
 - [x] فایل‌سیستم ریشه از خروجی `df -hT`: اندازهٔ حدود `268G`، مصرف `73G` و فضای آزاد حدود `182G`.
 - [x] خروجی فعلی `lsblk` فقط دیسک `sda` با اندازهٔ `300G` (پارتیشن Boot، پارتیشن LVM، Logical Volume ریشه و Swap) و درایو نوری `sr0` را نشان داده است؛ هیچ دیسک دیتای ثانویه در آن خروجی مشاهده نشده.
 - [x] Volume سرور در میزبان شناسایی شده است: `/var/lib/pterodactyl/volumes/e098c53f-c207-46fd-b782-866c45a4e86b/`.
-- [ ] وجود و مقدار `buildid` در `game/steamapps/appmanifest_730.acf` هنوز در خروجی ثبت‌شده تأیید نشده است.
+- [ ] وجود و مقدار buildid در مسیر صحیح $VOL/steamapps/appmanifest_730.acf هنوز بررسی نشده؛ جستجوی قبلی به‌اشتباه روی game/steamapps انجام شده بود.
 - [ ] آزمون کامل Vanilla (Running، بارگذاری Map، اتصال و Stop/Start) هنوز به‌طور صریح تأیید نشده است.
 - [x] تصمیم گرفته شد برای PoC فعلی از فایل‌سیستم موجود استفاده کنیم؛ VMDK دوم پیش‌نیاز `cs2node`/`vpksync` نیست.
 - [ ] `cs2node`، ماژول `vpksync` و Shared Base هنوز نصب/فعال نشده‌اند؛ نصب مرکزی ممکن است یک دانلود 35–40 GB جداگانه انجام دهد.
 
-### گام بعدی — فعال‌کردن VPK Sync روی Storage فعلی
+### پنج گام اجرایی اول از همین‌جا
 
-**الان نیازی به خاموش‌کردن VM یا افزودن VMDK نیست.** مسیر آزمایشی انتخاب‌شده روی همین فایل‌سیستم Debian است، چون حدود 182 GB فضای آزاد گزارش شده است. ابتدا در پنل سرور `fc-cs2-test-01` را Stop کن؛ سپس طبق بخش 8، `cs2node` رسمی را نصب کن و فقط `vpksync` را با `symlink` و مسیر `/srv/cs2-shared` فعال کن.
+این پنج گام فقط برای بررسی و حفظ نصب فعلی‌اند؛ هنوز daemon را نصب یا فایل‌ها را کپی نکن.
 
-به خاطر داشته باش که Egg بازی فعلی را داخل Volume خودش دانلود کرده است؛ این به معنای ساخته‌شدن Base مرکزی نیست. اولین به‌روزرسانی `vpksync` با SteamCMD نسخهٔ مرکزی جداگانه‌ای آماده می‌کند؛ این رفتار در راهنمای رسمی K4ryuu شرح داده شده است. پس از پایان دانلود مرکزی، `doctor` و `status` را بررسی کن و فقط بعد از دریافت خروجی، سرور را Start و پیام `Daemon-managed game files, SteamCMD skipped` را تأیید می‌کنیم.
+1. اگر Installer هنوز روی Proceed? ایستاده، n بزن. اگر به پرسش‌های Wizard رفته‌ای ولی نصب نهایی نشده، با Ctrl+C خارج شو.
+2. در پنل، fc-cs2-test-01 را Stop کن و مطمئن شو Offline شده؛ Debian، Docker، Wings و Panel روشن بمانند.
+3. بلوک فقط‌خواندنی بخش 8.1 را اجرا کن؛ به‌خصوص manifest را از مسیر $VOL/steamapps/appmanifest_730.acf بررسی کن.
+4. خروجی مسیرهای game و steamapps، اندازهٔ پوشه‌ها، تعداد VPKها و وضعیت /srv/cs2-shared را بررسی کن. در این گام rsync یا دستور تغییردهنده اجرا نکن.
+5. کل خروجی را در گفتگو بفرست. بعد تعیین می‌کنیم seed کردن از دانلود فعلی امن و ممکن است یا باید مسیر رسمی دانلود مرکزی را به کار ببریم.
 
 ### منابع رسمی
 
