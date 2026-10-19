@@ -25,7 +25,7 @@ BASE="/srv/cs2-shared"
 
 echo "=== SteamCMD process ==="
 ps -eo pid,etime,stat,%cpu,%mem,args |
-  grep -E '[s]teamcmd\\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
+  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
 
 echo
 echo "=== Central directory usage by level ==="
@@ -41,27 +41,27 @@ fi
 
 echo
 echo "=== File counts by extension ==="
-sudo find "$BASE" -xdev -type f -printf '%f\\n' 2>/dev/null |
+sudo find "$BASE" -xdev -type f -printf '%f\n' 2>/dev/null |
   awk '{
     name=$0
-    if (name ~ /\\./) {
-      sub(/^.*\\./, "", name)
+    if (name ~ /\./) {
+      sub(/^.*\./, "", name)
       ext=tolower(name)
     } else ext="[no extension]"
     count[ext]++
   }
-  END {for (ext in count) printf "%-24s %d\\n", ext, count[ext]}' |
+  END {for (ext in count) printf "%-24s %d\n", ext, count[ext]}' |
   sort -k2,2nr | head -n 25
 
 echo
 echo "=== Largest files ==="
-sudo find "$BASE" -xdev -type f -printf '%s\\t%p\\n' 2>/dev/null |
+sudo find "$BASE" -xdev -type f -printf '%s\t%p\n' 2>/dev/null |
   sort -nr | head -n 25 | numfmt --field=1 --to=iec
 
 echo
 echo "=== Steam log files ==="
 sudo find /root/Steam/logs -maxdepth 1 -type f \\
-  -printf '%TY-%Tm-%Td %TH:%TM %s %p\\n' 2>/dev/null | sort
+  -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort
 
 for log in /root/Steam/logs/content_log.txt /root/Steam/logs/stderr.txt /root/Steam/logs/connection_log.txt; do
   if sudo test -f "$log"; then
