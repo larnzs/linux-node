@@ -651,18 +651,18 @@ SCRIPT
 
 **VMDK دادهٔ دوم برای PoC فعلی پیش‌نیاز Shared Base نیست.** با حدود 182 GB فضای آزاد گزارش‌شده روی root، طبق فصل [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) ابتدا `cs2node` و `vpksync` روی مسیر پیش‌فرض `/srv/cs2-shared` نصب و تست می‌شوند. بخش افزودن VMDK در این runbook فقط وقتی لازم است که بعداً بخواهیم Storage بازی را از root جدا کنیم.
 
-ترتیب آزمون موردنظر:
+ترتیب اجرایی PoC موردنظر:
 
-1. Import کردن Egg و تأیید تنظیمات/Allocation مطابق راهنمای ساخت سرور؛ هنوز چند Instance نساز.
-2. راه‌اندازی اولین Instance مستقل؛ دانلود بازی، بارگذاری Map، Console، اتصال Client و Stop/Start را بررسی کن.
-3. پس از قبولی Baseline، `INSTALL_CSS=1` را فعال کن و CounterStrikeSharp/MetaMod را تأیید کن.
-4. پلاگین‌های Fun Mode منتخب را مرحله‌ای روی Volume مستقل Instance مستقر کن؛ dependency، gamedata، configs، تغییر Map/Mode، restart و جدایی داده‌ها را تست کن. محتوای VIP که قبلاً حذف شده نباید برگردد.
-5. نصب و بررسی `cs2node` و ماژول `vpksync` طبق راهنمای K4ryuu روی Storage فعلی؛ پیش‌فرض مسیر `/srv/cs2-shared` و روش `symlink` است.
-6. تأیید `cs2node doctor`, `cs2node status` و Console با پیام `Daemon-managed game files, SteamCMD skipped`.
-7. (اختیاری، بعد از PoC) افزودن VMDK داده فقط به Clone؛ با `lsblk` و `blkid` شناسایی کن و پیش از تأیید صریح آن را فرمت نکن. اگر این مسیر انتخاب شد، mountpoint دائمی را با تنظیم `cs2_dir` در daemon هماهنگ کن.
-8. آزمون read-only دسترسی یک Instance به Base و تأیید اینکه فایل‌های cfg/addons خصوصی باقی می‌مانند.
-9. ساخت Instance دوم با cfg و addon متفاوت؛ بررسی جداسازی فایل‌ها، Update، Stop/Start، Backup/Restore و Recovery.
-10. اندازه‌گیری مصرف دیسک و زمان Update؛ سپس تصمیم‌گیری دربارهٔ Production و مدل storage نهایی.
+1. Egg رسمی وارد شده و اولین Instance fc-cs2-test-01 ساخته شده؛ کاربر پایان دانلود اولیه را گزارش کرده است.
+2. سرور اول را Stop کن و manifest صحیح زیر Volume ریشه را بررسی کن: /var/lib/pterodactyl/volumes/<UUID>/steamapps/appmanifest_730.acf.
+3. اگر manifest، buildid و VPKها معتبر باشند و /srv/cs2-shared خالی باشد، فقط game/ و steamapps/ را با rsync کپی کن تا نصب موجود به‌عنوان Seed برای Base استفاده شود. Volume را Move/Delete نکن. اگر معیارها رد شدند، از نصب استاندارد SteamCMD روی Node استفاده کن.
+4. نصب cs2node روی همان فایل‌سیستم فعلی؛ VMDK دوم برای PoC لازم نیست.
+5. در Wizard فقط vpksync را فعال کن و cs2_dir=/srv/cs2-shared, push_method=symlink بگذار؛ مسیر و فایل‌های دیگر در راهنمای ساخت سرور آمده‌اند.
+6. cs2node doctor و cs2node status را تأیید کن؛ سپس سرور اول را Start کن و Console با پیام Daemon-managed game files, SteamCMD skipped را ببین.
+7. Instance دوم را با همان Egg کامل و Allocation آزاد مجزا بساز؛ مطمئن شو Console می‌گوید SteamCMD skipped.
+8. فقط بعد از قبولی VPK Sync و Instance دوم، CounterStrikeSharp/MetaMod و سپس پلاگین‌های Fun Mode منتخب را مرحله‌ای نصب کن. configs و addons writable هر Instance مستقل بمانند؛ محتوای VIP حذف‌شده برنگردد.
+9. (اختیاری برای Production) VMDK داده را فقط به Clone اضافه کن، با lsblk و blkid شناسایی کن و پیش از تأیید آن را فرمت نکن؛ Mount و تنظیم cs2_dir باید هماهنگ باشند.
+10. مصرف دیسک، Map/Console، Stop/Start، Update، Backup/Restore و جدایی configهای Instanceها را اندازه‌گیری و مستند کن.
 
 مراجع فنی برای ادامه:
 - معماری FragCity Multi-Instance: https://github.com/larnzs/FragCity-RawPHPbackend/blob/main/docs/CS2-MULTI-INSTANCE.md
@@ -690,8 +690,8 @@ SCRIPT
 - [x] Egg رسمی CS2-Egg-Go وارد شده و اولین Instance `fc-cs2-test-01` ساخته شده است؛ کاربر پایان دانلود اولیه را گزارش کرده است.
 - [x] خروجی اولیه نشان داد Kernel `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB است.
 - [ ] نصب `cs2node` و فعال‌کردن `vpksync` روی Storage فعلی؛ VMDK دوم برای این PoC لازم نیست.
-- [ ] CounterStrikeSharp/MetaMod و پلاگین‌های Fun Mode منتخب طبق بخش 7.1 راهنمای ساخت سرور نصب و تأیید شوند؛ configs و addons هر Instance مستقل بمانند.
+- [ ] پس از قبولی Shared Base و Instance دوم، CounterStrikeSharp/MetaMod و پلاگین‌های Fun Mode منتخب طبق بخش 9 راهنمای ساخت سرور نصب و تأیید شوند؛ configs و addons هر Instance مستقل بمانند.
 - [ ] پس از قبولی PoC، در صورت نیاز VMDK داده جداگانه به Clone اضافه و شناسایی شود؛ این کار برای نصب اولیهٔ Shared Base الزامی نیست.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone موقتاً جای VM اصلی را گرفته، IP برابر `192.168.1.9` و hostname برابر `fc-node-01` دارد. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. Queue Worker و Scheduler روی Clone فعال/تأیید شده‌اند؛ `pteroq.service` هم `active` و هم `enabled` است و خط Scheduler در crontab ریشه وجود دارد. هشدار جداگانهٔ `systemd-analyze verify` دربارهٔ مسیر قدیمی `PIDFile` در `/etc/systemd/system/wings.service` زیر `/var/run/` هنوز برای بررسی مستقل باقی است و مانع فعال‌شدن Queue Worker نشده است. پورت `29001/udp` برای تست CS2 رزرو می‌ماند و نباید قانون UFW مربوط به آن را تغییر داد. طبق انتخاب فعلی، گام بعد Import Egg رسمی K4ryuu و ساخت اولین Instance مستقل روی Clone مطابق `server-creation instruction.md` است؛ پیش از Start باید 40 GB فضای آزاد بررسی شود. پس از قبولی Baseline، CounterStrikeSharp و پلاگین‌های Fun Mode منتخب نیز معیار ضروری پذیرش هستند و باید روی Volume همان Instance آزمایش شوند. اولین Instance `fc-cs2-test-01` ساخته شده و پایان دانلود بازی گزارش شده است. مرحلهٔ فعلی نصب `cs2node` و فعال‌کردن `vpksync` روی فایل‌سیستم فعلی با مسیر `/srv/cs2-shared` است؛ حدود 182 GB فضای آزاد root گزارش شده. VMDK دوم فقط گزینهٔ Storage جداگانه برای مرحلهٔ بعد است، نه شرط فعال‌کردن Multi Instance. VM اصلی تا پایان آزمایش خاموش بماند؛ machine-id و SSH host keys تغییر داده نشده‌اند. هر تغییر مربوط به Queue/Scheduler نیز پیش از بازگشت باید جداگانه روی VMDK اصلی اعمال شود.
+**آخرین checkpoint:** Clone با IP 192.168.1.9 و hostname fc-node-01 موقتاً جای VM اصلی را گرفته است. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. هشدار جداگانهٔ systemd-analyze verify دربارهٔ PIDFile مسیر قدیمی wings.service هنوز برای بررسی مستقل باقی است. پورت 29001/udp را تغییر نده. اولین Instance fc-cs2-test-01 ساخته شده و پایان دانلود گزارش شده است. گام بعدی read-only inspection از Volume و manifest در مسیر صحیح steamapps/appmanifest_730.acf است؛ سپس، در صورت سلامت، Seed کردن Base با rsync، نصب cs2node و فعال‌کردن vpksync. VMDK دوم برای PoC لازم نیست. بعد از قبولی VPK Sync و Instance دوم، Framework و Plugin/Fun Mode آزمایش می‌شوند. VM اصلی تا پایان تست خاموش بماند؛ تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
