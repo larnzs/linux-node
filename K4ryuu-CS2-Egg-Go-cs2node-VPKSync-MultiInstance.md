@@ -256,6 +256,38 @@ sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
 - PoC فعلاً روی فایل‌سیستم فعلی با حدود 182 GiB فضای آزاد انجام می‌شود؛ VMDK دوم لازم نیست.
 - CounterStrikeSharp و پلاگین‌های FragCity را قبل از قبولی VPK Sync و Multi Instance نصب نکن.
 
+### 8.0 — پیش‌نیاز اجباری Debian amd64: فعال‌سازی i386 (قبل از نصب cs2node)
+
+**این مرحله را قبل از دریافت/اجرای Installer و قبل از `sudo /tmp/cs2node install` انجام بده.** میزبان amd64 است، اما SteamCMD از یک باینری 32-bit در مسیر `linux32/steamcmd` هم استفاده می‌کند. در نصب آزمایشگاهی FragCity، نبود Runtime سازگار باعث خطای `cannot execute: required file not found` و exit 127 شد؛ بعد از نصب بسته‌های i386، آزمون `steamcmd.sh +quit` موفق شد.
+
+~~~bash
+set -eu
+
+ARCH="$(dpkg --print-architecture)"
+echo "Host architecture: $ARCH"
+if [ "$ARCH" != "amd64" ]; then
+  echo "STOP: this block is written for Debian amd64; review before proceeding."
+  exit 1
+fi
+
+echo
+echo "=== Enable i386 multiarch ==="
+sudo dpkg --add-architecture i386
+sudo apt-get update
+
+echo
+echo "=== Install SteamCMD 32-bit runtime libraries ==="
+sudo apt-get install -y libc6:i386 libstdc++6:i386 libgcc-s1:i386
+
+echo
+echo "=== Confirm foreign architecture ==="
+dpkg --print-foreign-architectures
+~~~
+
+این پیش‌نیاز فقط معماری و کتابخانه‌های سازگار را آماده می‌کند؛ CS2 را دانلود نمی‌کند و هیچ فایل بازی را تغییر نمی‌دهد.
+
+در نصب تازه ممکن است `/root/steamcmd/steamcmd.sh` تا اولین تلاش daemon ساخته نشده باشد؛ پس `+quit` را در همین نقطه اجباری اجرا نکن. Installer را پس از آماده‌سازی i386 ادامه بده. اگر SteamCMD قبلاً نصب شده یا اولین تلاش daemon خطا داد، از آزمون بازیابی بخش 8.2.1 استفاده کن.
+
 ### 8.1 — وضعیت نصب واقعی cs2node
 
 طبق لاگ ارسالی در 2026-10-19، Installer اجرای موفق را گزارش کرده است:
@@ -363,50 +395,59 @@ df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
 
 لاگ ممکن است نشان بدهد SteamCMD هنوز در حال دانلود یا Update است؛ اگر بله، به آن فرصت بده و فعلاً از Restart کردن سرویس یا Start کردن Instance خودداری کن. خروجی کامل را بفرست، اما اگر در هر مرحله URL محرمانه‌ای دیدی آن را قبل از ارسال حذف کن.
 
-### 8.2.1 — رفع خطای اجرای SteamCMD در Debian
+### 8.2.1 — بازیابی خطای SteamCMD و وضعیت اجرای فعلی
 
-خروجی واقعی در 2026-10-19 نشان داد:
+اولین تلاش روی Debian amd64 با این خطا مواجه شد:
 
 ```text
 /root/steamcmd/steamcmd.sh: line 37: /root/steamcmd/linux32/steamcmd: cannot execute: required file not found
 central update failed err=steamcmd: exit status 127
 ```
 
-در نتیجه `cs2node` فعال است ولی SteamCMD اجرا نمی‌شود؛ `/srv/cs2-shared` حدود 4 KiB و بدون `game/` و manifest است. روی Debian amd64 این خطا معمولاً با نبودن ELF loader یا کتابخانه‌های 32-bit سازگار است. برای رفع آن، i386 multiarch و Runtimeهای موردنیاز را نصب کن:
+سپس بسته‌های `libc6:i386`، `libstdc++6:i386` و `libgcc-s1:i386` نصب شدند. آزمون واقعی `sudo /root/steamcmd/steamcmd.sh +quit` اکنون با پیام‌های `Loading Steam API...OK` و `Unloading Steam API...OK` موفق شده است. این فقط ثابت می‌کند SteamCMD قابل اجراست؛ هنوز کامل‌شدن دانلود CS2 را ثابت نمی‌کند.
+
+کد نسخهٔ فعلی K4ryuu اولین تلاش مرکزی را حدود **10 ثانیه بعد از شروع سرویس** اجرا می‌کند و سپس طبق `check_minutes` تکرار می‌کند. خروجی اصلی SteamCMD برای `app_update` به Journal فرستاده نمی‌شود؛ بنابراین درصد دانلود ممکن است تا پایان کار در لاگ دیده نشود. نتیجه را با پردازش زنده، رشد فایل‌ها و سپس Build ID/VPK count بررسی کن.
+
+برای بررسی فقط‌خواندنی:
 
 ~~~bash
-set -eu
-
-echo "=== Host architecture ==="
-dpkg --print-architecture
-dpkg --print-foreign-architectures
+echo "=== Latest cs2node logs ==="
+sudo journalctl -u cs2node -n 80 --no-pager -o short-iso
 
 echo
-echo "=== SteamCMD binary and ELF interpreter ==="
-file /root/steamcmd/linux32/steamcmd
-readelf -l /root/steamcmd/linux32/steamcmd | grep -i interpreter || true
+echo "=== SteamCMD processes ==="
+ps -eo pid,etime,stat,args |
+  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
 
 echo
-echo "=== Enable i386 packages and install runtime ==="
-sudo dpkg --add-architecture i386
-sudo apt-get update
-sudo apt-get install -y libc6:i386 libstdc++6:i386 libgcc-s1:i386
+echo "=== Current disk usage ==="
+sudo du -sh /root/steamcmd /srv/cs2-shared 2>/dev/null || true
 
 echo
-echo "=== Initialize/test SteamCMD only ==="
-sudo /root/steamcmd/steamcmd.sh +quit
+echo "=== Files in central directory ==="
+sudo find /srv/cs2-shared -maxdepth 3 -type f -printf '%s\t%p\n' 2>/dev/null | head -n 40
+
+echo
+echo "=== Current VPK count ==="
+sudo find /srv/cs2-shared/game -type f -name '*.vpk' 2>/dev/null | wc -l
 ~~~
 
-این فرمان آخر فقط کلاینت SteamCMD را راه‌اندازی/به‌روزرسانی می‌کند؛ قرار نیست خودش CS2 را نصب کند. اگر خطایی داد، همان خروجی را ارسال کن و ادامه نده.
+**وضعیت ثبت‌شده در اجرای 2026-10-19:** بعد از Restart در `09:03:51 UTC`، `vpksync up ... build=0` گزارش شد؛ بررسی بعدی Manifest مرکزی پیدا نکرد و VPK count برابر صفر بود. در خروجی فرستاده‌شده، نتیجهٔ نهایی تلاش جدید `app_update` دیده نشده؛ بنابراین نه دانلود کامل تأیید شده و نه شکست قطعی تلاش پس از نصب Runtime.
 
-وقتی تست SteamCMD موفق شد، دانلود مرکزی را با daemon شروع کن:
+اگر پردازش SteamCMD هنوز زنده است و برای WinSCP می‌خواهی آن را متوقف کنی، ابتدا وضعیت را از بلوک بالا ثبت کن، سپس:
 
 ~~~bash
-sudo systemctl restart cs2node
-sudo journalctl -u cs2node -f
+sudo systemctl stop cs2node
+sleep 2
+echo "=== Service ==="
+sudo systemctl is-active cs2node || true
+echo
+echo "=== Any remaining SteamCMD ==="
+ps -eo pid,etime,stat,args |
+  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
 ~~~
 
-لاگ را دنبال کن تا تلاش جدید SteamCMD را ببینی. برای خروج از حالت دنبال‌کردن لاگ، `Ctrl+C` بزن؛ این کار سرویس را متوقف نمی‌کند. اگر دانلود شروع شد، پیش از انتقال فایل‌ها ابتدا باید سرویس را با `sudo systemctl stop cs2node` متوقف و نبودن پردازش SteamCMD را تأیید کنیم؛ هم‌زمان با نوشتن SteamCMD فایل آپلود نکن.
+فقط وقتی فایل منتقل کن که دیگر پردازش SteamCMD وجود نداشته باشد. اگر اصلاً پردازشی پیدا نشد، لاگ جدید را بررسی کن تا معلوم شود Update شکست خورده یا موعد تلاش بعدی نرسیده است.
 
 ### 8.2.2 — طرح انتقال فایل‌های بازی با WinSCP
 
@@ -503,8 +544,9 @@ VMDK دوم برای این PoC لازم نیست. هیچ دو Instanceای را
 - [x] ماژول‌های `alerts`، `addoncache`، `workshop`، `backup`، `cleanup`، `crashes`، `consolelog` و `metrics` نیز در Wizard روشن شده‌اند؛ `guard` خاموش است.
 - [ ] Running کامل سرور، بارگذاری Map، اتصال و Stop/Start هنوز به‌طور صریح تأیید نشده است.
 - [x] `cs2node status/doctor` اجرا شد؛ daemon فعال است، اما Central Build برابر خالی است و `doctor` در VPK Sync خطا دارد.
-- [x] لاگ واقعی نشان داد SteamCMD با خطای `/root/steamcmd/linux32/steamcmd: cannot execute: required file not found` و exit status 127 شکست می‌خورد؛ `/srv/cs2-shared` حدود 4 KiB و بدون `game/` و manifest است.
-- [ ] Runtimeهای i386 نصب و `sudo /root/steamcmd/steamcmd.sh +quit` باید با موفقیت آزمایش شوند؛ سپس daemon دوباره تلاش می‌کند.
+- [x] پس از نصب `libc6:i386`, `libstdc++6:i386`, `libgcc-s1:i386` آزمون `sudo /root/steamcmd/steamcmd.sh +quit` موفق شد و Steam API با موفقیت Load/Unload شد.
+- [x] پس از Restart سرویس، `vpksync up ... build=0` گزارش شد؛ بررسی بعدی Manifest مرکزی پیدا نکرد و VPK count صفر بود.
+- [ ] باید از روی `ps`, Journal و رشد اندازهٔ `/srv/cs2-shared` مشخص شود تلاش مرکزی هنوز در حال دانلود است یا با خطای جدیدی شکست خورده.
 - [ ] پس از افشای URL وب‌هوک Discord در لاگ چت، Webhook قبلی باید باطل و جایگزین شود؛ URL محرمانه در GitHub ثبت نشود.
 
 ### پنج گام بعدی — رفع SteamCMD و شروع دانلود
