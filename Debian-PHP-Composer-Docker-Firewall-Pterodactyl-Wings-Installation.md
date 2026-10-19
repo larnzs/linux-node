@@ -2095,11 +2095,10 @@ Egg رسمی K4ryuu انتخاب صحیح است، چون image مربوط به 
 
 مسیر جاری طبق آخرین لاگ:
 1. سرور اول `fc-cs2-test-01` را Offline نگه دار و حذف یا Reinstall نکن.
-2. SteamCMD با خطای اجرای باینری 32-bit و exit status 127 شکست می‌خورد؛ ابتدا در راهنمای K4ryuu بخش 8.2.1 را برای فعال‌کردن i386 و نصب `libc6:i386`, `libstdc++6:i386`, `libgcc-s1:i386` اجرا کن.
-3. `sudo /root/steamcmd/steamcmd.sh +quit` را تست کن؛ بعد از موفقیت، daemon را Restart و `journalctl -u cs2node -f` را دنبال کن تا شروع `app_update 730` مشخص شود.
-4. پس از شروع دانلود، برای WinSCP ابتدا daemon را متوقف و نبودن پردازش SteamCMD را تأیید می‌کنیم. فقط VPKهای asset را با مسیر نسبی صحیح ادغام می‌کنیم؛ SteamCMD بعداً آن‌ها را بررسی خواهد کرد.
-5. Workshop به‌صورت جداگانه و با ACF/metadata مناسب وارد می‌شود؛ فایل خام را مستقیم داخل `/srv/cs2-workshop` نریز.
-6. پس از تأیید Base و پیام `Daemon-managed game files, SteamCMD skipped`، سرور اول را آزمایش و سپس Instance دوم را با Allocation جدا بساز.
+2. پیش‌نیاز i386 در Debian amd64 انجام شده و `sudo /root/steamcmd/steamcmd.sh +quit` با `Loading Steam API...OK` و `Unloading Steam API...OK` موفق شده است؛ این قدم را تکرار نکن.
+3. خروجی `cs2node status` پس از Restart هنوز `central build: no central install yet` و `build=0` نشان می‌دهد؛ manifest مرکزی وجود ندارد و VPK count صفر است. اکنون بلوک read-only بخش 8.2.1 در راهنمای K4ryuu را اجرا کن تا processهای SteamCMD و اندازهٔ پوشه‌ها بررسی شوند.
+4. اگر process زنده است و `/srv/cs2-shared` رشد می‌کند، اجازه بده دانلود ادامه پیدا کند. تا متوقف‌شدن قطعی SteamCMD WinSCP را شروع نکن.
+5. اگر process زنده‌ای نیست و Base هنوز خالی است، خروجی `journalctl`, `ps`, `du` و تنظیمات مرتبط را بررسی می‌کنیم؛ پس از شروع موفق دانلود، VPKهای asset را می‌توان با WinSCP به‌صورت کنترل‌شده ادغام کرد. Workshop باید با ACF/metadata خودش جداگانه وارد شود.
 
 CounterStrikeSharp و Plugin/Fun Modeهای FragCity را فقط بعد از اثبات VPK Sync و Instance دوم اضافه می‌کنیم. فایل‌های writable مربوط به cfg/addons/configs باید per-instance بمانند؛ محتوای VIP حذف‌شده نباید برگردد.
 
@@ -2119,7 +2118,7 @@ sudo blkid
 4. پیش از شناسایی قطعی دستگاه و توافق روی مقصد، هیچ partitioning، mkfs، wipefs یا mount دائمی انجام نده.
 5. اگر این مسیر برای Production انتخاب شد، mountpoint نهایی را با مقدار cs2_dir در /etc/cs2node/config.json هماهنگ می‌کنیم.
 
-**گام جاری:** پیش‌نیاز i386 روی Clone نصب شده و `steamcmd.sh +quit` موفق بوده است. پس از Restart سرویس، `vpksync` مقدار `build=0` گزارش کرد؛ اسکن بعدی Manifest مرکزی پیدا نکرد و VPK count برابر صفر بود. باید پردازش SteamCMD و Journal را بررسی کنیم تا مشخص شود Update در حال اجراست یا به خطای جدیدی ختم شده. سپس در صورت لزوم دانلود را امن متوقف و VPKهای asset را با WinSCP در مسیر درست seed می‌کنیم؛ Workshop جداگانه و با metadata معتبر وارد Cache می‌شود.
+**گام جاری:** پیش‌نیاز i386 روی Clone نصب شده و `steamcmd.sh +quit` موفق بوده است. پس از Restart سرویس، `vpksync` مقدار `build=0` گزارش کرد؛ اسکن بعدی Manifest مرکزی پیدا نکرد و VPK count برابر صفر بود. قدم بعدی، اجرای بلوک فقط‌خواندنی بخش 8.2.1 در راهنمای K4ryuu برای بررسی پردازش‌های SteamCMD، Journal و رشد مسیر مرکزی است. اگر دانلود زنده باشد، منتظر می‌مانیم؛ اگر متوقف/ناموفق باشد، علت را قبل از WinSCP مشخص می‌کنیم. سپس VPKهای asset را کنترل‌شده منتقل و Workshop را جداگانه با metadata معتبر وارد Cache می‌کنیم.
 
 ### 7.4 تصمیم Storage — PoC فعلی و Production
 
