@@ -31,15 +31,15 @@
 
 | مقدار | از کجا برداشته شود؟ | نمونهٔ FragCity |
 |---|---|---|
-| Node hostname | نام انتخابی Linux Node | fc-node-01 |
-| Node IP | IP رزروشدهٔ Node فعلی، نه IP عمومی حدسی | Clone: 192.168.1.9 |
-| Panel URL | آدرس واقعی پنل Pterodactyl تو | https://panel.fragcity.ir |
-| Egg | Egg رسمی واردشده در Panel | KitsuneLab CS2 Go @ K4ryuu |
-| Server name | نام یکتای Instance اول | fc-cs2-test-01 |
-| Game allocation | یک Allocation آزاد واقعی از Panel | UDP 29001 در محیط FragCity |
-| CS2 shared path | مسیر مرکزی VPK Sync | /srv/cs2-shared |
+| Node hostname | نامی که برای Linux Node انتخاب کرده‌ای | `<NODE_HOSTNAME>` |
+| Node IP | IP داخلی رزروشدهٔ همان Node | `<NODE_LAN_IP>` |
+| Panel URL | FQDN واقعی Pterodactyl Panel | `https://<PANEL_FQDN>` |
+| Egg | Egg کامل رسمی واردشده در Panel | KitsuneLab CS2 Go @ K4ryuu |
+| Server name | نام یکتای Instance اول | `<CS2_TEST_SERVER_NAME>` |
+| Game allocation | یک Allocation آزاد واقعی از Panel | `<CS2_UDP_ALLOCATION>` |
+| CS2 shared path | مسیر مرکزی VPK Sync | `/srv/cs2-shared` |
 
-مسیرهای /srv/cs2-shared و /srv/cs2-workshop به IP یا hostname وابسته نیستند. Allocation را از پنل انتخاب کن؛ شمارهٔ پورت نمونه را کورکورانه تکرار نکن.
+مسیرهای `/srv/cs2-shared` و `/srv/cs2-workshop` به IP یا hostname وابسته نیستند. پیش از اجرا، مقادیر زاویه‌دار جدول را با مقدار واقعی جایگزین کن. Allocation را از پنل انتخاب کن؛ شمارهٔ پورت نمونه را کورکورانه تکرار نکن.
 
 ## 2. پیش‌نیاز الزامی Debian amd64: Runtime سی‌ودو بیتی
 
