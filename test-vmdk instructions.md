@@ -607,7 +607,7 @@ SCRIPT
 
 راه‌حل استاندارد نصب اکنون به‌عنوان مرحلهٔ ضروری **3.4.1** در README اصلی قرار دارد، بر اساس راهنمای رسمی Pterodactyl 1.x:
 
-[README.md — مرحلهٔ 3.4.1: راه‌اندازی اجباری Queue Worker و Scheduler](https://github.com/larnzs/linux-node/blob/main/README.md)
+[راهنمای نصب Debian و Pterodactyl — مرحلهٔ 3.4.1: راه‌اندازی Queue Worker و Scheduler](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)
 
 **نتیجهٔ اجرای Clone در 2026-10-18:** بلوک README بخش 3.4.1 روی VM فعال با IP `192.168.1.9` اجرا شد. پیش‌بررسی‌های hostname، IP، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis، Cron و Artisan عبور کردند؛ `pteroq.service` ساخته شد و crontab ریشه با نسخهٔ پشتیبان قبلی به‌روزرسانی شد. سپس وضعیت سرویس و وجود خط Scheduler جداگانه بررسی و تأیید شد.
 
@@ -654,7 +654,7 @@ SCRIPT
 ترتیب اجرا:
 
 1. در پنل مطمئن شو `fc-cs2-test-01` Offline است.
-2. فرمان‌های پیش‌بررسی بخش 8.1 در [server-creation instruction.md](https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md) را اجرا کن. اگر `/srv/cs2-shared` وجود دارد و non-empty است، آن را پاک نکن و ادامه نده.
+2. فرمان‌های پیش‌بررسی بخش 8.1 در [K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) را اجرا کن. اگر `/srv/cs2-shared` وجود دارد و non-empty است، آن را پاک نکن و ادامه نده.
 3. باینری رسمی را با دستورهای بخش 8.2 بگیر و `file /tmp/cs2node` را بررسی کن.
 4. `sudo /tmp/cs2node install` را اجرا کن و Wizard بخش 8.3 را کامل کن: channel=stable، auto-update=y، فقط `vpksync` روشن، `cs2_dir=/srv/cs2-shared`، `push_method=symlink` و سایر تنظیمات طبق جدول.
 5. اجازه بده SteamCMD مرکزی فایل‌های Base را از ابتدا دانلود/آماده کند. هیچ Windows Shared Folder یا rsync/Seed در این مسیر لازم نیست.
@@ -665,7 +665,7 @@ SCRIPT
 10. مصرف دیسک، Map/Console، Stop/Start، Update، Backup/Restore و جدایی configهای Instanceها را اندازه‌گیری و مستند کن.
 
 مراجع فنی برای ادامه:
-- راهنمای ساخت سرور و cs2node: https://github.com/larnzs/linux-node/blob/main/server-creation%20instruction.md
+- راهنمای ساخت سرور و cs2node: https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md
 - CS2-Egg-Go: https://github.com/K4ryuu/CS2-Egg-Go
 - مستند Mountهای سفارشی Pterodactyl: https://docs.pterodactyl.io/v1/guides/configuration/mounts
 - مستند Linux OverlayFS: https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html
@@ -689,14 +689,14 @@ SCRIPT
 - [x] دسترسی پنل و عملیاتی بودن شبکه طبق تأیید کاربر تأیید شد.
 - [x] Egg رسمی CS2-Egg-Go وارد شده و اولین Instance `fc-cs2-test-01` ساخته شده است؛ کاربر پایان دانلود اولیه را گزارش کرده است.
 - [x] خروجی اولیه نشان داد Kernel `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB است.
-- [x] Volume فعلی manifest با appid=730، StateFlags=4، buildid=25966348 و 739 فایل VPK دارد؛ /srv/cs2-shared هنوز وجود ندارد و cs2node نصب نیست.
+- [x] Volume فعلی manifest با appid=730، StateFlags=4، buildid=25966348 و 739 فایل VPK دارد؛ باینری `cs2node` نصب شده و Installer گزارش کرده سرویس start شده است. وجود محتوا در `/srv/cs2-shared` هنوز باید جداگانه تأیید شود.
 - [x] بازرسی read-only پایان یافت: game/csgo حدود 61 GB، game/csgo/maps حدود 9.6 GB، game/csgo_community_addons حدود 6.4 GB و مجموع VPKها 67.75 GiB؛ حجم 69 GB خطا تلقی نمی‌شود.
 - [x] تصمیم گرفته شد فایل‌های بازی از Windows یا Volume فعلی برای Seed استفاده نشوند؛ Shared Base باید از ابتدا با SteamCMD دانلود شود.
 - [ ] پیش‌بررسی بخش 8.1 راهنمای server-creation؛ `fc-cs2-test-01` در حالت Offline بماند.
-- [ ] نصب رسمی `cs2node` با تنها `vpksync` فعال و `cs2_dir=/srv/cs2-shared`.
-- [ ] دانلود تازهٔ Base مرکزی، بررسی `cs2node doctor/status` و قبولی پیام SteamCMD skipped؛ VMDK دوم برای این PoC لازم نیست.
+- [x] نصب رسمی `cs2node` انجام شده؛ `vpksync` فعال است و `cs2_dir=/srv/cs2-shared` ثبت شده است. ماژول‌های `alerts`, `addoncache`, `workshop`, `backup`, `cleanup`, `crashes`, `consolelog`, `metrics` نیز روشن و `guard` خاموش است.
+- [ ] بررسی `cs2node doctor/status`، لاگ systemd، manifest/VPKهای `/srv/cs2-shared` و سپس دانلود تازهٔ Base مرکزی؛ پس از تأیید Base پیام SteamCMD skipped را در سرور اول بررسی کن. VMDK دوم برای این PoC لازم نیست.
 - [ ] پس از قبولی Shared Base و Instance دوم، CounterStrikeSharp/MetaMod و پلاگین‌های Fun Mode منتخب طبق بخش 9 راهنمای ساخت سرور نصب و تأیید شوند؛ configs و addons هر Instance مستقل بمانند.
 - [ ] پس از قبولی PoC، در صورت نیاز VMDK داده جداگانه به Clone اضافه و شناسایی شود؛ این کار برای نصب اولیهٔ Shared Base الزامی نیست.
 - [ ] هنگام بازگشت، ابتدا Clone خاموش، سپس Port Forwardها به 192.168.1.7 برگردانده شوند و بعد VM اصلی روشن شود؛ سپس مرحله 3.4.1 README روی VMDK اصلی هم اجرا شود.
 
-**آخرین checkpoint:** Clone با IP 192.168.1.9 و hostname fc-node-01 موقتاً جای VM اصلی را گرفته است. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. هشدار جداگانهٔ systemd-analyze verify دربارهٔ PIDFile مسیر قدیمی wings.service هنوز برای بررسی مستقل باقی است. پورت 29001/udp را تغییر نده. اولین Instance fc-cs2-test-01 ساخته شده و پایان دانلود گزارش شده است. manifest با appid=730، buildid=25966348، تعداد 739 VPK و مجموع 67.75 GiB تأیید شده است؛ game/csgo حدود 61 GB، maps حدود 9.6 GB و community_addons حدود 6.4 GB هستند. طبق تصمیم کاربر، از فایل‌های Windows یا Volume موجود برای Seed استفاده نمی‌شود. مرحلهٔ جاری نصب cs2node با vpksync و دانلود تازهٔ Shared Base از SteamCMD است؛ هنوز cs2node نصب نشده است. VMDK دوم برای PoC لازم نیست. بعد از قبولی VPK Sync و Instance دوم، Framework و Plugin/Fun Mode آزمایش می‌شوند. VM اصلی تا پایان تست خاموش بماند؛ تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
+**آخرین checkpoint:** Clone با IP `192.168.1.9` و hostname `fc-node-01` فعال است و VM اصلی باید خاموش بماند. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند؛ Queue Worker و Scheduler روی Clone فعال‌اند. پورت `29001/udp` را تغییر نده. اولین Instance `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده؛ manifest موجود در Volume با `appid=730` و `buildid=25966348` دیده شده است. طبق تصمیم کاربر، از فایل‌های Windows یا Volume موجود برای Seed استفاده نمی‌شود. Installer رسمی `cs2node` گزارش کرده config و systemd unit نوشته شده و سرویس فعال/اجرا شده است؛ `vpksync` به `/srv/cs2-shared` با روش `symlink` پیکربندی شده و Moduleهای addoncache, workshop, backup, cleanup, crashes, consolelog, metrics و alerts نیز روشن‌اند. محتوای Shared Base هنوز تأیید نشده؛ قدم بعدی `cs2node doctor/status`, `journalctl`, manifest و VPK count در مسیر مرکزی است. URL وب‌هوک افشاشده باید در Discord باطل و جایگزین شود. VMDK دوم برای PoC لازم نیست. پس از قبولی Base و Instance دوم، پلاگین‌ها آزمایش می‌شوند. تغییرات Queue/Scheduler روی VM اصلی باید جداگانه اعمال شوند.
