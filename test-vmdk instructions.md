@@ -39,7 +39,7 @@ Get-PSDrive -PSProvider FileSystem |
         @{Name='UsedGB'; Expression={[math]::Round($_.Used / 1GB, 1)}}
 ~~~
 
-در زمان بررسی، D حدود 301.8 GB فضای آزاد داشت. این مقدار ممکن است تغییر کرده باشد. برای Full Clone و یک VMDK دادهٔ جدید باید فضای رشد احتمالی دیسک‌های thin/growable نیز در نظر گرفته شود؛ فضای آزاد فعلی مهم‌تر از اندازهٔ کم فایل VMDK در Explorer است.
+پیش از ساخت Full Clone، فضای آزاد واقعی درایوی را که مقصد Clone و VMDK داده روی آن قرار می‌گیرند بررسی کن. برای دیسک‌های thin/growable، فضای مصرفی فعلی VMDK در Explorer با ظرفیت مجازی آن برابر نیست؛ فضای آزاد میزبان باید برای رشد آینده کافی باشد.
 
 برای پیدا کردن فایل‌های مرتبط در ریشهٔ D:
 
@@ -92,16 +92,16 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 
 ## 5. اولین بوت و هدف این Clone
 
-در اولین بوت، Network Adapter را قطع کن و اگر VMware پرسید، گزینهٔ **I Copied It** را انتخاب کن. بعد از اینکه Debian بالا آمد، شبکه را دوباره متصل کن و برای MAC جدید Clone یک DHCP reservation اختصاصی بساز. در نمونهٔ FragCity، IP آن 192.168.1.9 است.
+در اولین بوت، Network Adapter را قطع کن و اگر VMware پرسید، گزینهٔ **I Copied It** را انتخاب کن. بعد از اینکه Debian بالا آمد، شبکه را دوباره متصل کن و برای MAC جدید Clone یک DHCP reservation اختصاصی بساز. در نمونهٔ FragCity، IP آن 192.168.1.9 است؛ برای محیط خودت IP ثبت‌شده در جدول بخش 1 را استفاده کن.
 
-**تصمیم این فاز:** این Clone یک Node آزمایشی تازه و مستقل در Pterodactyl نیست؛ فعلاً قرار است موقتاً جای VM اصلی را بگیرد. تا پایان تست، VM اصلی کاملاً خاموش می‌ماند و فقط Clone روشن خواهد بود. بنابراین باید همان Panel، پایگاه‌داده، تنظیمات Wings، Nginx، PHP-FPM، MariaDB، Redis و گواهی‌های فعلی در Clone کار کنند.
+**تصمیم این سناریو:** این Clone یک Node آزمایشی تازه و مستقل در Pterodactyl نیست؛ قرار است موقتاً جای VM اصلی را بگیرد. تا پایان تست، VM اصلی کاملاً خاموش می‌ماند و فقط Clone روشن خواهد بود. بنابراین باید همان Panel، پایگاه‌داده، تنظیمات Wings، Nginx، PHP-FPM، MariaDB، Redis و گواهی‌های فعلی در Clone کار کنند.
 
 **اسکریپت قبلی که Wings، Nginx، PHP-FPM، MariaDB، Redis، Certbot و cron را disable می‌کرد اجرا نکن.** برای این سناریو هم machine-id و SSH host keys را بازتولید نکن؛ چون Clone موقتاً جایگزین همان VM است، نه Node دومی که هم‌زمان اجرا شود. MAC و IP جدید به‌خودی‌خود مشکلی ایجاد نمی‌کنند.
 
 ## 6. قوانین ایمنی تا پایان تست
 
 1. VM اصلی روشن نشود؛ هیچ‌وقت دو کپی را هم‌زمان روشن نکن.
-2. در نمونهٔ FragCity، Clone با 192.168.1.9 و VM اصلی با 192.168.1.7 کار می‌کند. برای محیط دیگر از IPهای واقعی همان محیط استفاده کن.
+2. در نمونهٔ FragCity، 192.168.1.9 آدرس Clone و 192.168.1.7 آدرس اصلی است؛ در محیط دیگر فقط آدرس‌های تأییدشده در جدول بخش 1 را استفاده کن.
 3. تنظیمات Panel و Wings در Clone را نگه می‌داریم؛ فقط hostname را به مقدار اصلی برمی‌گردانیم و Wings را پس از اصلاح Port Forwardها دوباره فعال می‌کنیم.
 4. DNS عمومی و گواهی‌های فعلی را تغییر نده، مگر اینکه IP عمومی WAN واقعاً عوض شده باشد.
 5. Port Forwardهای موجود را duplicate نکن. در زمان استفاده از Clone، مقصد قوانین مربوط به این VM را از IP اصلی به IP Clone تغییر بده؛ در پایان تست مقصدها را برگردان. از جدول مقادیر بخش 1 استفاده کن.
@@ -329,15 +329,14 @@ sudo bash <<'SCRIPT'
 # Run on the Clone while the original VM is powered off:
 #   sudo bash clone-health-check.sh
 #
-# Expected temporary Clone identity:
-#   hostname: fc-node-01
-#   LAN IPv4: 192.168.1.9
+# Set these values to the temporary Clone identity in section 1 before running.
+# The shown values in EXPECTED_HOST and EXPECTED_IP below are examples only.
 
 set -uo pipefail
 export LC_ALL=C
 
-EXPECTED_HOST="fc-node-01"
-EXPECTED_IP="192.168.1.9"
+EXPECTED_HOST="fc-node-01"  # Replace with the actual Clone hostname
+EXPECTED_IP="192.168.1.9"    # Replace with the actual Clone LAN IPv4
 
 PASS_COUNT=0
 WARN_COUNT=0
@@ -598,7 +597,7 @@ section "12. Final summary"
 printf 'PASS: %s\nWARN: %s\nFAIL: %s\n' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
 echo
 echo "Important manual checks this script cannot prove:"
-echo "  - Router Port Forward rules really target 192.168.1.9 during this test."
+echo "  - Router Port Forward rules target the Clone IP entered in section 1."
 echo "  - The Panel shows the Node online in its UI."
 echo "  - The original VM remains powered off."
 echo "  - CS2 Base/instances are not installed yet; identify the second VMDK before formatting."
@@ -612,16 +611,16 @@ SCRIPT
 
 اسکریپت فقط‌خواندنی است؛ PASS یعنی فرمان بررسی‌شده پاسخ مورد انتظار داده، WARN یعنی نیاز به بررسی دستی باقی است و FAIL یعنی شرط مورد انتظار برقرار نیست. خروجی اسکریپت به‌تنهایی وضعیت DNS، Port Forward روتر یا Online بودن Node در UI را اثبات نمی‌کند؛ این موارد را جداگانه بررسی کن.
 
-اگر Queue Worker یا Scheduler بررسی می‌شود، مراحل استاندارد را در [راهنمای نصب Debian و Pterodactyl](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md) دنبال کن. نتیجهٔ یک اجرای خاص را به متن آموزشی تبدیل نکن؛ وضعیت نصب خودت را در README ریشه ثبت کن.
+برای بررسی Queue Worker یا Scheduler، بلوک‌های تأیید در [راهنمای نصب Debian و Pterodactyl](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md) را اجرا کن. اگر آزمونی شکست خورد، خروجی همان فرمان را بررسی کن؛ به‌خاطر یک WARN به‌تنهایی سرویس‌ها را reinstall نکن.
 
 ## 11. پایان تست و بازگشت به VM اصلی
 
 وقتی تست تمام شد:
 
 1. در Clone دستور sudo systemctl poweroff را اجرا کن و در VMware مطمئن شو وضعیت **Powered Off** است.
-2. مقصد Port Forwardهای 80، 443، 8080 و 2022 را از 192.168.1.9 به 192.168.1.7 برگردان.
+2. مقصد Port Forwardهای سرویس‌هایی را که در بخش 8 به Clone منتقل کرده‌ای، از آدرس Clone به IP اصلی ثبت‌شده در جدول بخش 1 برگردان. در نمونهٔ FragCity، 192.168.1.9 آدرس Clone و 192.168.1.7 آدرس اصلی است.
 3. فقط پس از خاموش‌شدن کامل Clone، VM اصلی را روشن کن.
-4. روی VM اصلی IP برابر 192.168.1.7 و کارکرد Panel/Wings را بررسی کن.
+4. روی VM اصلی، IP واقعی آن و دسترسی SSH/Panel/Wings را بررسی کن.
 
 هرگز دو VM را هم‌زمان روشن نکن. اگر در آینده نیاز به اجرای هم‌زمان دو Node باشد، باید یک Node آزمایشی مستقل با هویت، دامنه و config اختصاصی طراحی شود.
 
@@ -630,7 +629,7 @@ SCRIPT
 پس از آماده‌شدن Clone و شناسایی درست آن:
 
 1. VM آزمایشگاهی را در VMware کاملاً خاموش کن.
-2. از مسیر **VM → Settings → Add → Hard Disk** یک دیسک مجازی جدید به fc-node-01-clone اضافه کن. دیسک موجود ماشین اصلی را انتخاب یا attach نکن؛ دیسک کاملاً جدید بساز.
+2. از مسیر **VM → Settings → Add → Hard Disk** یک دیسک مجازی کاملاً جدید به Clone که در بخش 1 نام‌گذاری کرده‌ای اضافه کن. دیسک موجود ماشین اصلی را انتخاب یا attach نکن.
 3. ظرفیت جدید را بر اساس فضای آزاد واقعی Windows host انتخاب کن؛ ظرفیت مجازی بزرگ لزوماً به معنی تخصیص فوری همان مقدار فضا نیست، اما دیسک growable نیز می‌تواند با نوشتن داده رشد کند.
 4. Clone را روشن کن. در Debian فقط دستگاه‌ها را فهرست کن:
 
