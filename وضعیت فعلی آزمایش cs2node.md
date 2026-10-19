@@ -19,7 +19,7 @@
 - cs2node status نسخهٔ 1.0.4 stable را نشان داده است.
 - vpksync به مسیر /srv/cs2-shared و روش symlink تنظیم شده است.
 - Moduleهای روشن در نصب فعلی: vpksync، alerts، addoncache، workshop، backup، cleanup، crashes، consolelog و metrics. guard خاموش است.
-- Discord Webhook URL در لاگ چت افشا شده است. حتی اگر خطای اتصال Discord ناشی از محدودیت شبکه باشد، URL افشاشده را در Discord باطل و جایگزین کن. این خطا طبق شواهد فعلی علت اصلی مشکل SteamCMD نیست.
+- URL وب‌هوک Discord در گفت‌وگو افشا شده است. آن را در Discord باطل و جایگزین کن؛ URL محرمانه را در هیچ سند عمومی ثبت نکن. طبق شواهد فعلی خطای شبکهٔ Discord علت اصلی مشکل SteamCMD نیست.
 
 ## رفع مشکل اولیهٔ SteamCMD
 
