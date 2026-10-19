@@ -23,10 +23,16 @@
 این فرمان مرجع اتصال است؛ WinSCP باید از همان حساب و همان کلید استفاده کند:
 
 ~~~powershell
-$keyPath = "$env:USERPROFILE\.ssh\<YourPrivateKey>"
-$target = "sv1@192.168.1.9"
+# Change these values to match your Linux Node.
+$ServerIp = "192.168.1.9"        # Example only; enter your Node's actual IP
+$SshPort = 22                     # Actual SSH port
+$LinuxUser = "sv1"                # Actual Linux username
+$KeyFileName = "<YourPrivateKey>" # Key filename inside %USERPROFILE%\.ssh, without folder path
 
-ssh -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
+$keyPath = Join-Path $env:USERPROFILE ".ssh\$KeyFileName"
+$target = "$LinuxUser@$ServerIp"
+
+ssh -p $SshPort -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -i $keyPath $target
 ~~~
 
 معنی گزینه‌ها:
@@ -241,9 +247,9 @@ sudo visudo -cf /etc/sudoers.d/winscp-sftp-root
 مشخصات اتصال همان است:
 
 - **File protocol:** SFTP
-- **Host name:** همان مقدار ServerIp در بخش 2
-- **Port:** همان مقدار SshPort در بخش 2
-- **User name:** همان مقدار LinuxUser در بخش 2
+- **Host name:** همان IP که در متغیر `$ServerIp` در بخش 2 وارد کردی
+- **Port:** همان پورت SSH که در متغیر `$SshPort` وارد کردی
+- **User name:** همان نام کاربر که در متغیر `$LinuxUser` وارد کردی
 - **SSH private key:** همان کلید فعلی این راهنما؛ هیچ کلید خصوصی را روی سرور کپی نکن.
 
 سپس:
