@@ -108,11 +108,41 @@ Full Clone باید تمام دیسک‌ها و تنظیمات لازم VM را 
 6. برای این مرحله فقط پورت‌های فعلی را مدیریت کن: TCP 80/443 برای Panel، TCP 8080 برای Wings API، TCP 2022 برای SFTP. چون هنوز CS2 Instance نداریم، پورت بازی اضافه نکن.
 7. برای MAC جدید Clone در روتر DHCP reservation بساز؛ IP باید با جدول بخش 1 و قواعد شبکهٔ خودت سازگار باشد.
 
-## 7. برگرداندن نام میزبان به نام اصلی
+## 7. تنظیم Hostname برای سناریوی Clone جایگزین
 
-hostname فعلی Clone به fc-node-01-test تغییر داده شده است. چون این VM فعلاً جایگزین VM اصلی است و اصلی خاموش می‌ماند، hostname را در Clone به fc-node-01 برمی‌گردانیم تا با تنظیمات سرویس‌های کپی‌شده هم‌خوان باشد.
+این بخش فقط وقتی کاربرد دارد که **Clone موقتاً جای VM اصلی را می‌گیرد** و VM اصلی خاموش خواهد ماند. اگر Node مستقل دوم می‌سازی، این بخش را اجرا نکن؛ Node مستقل باید Hostname، FQDN، TLS و هویت Wings اختصاصی خودش را داشته باشد.
 
-این اسکریپت فقط hostname و /etc/hosts را اصلاح می‌کند. machine-id، SSH host keys، گواهی‌ها، Wings config یا وضعیت سرویس‌ها را تغییر نمی‌دهد. قبل از اجرا، متغیرهای TARGET_IP، TARGET_HOST و نام قبلی Clone داخل اسکریپت را بر اساس جدول بخش 1 بررسی و در صورت نیاز اصلاح کن.
+### 7.1 مقادیر را برای نصب خودت مشخص کن
+
+مقادیر زیر نمونهٔ FragCity هستند؛ پیش از اجرای اسکریپت آن‌ها را با مقادیر واقعی جدول بخش 1 هماهنگ کن.
+
+~~~bash
+TARGET_IP="192.168.1.9"                     # IP فعلی Clone
+TARGET_HOST="fc-node-01"                    # Hostname نهایی
+TARGET_FQDN="fc-node-01.fragcity.ir"        # FQDN نهایی
+CLONE_OLD_HOST="fc-node-01-test"             # Hostname موقتی Clone
+CLONE_OLD_FQDN="fc-node-01-test.fragcity.ir" # FQDN قبلی، اگر در /etc/hosts وجود دارد
+
+printf 'Clone IP: %s\nTarget hostname: %s\nTarget FQDN: %s\n' \
+  "$TARGET_IP" "$TARGET_HOST" "$TARGET_FQDN"
+echo
+hostnamectl --static
+ip -o -4 address show
+grep -nE '127[.]0[.]1[.]1|fc-node|test' /etc/hosts || true
+~~~
+
+مطمئن شو IP نشان‌داده‌شده متعلق به Clone است و VM اصلی خاموش است. اگر مقدارها با محیط تو مطابقت ندارند، آن‌ها را اصلاح کن و تا آن زمان چیزی را تغییر نده.
+
+### 7.2 پشتیبان‌گیری و تغییر کنترل‌شدهٔ Hostname
+
+اسکریپت بعدی:
+- IP را پیش از تغییر بررسی می‌کند.
+- فقط Hostnameهای مورد انتظار را می‌پذیرد.
+- از فایل‌های /etc/hostname و /etc/hosts نسخهٔ پشتیبان root-only می‌سازد.
+- hostnamectl را اجرا می‌کند و Aliasهای 127.0.1.1 را برای Hostname/FQDN نهایی تنظیم می‌کند.
+- هیچ سرویس، IP شبکه، machine-id، SSH host key یا Wings config را تغییر نمی‌دهد.
+
+**پیش از اجرا، متغیرهای ابتدای بلوک را با مقادیر تأییدشدهٔ بخش 7.1 هماهنگ کن.**
 
 ~~~bash
 sudo bash <<'SCRIPT'
@@ -120,16 +150,22 @@ set -Eeuo pipefail
 
 TARGET_IP="192.168.1.9"
 TARGET_HOST="fc-node-01"
+TARGET_FQDN="fc-node-01.fragcity.ir"
+CLONE_OLD_HOST="fc-node-01-test"
+CLONE_OLD_FQDN="fc-node-01-test.fragcity.ir"
 
-if ! ip -o -4 address show | grep -q '192\.168\.1\.9/'; then
-    echo "ERROR: This machine does not currently have 192.168.1.9."
-    echo "Nothing changed. Verify that this is the Clone."
+if ! ip -o -4 address show |
+     awk '{split($4,a,"/"); print a[1]}' |
+     grep -Fxq "$TARGET_IP"; then
+    echo "ERROR: this machine does not currently have IP $TARGET_IP."
+    echo "Nothing changed. Check that this is the intended Clone."
     exit 1
 fi
 
 CURRENT_HOST="$(hostnamectl --static)"
-if [[ "$CURRENT_HOST" != "fc-node-01-test" && "$CURRENT_HOST" != "fc-node-01" ]]; then
-    echo "ERROR: Unexpected hostname: $CURRENT_HOST"
+if [[ "$CURRENT_HOST" != "$CLONE_OLD_HOST" &&
+      "$CURRENT_HOST" != "$TARGET_HOST" ]]; then
+    echo "ERROR: unexpected hostname: $CURRENT_HOST"
     echo "Nothing changed."
     exit 1
 fi
@@ -137,7 +173,8 @@ fi
 echo "Clone IP: $TARGET_IP"
 echo "Current hostname: $CURRENT_HOST"
 echo "Target hostname: $TARGET_HOST"
-echo "Original VM must remain powered off."
+echo "Target FQDN: $TARGET_FQDN"
+echo "Keep the original VM powered off."
 read -r -p "Type ACTIVATE-CLONE to continue: " confirmation </dev/tty
 
 if [[ "$confirmation" != "ACTIVATE-CLONE" ]]; then
@@ -145,123 +182,102 @@ if [[ "$confirmation" != "ACTIVATE-CLONE" ]]; then
     exit 1
 fi
 
-BACKUP="/root/fc-clone-activate-$(date +%Y%m%d-%H%M%S)"
+BACKUP="/root/clone-hostname-backup-$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$BACKUP"
 cp -a /etc/hostname /etc/hosts "$BACKUP/"
 chmod -R go-rwx "$BACKUP"
 
+export TARGET_HOST TARGET_FQDN CLONE_OLD_HOST CLONE_OLD_FQDN
 hostnamectl set-hostname "$TARGET_HOST"
 
-python3 - "$TARGET_HOST" <<'PY'
-import sys
+python3 <<'PY'
+import os
 from pathlib import Path
 
-target = sys.argv[1]
-old_names = {"fc-node-01-test", "fc-node-01-test.fragcity.ir"}
+target_host = os.environ["TARGET_HOST"]
+target_fqdn = os.environ["TARGET_FQDN"]
+old_host = os.environ["CLONE_OLD_HOST"]
+old_fqdn = os.environ["CLONE_OLD_FQDN"]
+old_names = {old_host, old_fqdn}
+target_names = [target_host, target_fqdn]
 
 path = Path("/etc/hosts")
 lines = path.read_text().splitlines()
 output = []
-has_local_entry = False
+found_local = False
 
 for line in lines:
-    stripped = line.strip()
-    if not stripped or stripped.startswith("#"):
-        output.append(line)
-        continue
-
     body, marker, comment = line.partition("#")
     fields = body.split()
-    if not fields:
+    if not fields or line.lstrip().startswith("#"):
         output.append(line)
         continue
 
     if fields[0] == "127.0.1.1":
-        aliases = []
-        for item in fields[1:]:
-            if item in old_names:
-                continue
-            aliases.append(item)
-        if "fc-node-01" not in aliases:
-            aliases.insert(0, "fc-node-01")
-        if "fc-node-01.fragcity.ir" not in aliases:
-            aliases.append("fc-node-01.fragcity.ir")
-        output.append(
-            fields[0] + "\t" + " ".join(dict.fromkeys(aliases))
-            + ((" #" + comment) if marker else "")
-        )
-        has_local_entry = True
+        aliases = [name for name in fields[1:] if name not in old_names]
+        for name in target_names:
+            if name not in aliases:
+                aliases.append(name)
+        output.append(fields[0] + "\t" + " ".join(dict.fromkeys(aliases)) +
+                      ((" #" + comment) if marker else ""))
+        found_local = True
         continue
 
     changed = False
-    for index in range(1, len(fields)):
-        if fields[index] in old_names:
-            fields[index] = (
-                "fc-node-01.fragcity.ir"
-                if fields[index].endswith(".fragcity.ir")
-                else "fc-node-01"
-            )
+    new_fields = fields[:]
+    for i in range(1, len(new_fields)):
+        if new_fields[i] == old_host:
+            new_fields[i] = target_host
             changed = True
+        elif new_fields[i] == old_fqdn:
+            new_fields[i] = target_fqdn
+            changed = True
+    output.append("\t".join(new_fields) + ((" #" + comment) if marker else "")
+                  if changed else line)
 
-    output.append(
-        "\t".join(fields) + ((" #" + comment) if marker else "")
-        if changed else line
-    )
-
-if not has_local_entry:
-    output.append("127.0.1.1\tfc-node-01 fc-node-01.fragcity.ir")
+if not found_local:
+    output.append("127.0.1.1\t" + " ".join(target_names))
 
 path.write_text("\n".join(output) + "\n")
 PY
 
 echo
-echo "=== Hostname ==="
+echo "=== Result ==="
 hostnamectl --static
 cat /etc/hostname
+grep -n '127.0.1.1' /etc/hosts || true
+getent hosts "$TARGET_HOST" || true
+getent hosts "$TARGET_FQDN" || true
 
 echo
-echo "=== Local host mappings ==="
-grep -nE 'fc-node-01|127[.]0[.]1[.]1' /etc/hosts || true
-
-echo
-echo "=== Current service states; this script does not change them ==="
-for unit in nginx.service php8.3-fpm.service mariadb.service redis-server.service pteroq.service wings.service; do
-    printf '%s active=' "$unit"
-    systemctl is-active "$unit" 2>/dev/null || true
-    printf '%s enabled=' "$unit"
-    systemctl is-enabled "$unit" 2>/dev/null || true
-done
-
-echo
-echo "Hostname restoration complete."
-echo "No service was started or stopped."
 echo "Backup directory: $BACKUP"
+echo "No services were started or stopped."
 SCRIPT
 ~~~
 
-اسکریپت بالا سرویس‌ها را روشن نمی‌کند. ابتدا Port Forwardهای روتر را به 192.168.1.9 تغییر بده؛ سپس Wings را فعال می‌کنیم.
+برای محیط دیگر، مقدارهای TARGET_IP، TARGET_HOST، TARGET_FQDN، CLONE_OLD_HOST و CLONE_OLD_FQDN داخل بلوک را حتماً تغییر بده. اگر Clone از ابتدا Hostname درست دارد و سرویس‌ها با همان Hostname ساخته شده‌اند، این تغییر را بی‌دلیل اجرا نکن.
 
 ## 8. تغییر Port Forwardها برای استفاده از Clone
 
-در روتر، در حالی که VM اصلی خاموش است، قوانین موجود را ویرایش کن:
+در روتر، در حالی که VM اصلی خاموش است، قوانین موجود را ویرایش کن. جدول زیر نمونهٔ FragCity است؛ در محیط دیگر از IPهای تأییدشدهٔ بخش 1 و مقصدهای واقعی روترت استفاده کن.
 
-| پورت ورودی | پروتکل | مقصد قبلی | مقصد زمان تست |
+| پورت ورودی | پروتکل | مقصد قبلی در نمونه | مقصد Clone در نمونه |
 |---|---|---|---|
 | 80 | TCP | 192.168.1.7 | 192.168.1.9 |
 | 443 | TCP | 192.168.1.7 | 192.168.1.9 |
 | 8080 | TCP | 192.168.1.7 | 192.168.1.9 |
 | 2022 | TCP | 192.168.1.7 | 192.168.1.9 |
 
-قبل از تغییر، جدول واقعی روتر را ببین و فقط قوانین همین سرویس‌ها را ویرایش کن. قوانین دیگری را که مربوط به میزبان دیگرند تغییر نده.
+قبل از تغییر، جدول واقعی روتر را ببین و فقط قوانین همین سرویس‌ها را ویرایش کن. قوانین مربوط به میزبان دیگر را تغییر نده و Rule تکراری برای همان پورت عمومی نساز.
 
-- DHCP reservation برای MAC جدید Clone را روی 192.168.1.9 ثبت کن.
+- برای MAC جدید Clone، DHCP reservation مطابق IP انتخابی بساز.
 - به DNS عمومی دست نزن، مگر اینکه IP عمومی WAN تغییر کرده باشد.
-- پورت SSH 22 لازم نیست به اینترنت عمومی باز شود؛ SSH از LAN به 192.168.1.9 کار می‌کند.
+- SSH معمولاً از LAN کافی است؛ لازم نیست TCP 22 را به اینترنت عمومی باز کنی.
 - پورت‌های CS2 را فعلاً اضافه نکن.
 
 ## 9. برگرداندن Wings و بررسی سرویس‌ها
 
-بعد از اصلاح Port Forwardها، از SSH به 192.168.1.9 اجرا کن:
+بعد از اصلاح Port Forwardها، از SSH به IP Clone که در بخش 1 تعیین کرده‌ای وصل شو و بلوک بعدی را اجرا کن:
 
 ~~~bash
 echo "=== IP and route ==="
