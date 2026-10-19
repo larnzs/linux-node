@@ -1,10 +1,10 @@
 # FragCity — نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings
 
-> **این فایل مرجع اجرایی واحد پروژه است.** از اینجا به بعد توضیحات، ترتیب اجرا، تصمیم‌های فنی و بلوک‌های Copy/Paste در همین README نوشته می‌شوند. خروجی ترمینال، لاگ واقعی، رمزها و نتیجهٔ اجرای فرمان‌ها در README ثبت نمی‌شوند؛ لاگ لازم برای عیب‌یابی را فقط در گفت‌وگو بفرست. بعد از هر مرحله فقط مرحلهٔ جاری را اجرا کن و برای ادامه، به‌روزرسانی README را بخوان.
+> **هدف این فایل:** Runbook ترتیبی برای نصب Debian 13، PHP و Composer، Pterodactyl Panel، Docker Engine، Wings، Firewall و سرویس‌های لازم است. هر مرحله هدف، فرمان و روش تأیید دارد. پیش از اجرای مرحله‌ای که Firewall، SSH، دیسک یا سرویس‌ها را تغییر می‌دهد، پیش‌نیاز و راه بازگشت همان بخش را بخوان.
 >
-> **وضعیت فعلی:** پنل Pterodactyl، Docker و Wings راه‌اندازی شده‌اند؛ شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. اولین Instance با نام `fc-cs2-test-01` ساخته شده و طبق گزارش کاربر دانلود اولیهٔ بازی تمام شده است؛ نصب‌کنندهٔ `cs2node` اجرا شده و گزارش کرده سرویس فعال و اجرا شده است؛ دانلود و آماده‌بودن Shared Base هنوز باید با `doctor/status` و فایل‌های مسیر مرکزی تأیید شود. فصل [K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md) مسیر رسمی K4ryuu و معیارهای قبولی را ثبت می‌کند. این تست standalone فایل‌های بازی را در Volume معمول Pterodactyl دانلود می‌کند و به حدود 40 GB فضای آزاد نیاز دارد. خروجی فعلی حدود 182 GB فضای آزاد روی root نشان داده است، بنابراین برای PoC فعلی Shared Base در مسیر `/srv/cs2-shared` روی همین فایل‌سیستم قرار می‌گیرد. VMDK دوم فقط گزینهٔ جداسازی Storage برای مرحلهٔ بعد/Production است و پیش‌نیاز `cs2node`/VPK sync نیست. VM اصلی با IP 192.168.1.7 تا پایان تست خاموش می‌ماند؛ Clone با IP 192.168.1.9 فعال است. v2.0.0-beta.2 هنوز Open Beta است و برای پنل اصلی انتخاب نشده.
+> این نسخه بر اساس پیاده‌سازی مرجع FragCity نوشته شده است؛ بعضی دامنه‌ها، IPها، نام میزبان‌ها و مسیرها نمونهٔ همین محیط‌اند، نه مقادیر عمومی. قبل از استفاده برای Node دیگری، جدول بخش **0.3** را پر کن و تمام مقادیر محیطی را با مقادیر خودت تطبیق بده. وضعیت اجرای آزمایش CS2 فقط در README ریشه نگه داشته می‌شود.
 >
-> **قانون secrets:** رمز MariaDB، رمز حساب، APP_KEY، token، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. مقادیر نمونه را فقط به‌صورت محلی جایگزین کن.
+> **قانون محرمانگی:** رمز MariaDB، رمز حساب، APP_KEY، Tokenها، URLهای Webhook، فایل .env و محتوای /etc/pterodactyl/config.yml را در GitHub یا چت قرار نده. فرمان‌ها و مقادیر نمونه را فقط به‌شکل محلی جایگزین کن.
 
 ---
 
@@ -38,6 +38,27 @@
 - بلوک Bash را کامل و یک‌جا اجرا کن؛ اگر بلوک با `(...)` احاطه شده، پرانتزها را حذف نکن. این کار کمک می‌کند خطای داخل آن بلوک، نشست تعاملی اصلی SSH را نبندد.
 - اگر SSH ناگهان قطع شد، از یک پنجرهٔ تازهٔ PowerShell طبق بخش «اتصال روزمره از Windows PowerShell به Debian» دوباره وصل شو. نصب یا مهاجرت را از ابتدا تکرار نکن، سرویس را کورکورانه restart نکن و تا اجرای آزمون‌های فقط‌خواندنی، فایل یا symlink را حذف/فعال نکن.
 - خروجی لازم را برای عیب‌یابی در گفت‌وگو بفرست، اما رمزها، APP_KEY، token و محتوای `.env` یا `config.yml` را ارسال نکن.
+
+### 0.3 مقادیر محیطی — پیش از اجرای روی Node دیگر اصلاح کن
+
+این runbook بر اساس یک پیاده‌سازی مرجع نوشته شده است. قبل از اجرای فرمان‌ها، مقادیر محیط خودت را مشخص کن و هرجا مقدار مرجع در دستور/فایل ظاهر شده است، آن را با مقدار خودت هماهنگ کن.
+
+| مقدار | نمونهٔ این ریپو | اگر نصب تو متفاوت است |
+|---|---|---|
+| Hostname اصلی | `fc-node-01` | نام واقعی Node را استفاده کن و آن را با DNS و TLS هماهنگ کن |
+| دامنهٔ پایه | `fragcity.ir` | دامنه‌ای که مالک آن هستی و DNS آن را مدیریت می‌کنی |
+| Panel FQDN | `panel.fragcity.ir` | FQDN واقعی Panel |
+| Node FQDN | `fc-node-01.fragcity.ir` | FQDN واقعی Node |
+| IP داخلی VM اصلی | `192.168.1.7` | IP رزروشدهٔ VM اصلی |
+| IP داخلی Clone | `192.168.1.9` | فقط هنگام جایگزینی موقت با Clone؛ در نصب عادی الزاماً وجود ندارد |
+| LAN CIDR | `192.168.1.0/24` | subnet واقعی شبکهٔ محلی |
+| Linux username | `sv1` | حساب Linux واقعی |
+| مسیر Panel | `/var/www/pterodactyl` | مسیر نصب واقعی Panel |
+| Wings API | `8080/TCP` | پورتی که config نصب واقعی Wings استفاده می‌کند |
+| SFTP برای Wings | `2022/TCP` | پورت Allocation/تنظیم‌شده برای SFTP |
+| CS2 game port | `29001/UDP` | فقط نمونه؛ Allocation واقعی را در Panel تعریف کن |
+
+**قانون Clone:** مقدارهای `192.168.1.7` و `192.168.1.9` متعلق به دو VM مجزا در سناریوی جایگزینی موقت‌اند. دو VM با هویت فعلی را هم‌زمان روشن نکن. اگر Node مستقل جدید می‌سازی، از هویت، دامنه، IP، TLS و config اختصاصی خودش استفاده کن؛ دستورهای Port Forward مخصوص Clone را اجرا نکن.
 
 ## 1. نصب Debian 13 از صفر — Console-only
 
@@ -2070,55 +2091,22 @@ fi
 
 **ممنوعیت تا پایان PoC:** اسکریپت‌های `docker/update.sh`، `docker/install_docker.sh`، `linux/install.sh` یا هر Egg مربوط به نصب CS2 را روی Node اصلی اجرا نکن. هیچ payload یا پلاگین سفارشی KUS را روی Base مرکزی copy/merge نکن و از runtime مشترک نوشتنی برای دو Instance استفاده نکن. طبق تصمیم تازهٔ کاربر، پس از رفع خطای SteamCMD قرار است بخشی از VPKهای asset از Windows با WinSCP به‌شکل کنترل‌شده Seed و سپس با SteamCMD بررسی شوند؛ باینری/manifest لینوکس و runtimeهای Windows نباید جایگزین شوند. فایل‌های Workshop باید از مسیر و metadata معتبر خودش عبور کنند، نه کپی خام به `/srv/cs2-workshop`.
 
-### 7.3 وضعیت Clone و آماده‌سازی Shared Base — گام جاری
+### 7.3 نصب CS2 و Shared Base — راهنمای اختصاصی
 
-راهنمای مستقل Clone و دیسک: [test-vmdk instructions.md](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md). فصل جاری برای Egg/ساخت سرور: [K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md).
-کد کامل اسکریپت جامع سلامت فقط‌خواندنی در بخش 10 فایل test-vmdk instructions.md است؛ نیازی به دانلود فایل جداگانه نیست. شبکه و پنل طبق تأیید کاربر عملیاتی‌اند. این اسکریپت فقط وضعیت VM را بررسی می‌کند و دیسک داده یا Shared Base را آماده نمی‌سازد.
+این Runbook زیرساخت عمومی را آماده می‌کند؛ نصب Egg رسمی K4ryuu، cs2node، Shared Base، VPK Sync و Workshop در راهنمای مستقل آمده است:
 
-**تصمیم مهم در این فاز:** Clone فعلی قرار است موقتاً جای VM اصلی را بگیرد؛ این یک Node دوم برای اجرای هم‌زمان نیست. تا پایان تست، VM اصلی باید کاملاً خاموش بماند و فقط Clone روشن باشد. بنابراین باید Panel، دیتابیس، Nginx، PHP-FPM، Redis، گواهی‌ها و تنظیمات موجود Wings در Clone حفظ شوند. **اسکریپت قبلی که این سرویس‌ها را disable می‌کرد یا machine-id و SSH host keys را بازتولید می‌کرد برای این مدل استفاده نشود.**
+[راهنمای نصب K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Multi Instance](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md)
 
-#### 7.3.1 استفاده از Full Clone به‌عنوان جایگزین موقت
+اگر این Node یک **Clone موقت برای جایگزینی VM اصلی** است، قبل از دانلود CS2 مطمئن شو VM اصلی کاملاً خاموش است و مقصد Port Forwardها به IP فعلی Clone اشاره می‌کند. اگر Node مستقل و تازه می‌سازی، از Clone/Port Forward مخصوص FragCity استفاده نکن؛ hostname، IP، DNS، TLS و config اختصاصی خودش را تنظیم کن.
 
-1. Full Clone در VMware ساخته شده و در بوت اول گزینهٔ **I Copied It** انتخاب شده است. راهنمای Broadcom: https://knowledge.broadcom.com/external/article/310359/copy-workstation-virtual-machine-from-on.html
-2. VMware برای Clone، MAC جدید ساخته و DHCP فعلاً IP **192.168.1.9** داده است. IP اصلی **192.168.1.7** باقی می‌ماند؛ در مودم برای MAC کلون DHCP reservation برابر 192.168.1.9 ثبت کن.
-3. hostname در Clone به fc-node-01 برگردانده شده و /etc/hosts نیز به نام اصلی اشاره می‌کند. هشدار ابتدایی sudo مبنی بر unable to resolve host fc-node-01-test پیش از اصلاح hosts ظاهر شد؛ با getent hosts fc-node-01 و sudo -v وضعیت نهایی را تأیید کن.
-4. مقصد قوانین **موجود** Port Forward برای TCP 80/443، TCP 8080 و TCP 2022 برای زمان تست به Clone با IP `192.168.1.9` تنظیم شده بود. طبق تأیید کاربر در 2026-10-18، شبکه و پنل عملیاتی هستند؛ برای این مرحله، بررسی دسترسی و Port Forward را تکمیل‌شده در نظر می‌گیریم. قانون تکراری با پورت عمومی یکسان نساز. DNS عمومی نیاز به تغییر ندارد، مگر IPv4 عمومی WAN تغییر کرده باشد.
-5. Nginx، PHP 8.3-FPM، MariaDB و Redis روی Clone فعال گزارش شده‌اند؛ Wings نیز قبلاً با `sudo systemctl enable --now wings` فعال/اجرا شده است. طبق تأیید کاربر در 2026-10-18، پنل بالا می‌آید و شبکه عملیاتی است؛ این مرحله از بررسی شبکه و دسترسی پنل تکمیل‌شده محسوب می‌شود. اگر بعداً Node به Offline تغییر کرد، قبل از دست‌کاری `config.yml`، مقصد Port Forward TCP 8080 و لاگ اخیر Wings را بررسی کن.
-6. وضعیت به‌روزشده در 2026-10-19: `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده است. Kernel برابر `6.12.113+deb13-amd64` و فضای آزاد root حدود 182 GB گزارش شده است. Manifest موجود در Volume سرور با appid=730 و buildid=25966348 و 739 VPK تأیید شد. تصمیم جاری این است که پس از رفع خطای SteamCMD، VPKهای asset منبع Windows با WinSCP به‌صورت کنترل‌شده Seed شوند؛ manifest و باینری‌های Linux حفظ می‌شوند و SteamCMD بعداً فایل‌ها را reconcile می‌کند. باینری رسمی `cs2node` نصب شده و Installer گزارش کرده فایل config و systemd unit را ساخته و سرویس را enable/start کرده است. مسیر Shared Base در config برابر `/srv/cs2-shared` است، اما محتوای واقعی این مسیر و تکمیل دانلود هنوز تأیید نشده‌اند. چند ماژول دیگر نیز به‌جز `vpksync` فعال شده‌اند؛ وضعیت ثبت‌شده در راهنمای K4ryuu آمده است. ابتدا SteamCMD با خطای باینری 32-bit و exit status 127 شکست خورد؛ سپس پیش‌نیاز i386 نصب شد و `sudo /root/steamcmd/steamcmd.sh +quit` با `Loading Steam API...OK` و `Unloading Steam API...OK` موفق شد. پس از Restart، `vpksync` همچنان `build=0` گزارش کرد و بررسی بعدی Manifest مرکزی پیدا نکرد و VPK count صفر بود؛ تلاش نهایی Update هنوز مشخص نیست. اکنون باید پردازش SteamCMD، Journal و رشد مسیر مرکزی را بررسی کنیم. VMDK دوم برای PoC لازم نیست. هیچ اسکریپت KUS را اجرا نکن.
-7. بازگشت به VM اصلی: خاموش‌کردن کامل Clone، برگرداندن مقصدهای Port Forward از 192.168.1.9 به 192.168.1.7، و فقط سپس روشن‌کردن VM اصلی. **دو VM هرگز هم‌زمان روشن نشوند.**
+پیش از دانلود CS2:
+1. فضای آزاد واقعی را با `df -hT /` و `df -hT /var/lib/pterodactyl/volumes` بررسی کن.
+2. روی Debian amd64، طبق راهنمای CS2، i386 multiarch و Runtimeهای 32-bit را پیش از نصب cs2node آماده کن.
+3. Egg کامل K4ryuu را وارد Panel و فقط یک Instance آزمایشی بساز؛ سرور را Offline نگه دار تا daemon و Shared Base آماده شوند.
+4. دستور نصب رسمی cs2node، تنظیمات Wizard، روش تأیید Manifest/VPK و ساخت Instance دوم را از راهنمای مستقل اجرا کن.
+5. تا قبل از تأیید پیام `Daemon-managed game files, SteamCMD skipped` در هر دو Instance، پلاگین‌های FragCity/KUS را نصب نکن.
 
-**آخرین health check کاملِ اولیه (2026-10-18):** 24 PASS / 1 WARN / 0 FAIL. Nginx، PHP-FPM، MariaDB، Redis، Docker و Wings فعال‌اند؛ Nginx test و HTTPS محلی Panel موفق بود و پورت‌های TCP موردنیاز LISTEN بودند. در ادامه، مرحلهٔ 3.4.1 برای Queue Worker و Scheduler روی Clone با IP `192.168.1.9` با موفقیت اجرا و تأیید شد: `pteroq.service` برابر `enabled` و `active (running)` است و ورودی `schedule:run` در crontab ریشه وجود دارد. طبق تأیید کاربر در 2026-10-18، شبکه و پنل از مسیر موردنظر عملیاتی‌اند؛ تأیید دستی Port Forward/دسترسی پنل برای این مرحله تکمیل‌شده ثبت می‌شود. Queue Worker و Scheduler هنوز باید جداگانه روی VMDK اصلی اعمال شوند. UFW قانون `29001/udp` را برای CS2 آینده باز نگه می‌دارد و نباید تغییر کند.
-
-#### 7.3.2 محدودهٔ آزمون Egg و Shared VPK Base
-
-Egg رسمی K4ryuu انتخاب صحیح است، چون image مربوط به CS2-Egg-Go با daemon handshake می‌کند. اولین Instance یعنی `fc-cs2-test-01` ساخته شده و کاربر پایان دانلود اولیه را گزارش کرده است.
-
-مسیر جاری طبق آخرین لاگ:
-1. سرور اول `fc-cs2-test-01` را Offline نگه دار و حذف یا Reinstall نکن.
-2. پیش‌نیاز i386 در Debian amd64 انجام شده و `sudo /root/steamcmd/steamcmd.sh +quit` با `Loading Steam API...OK` و `Unloading Steam API...OK` موفق شده است؛ این قدم را تکرار نکن.
-3. خروجی `cs2node status` پس از Restart هنوز `central build: no central install yet` و `build=0` نشان می‌دهد؛ manifest مرکزی وجود ندارد و VPK count صفر است. اکنون بلوک read-only بخش 8.2.1 در راهنمای K4ryuu را اجرا کن تا processهای SteamCMD و اندازهٔ پوشه‌ها بررسی شوند.
-4. اگر process زنده است و `/srv/cs2-shared` رشد می‌کند، اجازه بده دانلود ادامه پیدا کند. تا متوقف‌شدن قطعی SteamCMD WinSCP را شروع نکن.
-5. اگر process زنده‌ای نیست و Base هنوز خالی است، خروجی `journalctl`, `ps`, `du` و تنظیمات مرتبط را بررسی می‌کنیم؛ پس از شروع موفق دانلود، VPKهای asset را می‌توان با WinSCP به‌صورت کنترل‌شده ادغام کرد. Workshop باید با ACF/metadata خودش جداگانه وارد شود.
-
-CounterStrikeSharp و Plugin/Fun Modeهای FragCity را فقط بعد از اثبات VPK Sync و Instance دوم اضافه می‌کنیم. فایل‌های writable مربوط به cfg/addons/configs باید per-instance بمانند؛ محتوای VIP حذف‌شده نباید برگردد.
-
-#### 7.3.3 افزودن VMDK داده فقط به Clone — اختیاری برای PoC
-
-VMDK دادهٔ دوم برای cs2node/vpksync در تست فعلی لازم نیست. این بخش فقط در صورتی استفاده می‌شود که برای Production بخواهیم Shared Base را از فایل‌سیستم root جدا کنیم.
-
-1. فضای آزاد واقعی درایو Windows host را بررسی کن.
-2. فقط به Clone یک دیسک مجازی جدید اضافه کن؛ فایل VMDK اصلی یا دیسک موجود را انتخاب نکن.
-3. پس از بوت Clone، دستگاه‌ها را فقط بخوان:
-
-~~~bash
-lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
-sudo blkid
-~~~
-
-4. پیش از شناسایی قطعی دستگاه و توافق روی مقصد، هیچ partitioning، mkfs، wipefs یا mount دائمی انجام نده.
-5. اگر این مسیر برای Production انتخاب شد، mountpoint نهایی را با مقدار cs2_dir در /etc/cs2node/config.json هماهنگ می‌کنیم.
-
-**گام جاری:** پیش‌نیاز i386 روی Clone نصب شده و `steamcmd.sh +quit` موفق بوده است. پس از Restart سرویس، `vpksync` مقدار `build=0` گزارش کرد؛ اسکن بعدی Manifest مرکزی پیدا نکرد و VPK count برابر صفر بود. قدم بعدی، اجرای بلوک فقط‌خواندنی بخش 8.2.1 در راهنمای K4ryuu برای بررسی پردازش‌های SteamCMD، Journal و رشد مسیر مرکزی است. اگر دانلود زنده باشد، منتظر می‌مانیم؛ اگر متوقف/ناموفق باشد، علت را قبل از WinSCP مشخص می‌کنیم. سپس VPKهای asset را کنترل‌شده منتقل و Workshop را جداگانه با metadata معتبر وارد Cache می‌کنیم.
+برای PoC، Shared Base می‌تواند در مسیر `/srv/cs2-shared` روی فایل‌سیستم فعلی باشد، اگر فضای آزاد و سیاست Storage این Node اجازه دهد. VMDK دادهٔ دوم یک گزینهٔ جداسازی Storage است، نه پیش‌نیاز خود cs2node.
 
 ### 7.4 تصمیم Storage — PoC فعلی و Production
 
@@ -2143,34 +2131,21 @@ sudo blkid
 
 فرمان اجرانشده را به‌عنوان دستور آمادهٔ Production ثبت نمی‌کنیم؛ پس از اجرا و تست به همین سند اضافه می‌شود.
 
-## 9. آخرین checkpoint
+## 9. چک‌لیست پایان نصب زیرساخت
 
-| بخش | وضعیت مسیر جدید |
-|---|---|
-| هدف محیط | Debian 13 Console-only؛ بدون Desktop Environment |
-| نصب سیستم‌عامل | تکمیل شده؛ console login روی `fc-node-01 tty1` |
-| مرحلهٔ جاری | Clone با IP `192.168.1.9` و hostname `fc-node-01` health check اولیهٔ 24 PASS / 1 WARN / 0 FAIL گرفت. Queue Worker و Scheduler روی Clone فعال/تأیید شده‌اند؛ روی VM اصلی باید جداگانه اجرا شوند. UFW پورت `29001/udp` برای CS2 آینده باز می‌ماند؛ تغییر نده. اولین Instance `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده است. مرحلهٔ جاری: حجم نصب موجود بررسی شده است؛ game/csgo حدود 61 GB، maps حدود 9.6 GB، community_addons حدود 6.4 GB، مجموع 739 VPK با 67.75 GiB. طبق تصمیم کاربر از هیچ فایل ویندوز یا Volume موجود برای Seed استفاده نمی‌شود. گام بعدی تأیید سرویس cs2node و دانلود واقعی Base در `/srv/cs2-shared` است. `vpksync` و چند Module دیگر نصب/فعال‌اند؛ آماده‌بودن محتوا هنوز تأیید نشده است. VMDK دوم اختیاری است. |
-| مراحل پایه | 1.9–1.21 بررسی‌شده؛ inodeها 1% مصرف دارند؛ Snapshot 1.22 با نام `debian13-base-ready` طبق گزارش کاربر گرفته شده |
-| Hostname | `fc-node-01` |
-| Domain name / FQDN | `fragcity.ir` و `fc-node-01.fragcity.ir` |
-| IP LAN / رزرو DHCP | Node اصلی 192.168.1.7؛ Clone فعلی 192.168.1.9 به دلیل MAC جدید. برای تست Clone، Port Forwardهای فعلی را به .9 تغییر بده و DHCP reservation بساز؛ برای بازگشت، Clone را خاموش و مقصدها را به .7 برگردان. |
-| Panel FQDN هدف | `panel.fragcity.ir` |
-| DNS / public IP | پیش از صدور/تمدید گواهی و پس از هر تغییر WAN، رکوردهای عمومی را طبق مرحلهٔ 3.7.2 با IPv4 فعلی تطبیق بده |
-| SSH hardening | سرویس فعال، پیکربندی sshd معتبر، ورود root و احراز هویت با رمز غیرفعال، احراز هویت کلیدی فعال، و ورود واقعی از پنجرهٔ تازهٔ Windows PowerShell موفق است. |
-| Firewall UFW | فعال؛ ورودی پیش‌فرض مسدود، خروجی مجاز، SSH محدود به LAN `192.168.1.0/24` و TCP پورت‌های 80/443 مجاز است. |
-| Panel / Docker / Wings | Panel روی HTTPS تنظیم شده؛ Docker فعال است؛ `config.yml` از Auto-Deploy تولید شده؛ Wings از آزمون foreground عبور کرده و سرویس systemd فعال/enable است. اتصال Node با Port Forward و قوانین UFW برقرار شده است. لاگ systemd اخیر Wings و Docker هشدار/خطای جدید نشان نداد؛ پیام‌های قدیمی TLS مربوط به قبل از آماده‌شدن گواهی‌اند. SMTP باید پیش از Production تنظیم شود. |
-| CS2 instance / game files | `fc-cs2-test-01` ساخته شده و پایان دانلود اولیه گزارش شده است. Installer نصب `cs2node` و شروع سرویس را گزارش کرده؛ مسیر تنظیم‌شده `/srv/cs2-shared` است، اما manifest، Build ID و VPKهای مرکزی هنوز باید تأیید شوند. |
-| Website/Wallet/Billing | فازهای بعدی |
+- [ ] Debian بوت می‌شود؛ Hostname، IP و SSH بر اساس محیط واقعی تنظیم شده‌اند.
+- [ ] UFW فقط پورت‌های لازم را باز گذاشته است؛ SSH، MariaDB و Redis بی‌دلیل به اینترنت عمومی منتشر نشده‌اند.
+- [ ] PHP CLI/FPM و Composer با نسخه‌های لازم برای Panel نصب و بررسی شده‌اند.
+- [ ] MariaDB و Redis فعال‌اند و دیتابیس/کاربر اختصاصی Panel آماده است.
+- [ ] Panel از HTTPS قابل‌دسترسی است و NGINX config از تست syntax عبور می‌کند.
+- [ ] Queue Worker (pteroq) فعال و enabled است.
+- [ ] Scheduler با Cron تنظیم و وجود ورودی schedule:run بررسی شده است.
+- [ ] Docker فعال است و Wings به Panel وصل می‌شود؛ Node در UI وضعیت Online دارد.
+- [ ] پورت‌های Wings/SFTP از شبکهٔ موردنظر به IP صحیح می‌رسند.
+- [ ] پیش از افزودن Storage جدید، دستگاه با lsblk و blkid شناسایی شده است؛ نام دیسک حدس زده نمی‌شود.
+- [ ] برای نصب CS2، Runtimeهای i386 طبق راهنمای CS2 پیش از نصب cs2node آماده شده‌اند.
+- [ ] پس از تکمیل این Runbook، مراحل Egg/VPK Sync/Multi Instance از راهنمای مستقل اجرا می‌شوند.
 
-خروجی اجرای فرمان‌ها، لاگ‌ها، رمزها، نام حساب‌های شخصی و SHAهای فایل‌ها را به این README اضافه نکن. این سند فقط دستورها، تصمیم‌های معماری و مراحل تکرارپذیر را نگه می‌دارد.
+## نگهداری وضعیت جاری
 
-## منابع رسمی
-
-- Debian Installer guide: https://www.debian.org/releases/trixie/amd64/install.en.pdf
-
-- Debian: https://www.debian.org/distrib/
-- Panel releases: https://github.com/pterodactyl/panel/releases
-- Wings 1.x installation: https://docs.pterodactyl.io/v1/wings/installing
-- Wings releases: https://github.com/pterodactyl/wings/releases
-- Docker on Debian: https://docs.docker.com/engine/install/debian/
-- Composer: https://getcomposer.org/download/
+نتیجهٔ تست Clone، IPهای فعلی، وضعیت cs2node و مرحلهٔ جاری دانلود CS2 را در README ریشه ثبت کن. لاگ خام، رمزها، APP_KEY، Token، .env، Webhook URL یا محتویات config.yml را در ریپو ذخیره نکن.
