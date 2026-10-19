@@ -371,7 +371,7 @@ df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
 
 تنها وجود دایرکتوری یا ثبت `cs2_dir` در config برای اعلام موفقیت کافی نیست.
 
-### 8.5 گام پنجم — اتصال سرور اول به Base
+### 8.4 — اتصال سرور اول به Base
 
 فقط وقتی Base مرکزی تأیید شد:
 1. از پنل fc-cs2-test-01 را Start کن.
@@ -385,7 +385,7 @@ KitsuneLab | OK | Daemon-managed game files, SteamCMD skipped
 4. بارگذاری Map و پاسخ Console را تأیید کن.
 5. پس از موفقیت، مصرف واقعی Volume و فضای دیسک را بررسی کن. تا پیش از تأیید VPK Sync، Limit دیسک را 40 GB نگه دار.
 
-### 8.6 گام ششم — ساخت Instance دوم
+### 8.5 — ساخت Instance دوم
 
 بعد از تأیید سرور اول، یک سرور دیگر با همان Egg کامل KitsuneLab CS2 Go @ K4ryuu و Image برابر ghcr.io/k4ryuu/cs2-egg-go:stable بساز. Allocation آزاد و جداگانه برای آن انتخاب کن؛ پورت جدید را حدس نزن. بعد از Start باید پیام Daemon-managed game files, SteamCMD skipped ظاهر شود و cs2node status باید Instance دوم را بشناسد. Disk Limit حدود 5 GB را تنها پس از اندازه‌گیری مصرف واقعی Volume و تأیید موفقیت Shared Base تنظیم کن.
 
