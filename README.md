@@ -22,7 +22,7 @@
 - Panel، Docker، Wings، Queue Worker و Scheduler روی Clone قبلاً راه‌اندازی و طبق گزارش کاربر عملیاتی‌اند.
 - Instance آزمایشی `fc-cs2-test-01` ساخته شده و پایان دانلود اولیهٔ بازی گزارش شده است.
 - Installer رسمی `cs2node` گزارش کرده config و systemd unit نوشته شده و سرویس enable/start شده است. `vpksync` با مسیر مرکزی `/srv/cs2-shared` و روش `symlink` تنظیم شده، اما وجود manifest و فایل‌های واقعی در این مسیر هنوز باید بررسی شود.
-- هیچ فایل بازی از Windows یا Volume موجود برای Seed استفاده نمی‌شود؛ Base مرکزی باید با SteamCMD آماده شود.
+- پیش‌نیاز Debian amd64 یعنی نصب `libc6:i386`, `libstdc++6:i386`, `libgcc-s1:i386` در ابتدای راهنمای K4ryuu، قبل از نصب cs2node، ثبت شده است. این مرحله روی Clone انجام شد و `steamcmd.sh +quit` موفق بوده؛ بااین‌حال، پس از Restart، `build=0` و صفر VPK/بدون Manifest مرکزی دیده شد. گام جاری بررسی پردازش SteamCMD و Journal است؛ سپس انتقال کنترل‌شدهٔ VPKهای asset با WinSCP و واردکردن جداگانهٔ Workshop بررسی می‌شود.
 - وب‌هوک Discord در خروجی چت افشا شده است؛ پیش از اتکا به ماژول Alerts، وب‌هوک قبلی را در Discord باطل و جایگزین کن.
 
 ## قواعد ایمنی
