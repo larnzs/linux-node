@@ -311,7 +311,12 @@ if [[ "$PANEL_FQDN" == *'<'* || "$PANEL_FQDN" == *'>'* ]]; then
     echo "STOP: replace PANEL_FQDN before running this test."
     exit 2
 fi
-curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' "https://${PANEL_FQDN}/"
+PANEL_FQDN="<PANEL_FQDN>" # Replace with the real Panel FQDN
+if [[ "$PANEL_FQDN" == *'<'* || "$PANEL_FQDN" == *'>'* ]]; then
+    echo "STOP: replace PANEL_FQDN before running this test."
+    exit 2
+fi
+curl -sS -o /dev/null -w 'Panel HTTP status: %{http_code}\\n' "https://$PANEL_FQDN/"
 ~~~
 
 پاسخ 200 یا redirect مانند 301/302 می‌تواند نشان دهد وب‌سرور پاسخ داده است؛ وضعیت Node را جداگانه در Panel بررسی کن. اگر Panel باز نشد، قبل از reinstall کردن سرویس‌ها مقصد Port Forward، Nginx و PHP-FPM را بررسی کن. لاگ‌ها را در README ذخیره نکن.
@@ -422,7 +427,7 @@ else
     fail "No default route found."
 fi
 
-printf '\nDNS resolution for <PANEL_FQDN>:\n'
+printf '\nDNS resolution for %s:\n' "$PANEL_FQDN"
 if getent ahosts "$PANEL_FQDN" >/dev/null 2>&1; then
     getent ahosts "$PANEL_FQDN" | head -n 3
     pass "Panel domain resolves through the system resolver."
@@ -643,7 +648,7 @@ SCRIPT
 وقتی تست تمام شد:
 
 1. در Clone دستور sudo systemctl poweroff را اجرا کن و در VMware مطمئن شو وضعیت **Powered Off** است.
-2. مقصد Port Forwardهای سرویس‌هایی را که در بخش 8 به Clone منتقل کرده‌ای، از آدرس Clone به IP اصلی ثبت‌شده در جدول بخش 1 برگردان. در نمونهٔ FragCity، <CLONE_LAN_IP> آدرس Clone و <NODE_LAN_IP> آدرس اصلی است.
+2. مقصد Port Forwardهای سرویس‌هایی را که در بخش 8 به Clone منتقل کرده‌ای، از آدرس Clone به IP اصلی ثبت‌شده در جدول بخش 1 برگردان. در جدول بخش 1، <CLONE_LAN_IP> آدرس Clone و <NODE_LAN_IP> آدرس اصلی است؛ پیش از بازگرداندن Port Forwardها هر دو را با IPهای واقعی تطبیق بده.
 3. فقط پس از خاموش‌شدن کامل Clone، VM اصلی را روشن کن.
 4. روی VM اصلی، IP واقعی آن و دسترسی SSH/Panel/Wings را بررسی کن.
 
