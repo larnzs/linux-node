@@ -1167,7 +1167,7 @@ sudo -u www-data php8.3 artisan p:environment:setup
 sudo -u www-data php8.3 artisan p:environment:database
 ~~~
 
-مقادیر هدف برای نصب جدید: تا وقتی فقط NGINX/HTTP محلی را آزمایش می‌کنیم، URL در Wizard برابر `http://panel.fragcity.ir` باشد؛ بعد از صدور و تأیید گواهی TLS در مرحلهٔ 3.7، مقدار را به `https://panel.fragcity.ir` تغییر می‌دهیم. timezone سیستم‌عامل UTC، cache/session/queue برابر redis، Redis host برابر `127.0.0.1` و port برابر `6379`، DB host برابر `127.0.0.1`، port برابر `3306`، database برابر `panel` و user برابر `pterodactyl` است. رمزهای DB/Redis را فقط داخل prompt وارد کن و در README/چت ننویس. تا قبل از تأیید TLS و Firewall، Panel را از روتر روی WAN منتشر نکن.
+مقادیر هدف برای نصب تازه: تا وقتی فقط NGINX/HTTP محلی را آزمایش می‌کنی، از `http://<PANEL_FQDN>` استفاده کن؛ پس از صدور و تأیید گواهی TLS در مرحلهٔ 3.7، URL را به `https://<PANEL_FQDN>` تغییر بده. در این راهنما `<PANEL_FQDN>` یک placeholder است و باید با FQDN واقعی Panel جایگزین شود. timezone سیستم‌عامل UTC، cache/session/queue برابر redis، Redis host برابر `127.0.0.1` و port برابر `6379`، DB host برابر `127.0.0.1`، port برابر `3306`، database برابر `panel` و user برابر `pterodactyl` است. رمزهای DB/Redis را فقط داخل prompt وارد کن و در README/چت ننویس. تا قبل از تأیید TLS و Firewall، Panel را از روتر روی WAN منتشر نکن.
 
 ### 3.4 اصلاح مجوز Cache، Migration و مدیر
 
@@ -1200,96 +1200,70 @@ sudo mariadb panel -e "SELECT id, name, nest_id FROM eggs WHERE LOWER(name) LIKE
 
 فرمان بالا صرفاً برای بررسی فهرست Eggهای همین نصب است. نام یا شناسهٔ Egg را حدس نزن؛ تا زمانی که سازگاری Egg با CS2 تأیید نشده، سرور جدید نساز.
 
-### 3.4.1 راه‌اندازی اجباری Queue Worker و Scheduler — بخش ضروری نصب Panel
+### 3.4.1 راه‌اندازی Queue Worker و Scheduler — بخش ضروری Panel
 
-**این دو جزء در نصب اولیه جا افتاده بودند؛ اصلاحش اجباری است، نه اختیاری.** طبق راهنمای رسمی Pterodactyl 1.x، Scheduler باید هر دقیقه `artisan schedule:run` را اجرا کند و Queue Worker باید در پس‌زمینه `artisan queue:work` را پردازش کند. بدون این دو، بخشی از کارهای پس‌زمینهٔ Panel، ایمیل‌ها و وظایف زمان‌بندی‌شده پردازش نمی‌شوند. مرجع رسمی: https://docs.pterodactyl.io/v1/panel/getting-started
+Pterodactyl دو مؤلفهٔ پس‌زمینه نیاز دارد:
+- **Scheduler:** اجرای `artisan schedule:run` هر دقیقه.
+- **Queue Worker:** اجرای پیوستهٔ `artisan queue:work` برای پردازش کارهای صف.
 
-**زمان اجرا در ترتیب نصب:** پس از تنظیم Panel، آماده بودن PHP/Artisan و Redis، و پیش از اعلام تکمیل نصب Panel. این مرحله در نصب تازه و همچنین برای همین VM که الان در حال ترمیم آن هستیم لازم است.
+مرجع رسمی Pterodactyl 1.x: https://docs.pterodactyl.io/v1/panel/getting-started
 
-**نکتهٔ چند-VMDK:** فایل‌های هر VM مستقل‌اند. این بلوک را اکنون روی Clone فعال با IP `192.168.1.9` اجرا کن. زمانی که به VMDK اصلی برگشتی، ابتدا Clone را کاملاً خاموش کن، Port Forwardها را به `192.168.1.7` برگردان و فقط VM اصلی را بوت کن؛ سپس همین بلوک را روی آن اجرا کن. دو VM هرگز هم‌زمان روشن نباشند. بلوک عمداً هر دو IP مورد انتظار را قبول می‌کند و پیش از تغییر، hostname، مسیر Panel، `QUEUE_CONNECTION=redis`، Redis، Cron و دستورات Artisan را چک می‌کند.
+**پیش‌نیازها:** Panel باید نصب شده باشد؛ `artisan` و `.env` باید موجود باشند؛ PHP CLI باید با نسخهٔ انتخاب‌شده برای Panel سازگار باشد؛ و Queue driver مطابق تنظیمات Panel آماده باشد. در این Runbook از Redis استفاده می‌شود.
 
-این بلوک از روی مستندات رسمی Pterodactyl تنظیم شده و برای اجرای مجدد، duplicate Scheduler اضافه نمی‌کند. اگر `pteroq.service` از قبل وجود داشته اما تنظیماتش با فرمان مورد انتظار تفاوت داشته باشد، آن را بازنویسی نمی‌کند و با خطا متوقف می‌شود. از crontab ریشه هم قبل از تغییر یک نسخهٔ محلی با مجوز محدود می‌گیرد.
+#### نصب برای یک Node تازه
+
+قبل از اجرا، `PANEL_DIR` و `PHP_BIN` را مطابق نصب خودت تنظیم کن. اگر فایل `pteroq.service` از قبل وجود دارد، این بلوک عمداً متوقف می‌شود تا یک سرویس شخصی‌سازی‌شده بدون بررسی بازنویسی نشود.
 
 ~~~bash
 sudo bash <<'SETUP'
 set -Eeuo pipefail
 
-EXPECTED_HOST="fc-node-01"
-PANEL_DIR="/var/www/pterodactyl"
+PANEL_DIR="/var/www/pterodactyl"  # Replace if Panel is installed elsewhere
+PHP_BIN="/usr/bin/php8.3"         # Use the CLI PHP version selected for this Panel
 UNIT_PATH="/etc/systemd/system/pteroq.service"
-EXPECTED_EXEC="/usr/bin/php /var/www/pterodactyl/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3"
 
-echo "=== 1. Identify this VM and verify prerequisites ==="
-CURRENT_HOST="$(hostnamectl --static)"
-
-if [[ "$CURRENT_HOST" != "$EXPECTED_HOST" ]]; then
-    echo "ERROR: expected hostname $EXPECTED_HOST; found $CURRENT_HOST. Nothing changed."
-    exit 1
-fi
-
-if ! ip -o -4 address show | grep -Eq '192\.168\.1\.(7|9)/'; then
-    echo "ERROR: expected active FragCity VM at 192.168.1.7 or 192.168.1.9. Nothing changed."
-    exit 1
-fi
-
+echo "=== 1. Verify the Panel files and PHP ==="
 if [[ ! -f "$PANEL_DIR/artisan" || ! -f "$PANEL_DIR/.env" ]]; then
-    echo "ERROR: Panel files not found at $PANEL_DIR. Nothing changed."
-    exit 1
+  echo "STOP: Panel artisan/.env not found under $PANEL_DIR."
+  exit 1
 fi
 
-if ! systemctl is-active --quiet redis-server; then
-    echo "ERROR: redis-server is not active. Nothing changed."
-    exit 1
+if [[ ! -x "$PHP_BIN" ]]; then
+  echo "STOP: PHP CLI not found at $PHP_BIN. Set PHP_BIN to the correct executable."
+  exit 1
 fi
 
-if ! systemctl is-active --quiet cron; then
-    echo "ERROR: cron is not active. Nothing changed."
-    exit 1
-fi
+runuser -u www-data -- "$PHP_BIN" "$PANEL_DIR/artisan" --version
 
-if ! grep -Eq "^QUEUE_CONNECTION=(redis|\"redis\"|'redis')[[:space:]]*$" "$PANEL_DIR/.env"; then
-    echo "ERROR: QUEUE_CONNECTION is not explicitly set to redis. Nothing changed."
-    exit 1
+if ! grep -Eq '^QUEUE_CONNECTION=("|')?redis("|')?[[:space:]]*$' "$PANEL_DIR/.env"; then
+  echo "STOP: .env does not explicitly set QUEUE_CONNECTION=redis."
+  echo "Configure the intended queue driver in Panel before enabling this worker."
+  exit 1
 fi
-
-echo "Hostname, active VM IP, Panel path, QUEUE_CONNECTION=redis, Redis and Cron: OK."
 
 echo
-echo "=== 2. Verify PHP CLI and Artisan ==="
-if [[ ! -x /usr/bin/php ]]; then
-    echo "ERROR: /usr/bin/php is missing or not executable. Nothing changed."
-    exit 1
-fi
-
-runuser -u www-data -- /usr/bin/php "$PANEL_DIR/artisan" --version
-
-ARTISAN_LIST="$(runuser -u www-data -- /usr/bin/php "$PANEL_DIR/artisan" list --raw 2>/dev/null)"
-if ! printf '%s\n' "$ARTISAN_LIST" | grep -Eq '^queue:work[[:space:]]'; then
-    echo "ERROR: queue:work was not found in Artisan. Nothing changed."
-    exit 1
-fi
-if ! printf '%s\n' "$ARTISAN_LIST" | grep -Eq '^schedule:run([[:space:]]|$)'; then
-    echo "ERROR: schedule:run was not found in Artisan. Nothing changed."
-    exit 1
-fi
-echo "Both Artisan commands are present."
+echo "=== 2. Ensure Redis and cron are installed/running ==="
+apt-get update
+apt-get install -y redis-server cron
+systemctl enable --now redis-server cron
+systemctl is-active redis-server
+systemctl is-active cron
 
 echo
-echo "=== 3. Create or validate pteroq.service ==="
+echo "=== 3. Check required Artisan commands ==="
+ARTISAN_LIST="$(runuser -u www-data -- "$PHP_BIN" "$PANEL_DIR/artisan" list --raw)"
+printf '%s\n' "$ARTISAN_LIST" | grep -E '^queue:work[[:space:]]'
+printf '%s\n' "$ARTISAN_LIST" | grep -E '^schedule:run([[:space:]]|$)'
 
+echo
+echo "=== 4. Create the systemd Queue Worker ==="
 if [[ -e "$UNIT_PATH" ]]; then
-    if grep -Fxq "User=www-data" "$UNIT_PATH" &&
-       grep -Fxq "Group=www-data" "$UNIT_PATH" &&
-       grep -Fxq "WorkingDirectory=/var/www/pterodactyl" "$UNIT_PATH" &&
-       grep -Fxq "ExecStart=$EXPECTED_EXEC" "$UNIT_PATH"; then
-        echo "Existing pteroq.service matches required user, path and command; preserving it."
-    else
-        echo "ERROR: $UNIT_PATH already exists but does not match expected configuration."
-        echo "It was not overwritten. Inspect it manually before continuing."
-        exit 1
-    fi
-else
-    cat > "$UNIT_PATH" <<'UNIT'
+  echo "STOP: $UNIT_PATH already exists; inspect it before changing anything."
+  systemctl status pteroq.service --no-pager -l || true
+  exit 1
+fi
+
+tee "$UNIT_PATH" >/dev/null <<UNIT
 [Unit]
 Description=Pterodactyl Queue Worker
 After=redis-server.service
@@ -1299,61 +1273,45 @@ StartLimitBurst=30
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/pterodactyl
+WorkingDirectory=$PANEL_DIR
 Restart=always
-ExecStart=/usr/bin/php /var/www/pterodactyl/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
+ExecStart=$PHP_BIN $PANEL_DIR/artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
 RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
 UNIT
-    chmod 0644 "$UNIT_PATH"
-    echo "Created $UNIT_PATH"
-fi
 
+chmod 0644 "$UNIT_PATH"
 systemd-analyze verify "$UNIT_PATH"
 systemctl daemon-reload
 systemctl enable --now pteroq.service
 
 echo
-echo "=== 4. Add scheduler to root crontab without duplicating it ==="
-
-if ! command -v crontab >/dev/null 2>&1; then
-    echo "ERROR: crontab command not found. Queue Worker was configured, but Scheduler was not changed."
-    exit 1
-fi
-
+echo "=== 5. Add the Scheduler without duplicating an existing entry ==="
 CRONTAB_BACKUP="/root/root-crontab-before-pterodactyl-scheduler-$(date +%Y%m%d-%H%M%S)"
 crontab -l > "$CRONTAB_BACKUP" 2>/dev/null || true
 chmod 0600 "$CRONTAB_BACKUP"
-echo "Root crontab backup: $CRONTAB_BACKUP"
+echo "Root crontab backup created."
 
-SCHEDULER_LINE='* * * * * /usr/bin/php /var/www/pterodactyl/artisan schedule:run >> /dev/null 2>&1'
-
-if crontab -l 2>/dev/null | grep -Fq '/var/www/pterodactyl/artisan schedule:run'; then
-    echo "A scheduler entry for this Panel already exists; no duplicate added."
+SCHEDULER_LINE="* * * * * $PHP_BIN $PANEL_DIR/artisan schedule:run >> /dev/null 2>&1"
+if crontab -l 2>/dev/null | grep -Fq "$PANEL_DIR/artisan schedule:run"; then
+  echo "A Scheduler line for this Panel already exists; not adding a duplicate."
 else
-    { crontab -l 2>/dev/null || true; printf '%s\n' "$SCHEDULER_LINE"; } | crontab -
-    echo "Added the scheduler entry to root's crontab."
+  { crontab -l 2>/dev/null || true; printf '%s\n' "$SCHEDULER_LINE"; } | crontab -
+  echo "Scheduler line added to root's crontab."
 fi
 
 echo
-echo "=== 5. Verify both components ==="
+echo "=== 6. Verification ==="
 systemctl is-enabled pteroq.service
 systemctl is-active pteroq.service
 systemctl status pteroq.service --no-pager -l
-
-echo
-crontab -l | grep -F '/var/www/pterodactyl/artisan schedule:run'
-
-echo
-echo "Queue Worker and Scheduler are configured on this VM."
-echo "Repeat this procedure on the other VMDK later, when that VM alone is powered on."
-echo "Keep the original and Clone powered on one at a time only."
+crontab -l | grep -F "$PANEL_DIR/artisan schedule:run"
 SETUP
 ~~~
 
-**معیار قبولی بلافاصله بعد از اجرا:**
+#### معیار قبولی
 
 ~~~bash
 sudo systemctl is-enabled pteroq.service
@@ -1362,16 +1320,11 @@ sudo systemctl status pteroq.service --no-pager -l
 sudo crontab -l | grep -F '/var/www/pterodactyl/artisan schedule:run'
 ~~~
 
-انتظار می‌رود `pteroq.service` هم `enabled` و هم `active` باشد و خط Scheduler در crontab ریشه وجود داشته باشد. اگر سرویس فعال نشد، به‌جای نصب مجدد Panel، خروجی زیر را برای عیب‌یابی بفرست:
+انتظار می‌رود سرویس `pteroq.service` هم `enabled` و هم `active` باشد و خط Scheduler برای مسیر Panel تو در crontab وجود داشته باشد. اگر فایل سرویس از قبل وجود دارد، آن را کورکورانه جایگزین نکن؛ ابتدا محتوایش را بررسی و با این راهنما تطبیق بده. اگر سرویس بالا نمی‌آید، لاگ آن را بخوان:
 
 ~~~bash
-sudo systemctl status pteroq.service --no-pager -l
-sudo journalctl -u pteroq.service -n 40 --no-pager
+sudo journalctl -u pteroq.service -n 80 --no-pager
 ~~~
-
-نتیجهٔ ثبت‌شده در 2026-10-18: این مرحله روی Clone با IP `192.168.1.9` با موفقیت اجرا شد؛ `pteroq.service` هم `enabled` و هم `active (running)` بود و خط Scheduler در crontab ریشه تأیید شد. این تغییرات به‌صورت خودکار به VMDK اصلی منتقل نمی‌شوند؛ هنگام بازگشت به آن نیز همین مرحله را جداگانه اجرا کن. هنگام `systemd-analyze verify` یک هشدار جداگانه دربارهٔ مسیر قدیمی `PIDFile` در `wings.service` زیر `/var/run/` دیده شد؛ این هشدار Queue Worker را متوقف نکرده است و باید جداگانه و پس از بررسی فایل سرویس پیگیری شود.
-
-**پورت `29001/udp` که برای سرور CS2 رزرو کرده‌ای در این مرحله دست‌نخورده می‌ماند.**
 
 ### 3.5 پیکربندی NGINX برای LAN
 
@@ -1757,11 +1710,11 @@ df -h /
 
 این فقط Docker را تأیید می‌کند، نه Wings یا اجرای CS2.
 
-**Checkpoint تأییدشده در VM فعلی:** نسخهٔ Docker برابر 29.9.1 گزارش شد، سرویس `docker` فعال بود، `docker info` بدون خطا پاسخ داد و `docker run --rm hello-world` موفق شد. فضای ریشه پس از آزمون حدود 253 GB آزاد داشت. لاگ کامل این آزمون در README ذخیره نمی‌شود.
+**معیار قبولی:** `docker --version` باید نسخه را نشان دهد، `systemctl is-active docker` باید `active` برگرداند، `docker info` بدون خطا اجرا شود و `docker run --rm hello-world` پیام موفقیت نشان دهد. اگر آزمون fail شد، پیش از نصب Wings علت Docker daemon، شبکه یا Package Manager را مشخص کن. فضای آزاد را از خروجی `df -h /` برای محیط خودت ارزیابی کن.
 
 ---
 
-## 6. Wings و Node — باینری نصب شده؛ اتصال هنوز انجام نشده
+## 6. نصب و پیکربندی Wings و اتصال Node
 
 ### 6.1 بررسی نسخهٔ Panel
 
@@ -1772,9 +1725,9 @@ cd /var/www/pterodactyl
 sudo -u www-data php8.3 artisan p:info
 ~~~
 
-**Checkpoint تأییدشده:** Panel برابر `1.15.1` و `Up-to-Date: Yes` گزارش شده، URL نصب `https://panel.fragcity.ir` است، Debug Mode خاموش است، و Driverهای cache/queue/session روی Redis و دیتابیس روی MariaDB تنظیم شده‌اند.
+در خروجی `p:info` نسخهٔ Panel، URL، Debug Mode و Driverهای cache/queue/session/database را بررسی کن. نسخهٔ نمایش‌داده‌شده باید با نسخه‌ای که در بخش 3 انتخاب کردی مطابقت داشته باشد. خروجی کامل این فرمان را در مستندات عمومی قرار نده.
 
-**کار با ایمیل نیاز به تکمیل دارد:** خروجی فعلی `p:info` هنوز `smtp.example.com` و `no-reply@example.com` را نشان می‌داد؛ این‌ها مقادیر نمونه‌اند. تا قبل از استفاده از ایمیل برای reset password، اعلان‌ها یا تأیید حساب، SMTP واقعی را به‌صورت جداگانه تنظیم و تست کن. رمز SMTP را در README یا چت ننویس. این مورد مانع آزمایش محلی Node نیست، اما برای production کامل نشده است.
+در `p:info` اگر مقادیر ایمیل نمونه مانند `smtp.example.com` یا `no-reply@example.com` می‌بینی، قبل از اتکای Production به Reset Password، اعلان‌ها یا تأیید حساب، SMTP واقعی را از طریق تنظیمات Panel وارد و آزمایش کن. رمز SMTP را در README یا چت ننویس.
 
 برای راه‌اندازی Wings در شاخهٔ Panel 1.x از راهنمای رسمی https://docs.pterodactyl.io/v1/wings/installing استفاده کن و پیش از نصب، Release سازگار را در https://github.com/pterodactyl/wings/releases بررسی کن.
 
@@ -1811,7 +1764,7 @@ sudo stat -c 'owner=%U:%G mode=%a size=%s path=%n' /usr/local/bin/wings
 
 این فرمان‌ها فقط باینری محلی را بررسی می‌کنند و به‌معنی پیکربندی یا اتصال Wings به Panel نیستند.
 
-**Checkpoint تأییدشده در VM فعلی:** باینری Wings نسخهٔ `1.13.4` نصب شده، executable لینوکسی x86-64 است و مالک/مجوز آن `root:root` با mode برابر `755` است. این فقط نصب باینری را تأیید می‌کند؛ فایل محرمانهٔ `/etc/pterodactyl/config.yml` هنوز از Panel تولید نشده، سرویس systemd مربوط به Wings هنوز ساخته/راه‌اندازی نشده و Node آنلاین نیست. بلوک نصب باینری را دوباره اجرا نکن.
+این مرحله فقط نصب باینری را تأیید می‌کند؛ فایل محرمانهٔ `/etc/pterodactyl/config.yml` باید بعداً از Panel تولید شود و باینری به‌تنهایی Node را Online نمی‌کند. مقدار نسخهٔ Wings را هنگام اجرا از Releases رسمی بررسی کن و با خط Panel انتخاب‌شده در بخش 3 تطبیق بده.
 
 ### 6.3 پیش‌بررسی DNS/TLS و ساخت Node از مرورگر Windows
 
@@ -1904,10 +1857,10 @@ sudo openssl x509 -in /etc/letsencrypt/live/fc-node-01.fragcity.ir/fullchain.pem
 sudo wings --debug
 ~~~
 
-اگر Wings بدون خطای `FATAL` اجرا شد و پایدار ماند، با `Ctrl+C` آن را به‌شکل کنترل‌شده متوقف کن و سپس به مرحلهٔ ساخت سرویس برو. در اجرای فعلی این آزمون پایدار ماند و با `Ctrl+C` متوقف شد.
+اگر Wings بدون خطای `FATAL` اجرا شد و پایدار ماند، با `Ctrl+C` آن را به‌شکل کنترل‌شده متوقف کن و سپس به مرحلهٔ ساخت سرویس برو. پس از تأیید اینکه Wings بدون خطای بحرانی اجرا می‌شود، با `Ctrl+C` آن را به‌شکل کنترل‌شده متوقف کن و سپس به مرحلهٔ ساخت سرویس برو.
 ### 6.7 ساخت سرویس دائمی systemd برای Wings
 
-پس از موفقیت آزمون foreground، سرویس systemd را بساز تا Wings پس از reboot هم خودکار اجرا شود. بلوک نصب برای میزبان تازه مستند شده است؛ روی VM فعلی این مرحله اجرا شده و سرویس `wings` فعال و enable شده است. آن را بی‌دلیل دوباره اجرا نکن.
+پس از موفقیت آزمون foreground، سرویس systemd را بساز تا Wings پس از reboot هم خودکار اجرا شود. اگر `wings.service` از قبل وجود دارد، پیش از بازنویسی محتوایش را بررسی کن.
 
 ~~~bash
 sudo tee /etc/systemd/system/wings.service >/dev/null <<'EOF'
