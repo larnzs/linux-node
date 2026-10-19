@@ -1,139 +1,130 @@
 # آموزش نصب K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache
 
-این راهنما نصب و راه‌اندازی K4ryuu CS2 Egg-Go را از پیش‌نیازهای Debian تا تأیید Shared Base و Multi Instance آموزش می‌دهد. دستورهای نمونه روی Debian میزبان اجرا می‌شوند، نه داخل Container بازی. مقادیر hostname، IP، دامنه، نام Instance و Allocation مخصوص هر محیط‌اند؛ جدول بخش 1.1 را با مقادیر خودت پر کن و مقادیر نمونه را بدون تطبیق اجرا نکن.
+این آموزش برای Debian Node دارای Pterodactyl است. تمام دستورهای این فایل روی **خود Debian host** اجرا می‌شوند، مگر آن‌که صریحاً نوشته شود از Windows، Panel یا داخل Container استفاده کن. برای Node دیگری hostname، IP، دامنه و نام سرور را عوض کن؛ مسیرهای مرکزی پیش‌فرض را فقط وقتی تغییر بده که config نیز به‌روزرسانی شود.
+
+> **هدف نهایی:** یک Shared CS2 Base در `/srv/cs2-shared`، Workshop Cache مجزا در `/srv/cs2-workshop` و دو Instance که از طریق daemon بازی را به‌صورت مشترک استفاده کنند. این آموزش به‌خودی‌خود فایل‌های Windows را تبدیل به Linux runtime نمی‌کند.
 
 ## نقشهٔ اجرا
 
-1. بررسی پیش‌نیازهای Node و آماده‌سازی Debian amd64 برای SteamCMD.
-2. واردکردن Egg رسمی K4ryuu و ساخت یک سرور آزمایشی.
-3. نصب cs2node با فرمان مشخص و تکمیل Wizard.
-4. تأیید دانلود Base مرکزی در مسیر /srv/cs2-shared.
-5. اتصال Instance اول به Base و سپس ساخت Instance دوم.
-6. در صورت نیاز، انتقال کنترل‌شدهٔ VPKهای بازی و واردکردن Workshop.
-7. پس از قبولی Multi Instance، نصب CounterStrikeSharp و پلاگین‌های منتخب.
+1. پیش‌نیازهای Node و i386 را آماده و آزمایش کن.
+2. Egg کامل رسمی را Import و یک Instance آزمایشی بساز، اما آن را Start نکن.
+3. `cs2node` را با دستور مشخص نصب و Wizard را تکمیل کن.
+4. دانلود/Update مرکزی را تا Build ID و VPKهای معتبر بررسی کن.
+5. Instance اول را آزمایش کن، سپس Instance دوم را بساز.
+6. اگر لازم شد، فایل‌های بازی و Workshop را جداگانه و با رعایت ساختار موردنیاز منتقل کن.
+7. تنها پس از قبولی Multi Instance سراغ CounterStrikeSharp و پلاگین‌ها برو.
 
-**تا زمانی که مرحله‌ای تأیید نشده، به مرحلهٔ بعد نرو.** در صورت خطا، فرمان را پشت‌سرهم تکرار نکن؛ متن خطا و وضعیت سرویس را بررسی کن.
+**اگر مرحله‌ای Fail شد، جلو نرو.** ابتدا معیار قبولی و فرمان‌های تشخیصی همان مرحله را اجرا کن.
 
-## 1. پیش‌نیازها
+## 1. پیش‌نیازها و مقادیر محیطی
 
-قبل از شروع، مطمئن شو:
+پیش‌نیازها:
 
-- Debian 13 (Trixie) روی Node نصب شده و دسترسی مدیریتی sudo داری.
-- Docker و Wings فعال‌اند و در Panel، Node وضعیت Online دارد.
-- فضای آزاد کافی برای Shared Base و Workshop وجود دارد. Base استاندارد CS2 معمولاً حدود 35–40 GB یا بیشتر، بسته به Build/Depot، فضا می‌خواهد؛ محتوای Workshop به این مقدار اضافه می‌شود.
-- حداقل یک Allocation آزاد و UDP قابل‌استفاده برای سرور آزمایشی در Panel تعریف شده است.
-- هیچ Daemon قدیمی مثل cs2-vpk-daemon یا cs2-guard-daemon هم‌زمان همان فایل‌ها یا پورت‌ها را مدیریت نمی‌کند.
-- سرور آزمایشی می‌تواند در زمان راه‌اندازی و آزمایش Offline باشد.
+- Debian 13 amd64، دسترسی sudo و اتصال اینترنت خروجی.
+- Pterodactyl Panel فعال، Docker و Wings سالم، Node در Panel برابر Online.
+- فضای آزاد کافی برای Base کامل و Workshop؛ ظرفیت واقعی را با `df -hT /` بررسی کن.
+- یک UDP Allocation آزاد برای Instance آزمایشی.
+- سرورهای بازی Offline هنگام آماده‌سازی Base.
+- هیچ daemon قدیمی دیگری نباید هم‌زمان همان Base را Update کند.
 
-### 1.1 مقادیر نصب خودت را مشخص کن
+قبل از اجرا این جدول را با مقادیر واقعی پر کن:
 
-این جدول را برای محیط خودت پر کن؛ مقادیر FragCity در ستون آخر فقط نمونه‌اند.
-
-| مقدار | از کجا برداشته شود؟ | نمونهٔ FragCity |
+| مقدار | از کجا تعیین شود | مقدار محیط خودت |
 |---|---|---|
-| Node hostname | نامی که برای Linux Node انتخاب کرده‌ای | `<NODE_HOSTNAME>` |
-| Node IP | IP داخلی رزروشدهٔ همان Node | `<NODE_LAN_IP>` |
-| Panel URL | FQDN واقعی Pterodactyl Panel | `https://<PANEL_FQDN>` |
-| Egg | Egg کامل رسمی واردشده در Panel | KitsuneLab CS2 Go @ K4ryuu |
-| Server name | نام یکتای Instance اول | `<CS2_TEST_SERVER_NAME>` |
-| Game allocation | یک Allocation آزاد واقعی از Panel | `<CS2_UDP_ALLOCATION>` |
-| CS2 shared path | مسیر مرکزی VPK Sync | `/srv/cs2-shared` |
+| Hostname | `hostnamectl --static` روی Node | `<NODE_HOSTNAME>` |
+| IP/FQDN | شبکهٔ خودت یا DNS | `<NODE_IP_OR_FQDN>` |
+| Panel URL | دامنهٔ واقعی Panel | `https://<PANEL_FQDN>` |
+| نام سرور اول | نام یکتا در Panel | `<CS2_TEST_SERVER_NAME>` |
+| Allocation | Panel → Node → Allocations | `<CS2_UDP_ALLOCATION>` |
+| مسیر Base | تنظیم `vpksync.cs2_dir` | `/srv/cs2-shared` |
+| مسیر Workshop | تنظیم ماژول Workshop | `/srv/cs2-workshop` |
 
-مسیرهای `/srv/cs2-shared` و `/srv/cs2-workshop` به IP یا hostname وابسته نیستند. پیش از اجرا، مقادیر زاویه‌دار جدول را با مقدار واقعی جایگزین کن. Allocation را از پنل انتخاب کن؛ شمارهٔ پورت نمونه را کورکورانه تکرار نکن.
+دستور بررسی هویت و فضای دیسک:
+
+~~~bash
+hostnamectl --static
+hostname -f
+ip -br address
+df -hT /
+uname -m
+dpkg --print-architecture
+~~~
+
+معیار قبولی: معماری `amd64`، IP درست، فضای کافی و Node Online. اگر معماری متفاوت است، دستورات مخصوص amd64 را کورکورانه اجرا نکن.
 
 ## 2. پیش‌نیاز الزامی Debian amd64: Runtime سی‌ودو بیتی
 
-SteamCMD در Linux amd64 نیز از باینری 32-bit در مسیر linux32/steamcmd استفاده می‌کند. اگر کتابخانه‌ها و loader مناسب نصب نباشند، ممکن است خطای زیر دیده شود:
-
-~~~text
-cannot execute: required file not found
-steamcmd: exit status 127
-~~~
-
-این مرحله را **قبل از نصب cs2node** اجرا کن:
+SteamCMD ممکن است از باینری 32-bit در `linux32/steamcmd` استفاده کند؛ داشتن سیستم‌عامل amd64 به‌تنهایی وجود loader و کتابخانه‌های i386 را تضمین نمی‌کند. این مرحله را **قبل از نصب cs2node و اولین Update مرکزی** انجام بده.
 
 ~~~bash
 set -eu
 
-ARCH="$(dpkg --print-architecture)"
-echo "Host architecture: $ARCH"
-
-if [ "$ARCH" != "amd64" ]; then
-  echo "STOP: these instructions expect Debian amd64."
+test "$(dpkg --print-architecture)" = "amd64" || {
+  echo "STOP: this block is for Debian amd64."
   exit 1
-fi
+}
 
-echo
-echo "=== Enable i386 multiarch ==="
 sudo dpkg --add-architecture i386
 sudo apt-get update
-
-echo
-echo "=== Install SteamCMD 32-bit runtime libraries ==="
 sudo apt-get install -y libc6:i386 libstdc++6:i386 libgcc-s1:i386
 
-echo
-echo "=== Confirm foreign architecture ==="
+echo "=== Enabled foreign architectures ==="
 dpkg --print-foreign-architectures
+
+echo "=== Installed i386 runtime packages ==="
+dpkg-query -W libc6:i386 libstdc++6:i386 libgcc-s1:i386
 ~~~
 
-خروجی باید شامل i386 باشد. این مرحله CS2 را دانلود نمی‌کند و فایل بازی موجود را تغییر نمی‌دهد.
+معیار قبولی: فرمان‌ها بدون خطا پایان یابند و `i386` در فهرست معماری‌های foreign دیده شود.
 
-**نکته:** در نصب کاملاً تازه ممکن است /root/steamcmd/steamcmd.sh هنوز ساخته نشده باشد؛ چون cs2node آن را هنگام اولین Update ایجاد می‌کند. اگر مسیر هنوز وجود ندارد، در این مرحله آن را اجرا نکن. بعد از نصب/راه‌اندازی daemon می‌توانی تست SteamCMD را انجام بدهی.
-
-### 2.1 تست SteamCMD در صورت وجود نصب قبلی
-
-اگر SteamCMD قبلاً روی همین Node نصب شده است:
+اگر SteamCMD از قبل نصب است، این آزمون را اجرا کن:
 
 ~~~bash
-if sudo test -x /root/steamcmd/steamcmd.sh; then
-  sudo /root/steamcmd/steamcmd.sh +quit
-else
-  echo "SteamCMD is not installed yet; cs2node will bootstrap it on first update."
-fi
+sudo /root/steamcmd/steamcmd.sh +quit
 ~~~
 
-تست موفق معمولاً خطوط Loading Steam API...OK و Unloading Steam API...OK را نمایش می‌دهد. اگر آزمون یک نصب قبلی خطا داد، اول همان خطا را رفع کن و سپس ادامه بده.
+معیار قبولی، خروجی موفق مشابه `Loading Steam API...OK` و `Unloading Steam API...OK` است. این فقط قابل اجرا بودن SteamCMD را ثابت می‌کند، نه دانلود موفق CS2 را. اگر مسیر SteamCMD وجود ندارد، این آزمون را فعلاً رد کن؛ cs2node هنگام اولین اجرا SteamCMD را آماده می‌کند. اگر خطای loader یا shared library گرفتی، نصب cs2node را شروع نکن.
 
-## 3. واردکردن Egg رسمی در Pterodactyl
+## 3. واردکردن Egg کامل رسمی در Pterodactyl
 
-1. وارد Panel خودت شو.
-2. به **Admin → Nests → Import Egg** برو.
-3. URL زیر را در فیلد Import قرار بده:
+این مرحله در مرورگر Windows انجام می‌شود:
+
+1. وارد Panel خودت شو و به **Admin → Nests** برو.
+2. Nest مناسب CS2/Source را باز کن و **Import Egg** را انتخاب کن.
+3. این URL رسمی را در بخش Import قرار بده:
 
 ~~~text
 https://raw.githubusercontent.com/K4ryuu/CS2-Egg-Go/main/pterodactyl/kitsunelab-cs2-go-egg.json
 ~~~
 
-4. Nest مناسب CS2/Source موجود را انتخاب کن؛ فقط برای این کار Nest تکراری نساز.
-5. Import را کامل کن و مطمئن شو Egg کامل **KitsuneLab CS2 Go @ K4ryuu** موجود است.
+4. Import را انجام بده و وجود Egg کامل **KitsuneLab CS2 Go @ K4ryuu** را تأیید کن.
+5. از Egg کامل استفاده کن، نه standalone Egg؛ نسخهٔ کامل برای handshake با cs2node لازم است.
 
-برای استفاده از cs2node، از Egg کامل استفاده کن، نه فایل standalone. Egg کامل دارای اتصال daemon است؛ بدون daemon هم می‌تواند مستقل اجرا شود.
+معیار قبولی: Egg در Panel قابل انتخاب باشد و Docker image پیش‌فرض آن `ghcr.io/k4ryuu/cs2-egg-go:stable` باشد.
 
 ## 4. ساخت Instance آزمایشی اول
 
-در **Admin → Servers → Create Server** یک سرور آزمایشی بساز.
+در **Admin → Servers → Create Server** یک Instance بساز:
 
-| فیلد | مقدار پیشنهادی |
+| فیلد | مقدار آغازین |
 |---|---|
-| Server Name | یک نام یکتا مثل cs2-test-01 |
-| Node | همان Node که cs2node روی آن نصب می‌شود |
-| Default Allocation | یک Allocation آزاد واقعی از Panel |
-| Additional Allocations | برای اولین تست خالی |
-| Database Limit | 0، اگر برای این سرور Database پنل نیاز نیست |
-| Memory | 3072 MiB برای شروع تست |
-| CPU Limit | حدود 200% برای تست اولیه؛ ظرفیت واقعی را با آمار اندازه بگیر |
-| Disk Space | 40960 MiB تا پیش از تأیید VPK Sync |
-| Docker Image | ghcr.io/k4ryuu/cs2-egg-go:stable |
-| Start Server when Installed | خاموش |
+| Server Name | نام یکتای خودت |
+| Node | Node موردنظر |
+| Default Allocation | Allocation آزاد واقعی |
+| Additional Allocations | خالی برای آزمون اول |
+| Memory | 3072 MiB برای شروع |
+| CPU Limit | مقدار سازگار با ظرفیت Node؛ برای تست می‌توان 200% در نظر گرفت |
+| Disk Space | 40960 MiB تا قبل از اثبات VPK Sync |
+| Docker Image | `ghcr.io/k4ryuu/cs2-egg-go:stable` |
+| Start after install | خاموش |
 
-در Startup، Map را روی de_dust2 نگه دار. برای اتصال عمومی ممکن است به GSLT نیاز داشته باشی؛ Token را در README، لاگ عمومی یا چت ثبت نکن.
+در Startup، Map آزمایشی را تنظیم کن. اگر GSLT لازم است، آن را فقط در فیلد Panel وارد کن و در مستندات ذخیره نکن.
 
-سرور را Create کن، ولی هنوز Start نکن. سرور فعلی را برای این کار حذف یا Reinstall نکن.
+**Create کن، ولی سرور را Start نکن.** تا تأیید Shared Base، آن را Reinstall یا Delete نکن.
 
 ## 5. نصب cs2node — فرمان دقیق
 
-این فرمان نصب Node daemon است. آن را روی Debian میزبان اجرا کن، نه داخل Container بازی:
+این بخش، فرمان نصب اصلی است. آن را روی Debian host اجرا کن، نه داخل Container:
 
 ~~~bash
 curl -fsSL \
@@ -142,83 +133,82 @@ curl -fsSL \
 
 chmod +x /tmp/cs2node
 file /tmp/cs2node
-
 sudo /tmp/cs2node install
 ~~~
 
-در پایان باید Installer اعلام کند که Binary در /usr/local/bin/cs2node قرار گرفته، تنظیمات در /etc/cs2node/config.json نوشته شده و سرویس cs2node نصب و راه‌اندازی شده است.
+در Installer تعاملی:
 
-از sudo cs2node install --yes برای نصب اول استفاده نکن؛ این حالت پیش‌فرض همهٔ Moduleها را بدون Wizard می‌پذیرد. Wizard تعاملی را کامل کن.
+- برای نصب تازه `y` را انتخاب کن.
+- کانال `stable` را انتخاب کن.
+- خودکارسازی Update باینری را مطابق سیاستت انتخاب کن.
+- برای نصب اول از `--yes` استفاده نکن؛ باید Wizard را ببینی و Moduleها را آگاهانه تنظیم کنی.
+
+معیار قبولی: Installer اعلام کند باینری در `/usr/local/bin/cs2node`، تنظیمات در `/etc/cs2node/config.json` و سرویس در `cs2node.service` نصب شده است.
+
+اگر باینری دریافت نشد، قبل از اجرا وضعیت اینترنت/DNS و URL رسمی را بررسی کن. اگر Installer در مرحلهٔ SteamCMD خطای `cannot execute: required file not found` یا exit 127 داد، به بخش 2 برگرد.
 
 ## 6. پاسخ‌های پیشنهادی Wizard
 
-### 6.1 تنظیم Node
+این جدول‌ها پیشنهاد شروع هستند، نه مقادیر اجباری برای هر محیط. در پایان Summary را مرور کن؛ اگر مقدار ناخواسته‌ای دیدی، نصب را تأیید نکن.
 
-| Prompt | انتخاب پیشنهادی |
+### 6.1 Node
+
+| Prompt | پیشنهاد |
 |---|---|
-| Proceed? | y |
-| Update channel | stable |
-| Self-update automatically | y |
+| Proceed? | `y` |
+| Update channel | `stable` |
+| Self-update automatically | مطابق سیاست نگهداری تو؛ معمولاً `y` |
 
-### 6.2 تنظیم VPK Sync
+### 6.2 VPK Sync
 
-vpksync را روشن کن. این Module یک CS2 Base کامل روی Node نگه می‌دارد و از طریق Mount فقط‌خواندنی در اختیار هر سرور قرار می‌دهد.
-
-| Prompt | مقدار پیشنهادی |
+| Prompt | پیشنهاد |
 |---|---|
-| Enable vpksync? | y |
-| SteamCMD directory | /root/steamcmd |
-| Central CS2 install directory | /srv/cs2-shared |
-| VPK delivery method | symlink |
-| Parallel pushes | 8 |
-| Restart servers after CS2 update | y |
-| Restart policy | empty |
-| Maximum delay before forced restart | 2 ساعت برای پروفایل FragCity؛ در صورت نیاز خودت انتخاب کن |
-| In-game warning | 10 دقیقه برای پروفایل FragCity |
-| SteamCMD validate | n برای Update معمول؛ validate زمان و شبکه بیشتری مصرف می‌کند |
-| Update check interval | 30 دقیقه برای پروفایل FragCity؛ مقدار را آگاهانه انتخاب کن |
+| Enable vpksync? | `y` |
+| SteamCMD directory | `/root/steamcmd` |
+| Central CS2 install directory | `/srv/cs2-shared` |
+| VPK delivery method | `symlink` |
+| Parallel pushes | `8` |
+| Restart after CS2 update | `y` |
+| Restart policy | `empty` |
+| Maximum delay | طبق نیاز نگهداری تو؛ نمونهٔ FragCity: 2 ساعت |
+| In-game warning | طبق نیاز تو؛ نمونهٔ FragCity: 10 دقیقه |
+| Validate | `n` برای Update معمول |
+| Update check interval | طبق سیاستت؛ نمونهٔ FragCity: 30 دقیقه |
 
-symlink به Linux kernel نسخهٔ 5.2 یا بالاتر نیاز دارد. اگر نصب تو Kernel قدیمی دارد، قبل از ادامه مستند رسمی VPK Sync را بررسی کن. restart_policy=empty یعنی پس از Update تا خالی‌شدن سرور یا رسیدن مهلت اجباری صبر می‌شود.
+روش `symlink` به Linux kernel نسخهٔ 5.2 یا بالاتر نیاز دارد. `restart_policy=empty` یعنی پس از Update، daemon تا خالی‌شدن سرور یا رسیدن مهلت نهایی صبر می‌کند.
 
 ### 6.3 سایر Moduleها
 
-برای اولین اثبات Shared Base، هر Module را آگاهانه روشن/خاموش کن؛ Enter خالی نزن چون پیش‌فرض بعضی گزینه‌ها ممکن است y باشد.
+برای اثبات اولیه، فقط Moduleهای لازم را روشن کن. پیش‌فرض‌ها ممکن است `y` باشند؛ Enter خالی را بدون بررسی نزن.
 
-| Module | پیشنهاد برای شروع |
+| Module | انتخاب پیشنهادی برای شروع |
 |---|---|
-| guard | n؛ فقط وقتی برنامهٔ جداگانه برای ترافیک مشکوک داری روشن کن |
-| alerts | n در تست اولیه، مگر Webhook و دسترسی شبکه به Discord را آزمایش کرده باشی |
-| addoncache | اختیاری؛ در چند سرور مفید است تا دانلود Frameworkها از GitHub تکرار نشود |
-| workshop | y اگر می‌خواهی آیتم‌های Workshop بین سرورها Cache و Share شوند |
-| backup | اختیاری؛ پیش از روشن‌کردن فضای آرشیو و Retention را تعیین کن |
-| cleanup | اختیاری؛ قواعد پاک‌سازی را بررسی کن چون این Module فایل حذف می‌کند |
-| crashes | y برای نگهداری اطلاعات Crash |
-| consolelog | اختیاری؛ Logها فضا مصرف می‌کنند |
-| metrics | y اگر cs2node top یا Prometheus لازم داری؛ Endpoint پیش‌فرض فقط روی localhost است |
+| guard | `n`؛ جداگانه ارزیابی شود |
+| alerts | اختیاری؛ فقط اگر webhook داری و دسترسی شبکه‌اش تأیید شده |
+| addoncache | اختیاری؛ برای Cache نسخه‌های frameworkها در سطح Node |
+| workshop | `y` اگر Cache مشترک Workshop می‌خواهی |
+| backup | اختیاری؛ ابتدا ظرفیت و retention را تعیین کن |
+| cleanup | اختیاری؛ قوانین حذف فایل را پیش از فعال‌سازی بخوان |
+| crashes | اختیاری؛ برای نگهداری Crash bundle |
+| consolelog | اختیاری؛ به ظرفیت لاگ توجه کن |
+| metrics | اختیاری؛ آدرس پیش‌فرض `127.0.0.1:9151` فقط روی خود میزبان قابل دسترسی است |
 
-اگر Workshop را روشن کردی، dir را روی /srv/cs2-workshop بگذار، seed را y انتخاب کن و Retention را آگاهانه تعیین کن. keep_days=0 یعنی نسخه‌های بلااستفاده بدون محدودیت زمانی نگه داشته شوند. Moduleهای اضافه را بعداً نیز با اجرای مجدد sudo cs2node install می‌توان پیکربندی کرد.
+اگر Workshop روشن است، مسیر `/srv/cs2-workshop` را انتخاب کن. `keep_days=0` یعنی نسخه‌های بدون استفاده بدون محدودیت زمانی حفظ شوند.
 
-**قبل از تأیید Summary** این موارد را کنترل کن:
-
-- کانال stable است.
-- vpksync روشن است.
-- cs2_dir برابر /srv/cs2-shared است.
-- روش VPK، symlink است.
-- هیچ Webhook، Token یا رمز محرمانه‌ای در فایل مستندات ذخیره نشده است.
+قبل از تأیید Summary مطمئن شو `vpksync` روشن، `cs2_dir=/srv/cs2-shared` و روش `symlink` است. URL محرمانهٔ webhook را در GitHub یا لاگ عمومی نگذار.
 
 ## 7. بررسی سرویس و شروع دانلود مرکزی
 
-پس از تکمیل Wizard، وضعیت daemon را بررسی کن:
+پس از پایان Wizard، سرویس را بررسی کن:
 
 ~~~bash
-echo "=== Service ==="
+echo "=== Enabled and active ==="
 sudo systemctl is-enabled cs2node
 sudo systemctl is-active cs2node
 sudo systemctl status cs2node --no-pager
 
 echo
-echo "=== Version and status ==="
-sudo cs2node version
+echo "=== Status ==="
 sudo cs2node status
 
 echo
@@ -226,31 +216,32 @@ echo "=== Doctor ==="
 sudo cs2node doctor
 ~~~
 
-اولین تلاش VPK Sync، SteamCMD را به‌صورت خودکار در /root/steamcmd آماده می‌کند و CS2 را در مسیر مرکزی Update می‌کند. برای دیدن لاگ سرویس:
+معیار اولیه: سرویس `enabled` و `active` باشد. ممکن است `doctor` در اولین Update هنوز نبودن Base را گزارش کند؛ تا پایان دانلود این وضعیت به معنی قبولی Base نیست.
+
+برای دیدن لاگ زنده:
 
 ~~~bash
 sudo journalctl -u cs2node -f
 ~~~
 
-برای خروج از نمایش زندهٔ لاگ، Ctrl+C بزن؛ این کار سرویس را متوقف نمی‌کند. اگر دانلود ادامه دارد، سرویس را بی‌دلیل Restart نکن.
+برای خروج از لاگ زنده `Ctrl+C` بزن؛ این کار daemon را متوقف نمی‌کند. در اولین اجرای vpksync، cs2node باید SteamCMD را آماده کند و CS2 را در `/srv/cs2-shared` Update کند. سرویس را بی‌دلیل Restart نکن.
 
 ### 7.1 معیار قبولی Base مرکزی
 
-پس از اتمام Update، این بلوک را اجرا کن:
+پس از اتمام Update، اجرا کن:
 
 ~~~bash
 BASE="/srv/cs2-shared"
 
-echo "=== Central manifest ==="
+echo "=== Manifest ==="
 if sudo test -s "$BASE/steamapps/appmanifest_730.acf"; then
-  sudo grep -E '"(appid|buildid|StateFlags)"' \
-    "$BASE/steamapps/appmanifest_730.acf"
+  sudo grep -E '"(appid|buildid|StateFlags)"' "$BASE/steamapps/appmanifest_730.acf"
 else
   echo "Manifest not present"
 fi
 
 echo
-echo "=== Game directory size ==="
+echo "=== Game size ==="
 sudo du -sh "$BASE/game" 2>/dev/null || true
 
 echo
@@ -258,28 +249,25 @@ echo "=== VPK count ==="
 sudo find "$BASE/game" -type f -name '*.vpk' 2>/dev/null | wc -l
 
 echo
-echo "=== Disk free space ==="
-df -hT / /srv /var/lib/pterodactyl/volumes 2>/dev/null
+echo "=== Free disk ==="
+df -hT /
 
 echo
-echo "=== Doctor ==="
+echo "=== Doctor and status ==="
 sudo cs2node doctor
-
-echo
-echo "=== Status ==="
 sudo cs2node status
 ~~~
 
-Base فقط وقتی آماده محسوب می‌شود که Manifest با appid=730 و Build ID وجود داشته باشد، فایل‌های بازی/VPKها حاضر باشند و cs2node doctor/status نبودن Base را گزارش نکند. صرف وجود /srv/cs2-shared کافی نیست.
+Base فقط وقتی آماده است که Manifest معتبر با `appid=730` و Build ID واقعی وجود داشته باشد، فایل‌های بازی/VPK در درخت نهایی حاضر باشند و `doctor/status` نبودن Base را گزارش نکند. وجود پوشهٔ خالی کافی نیست.
 
 ### 7.2 اگر Base هنوز خالی است یا دانلود کامل به نظر نمی‌رسد
 
-اگر central build خالی است، Build ID صفر است یا VPK count صفر نشان داده می‌شود، سرور بازی را Start نکن و هیچ فایلی را حذف نکن. این بلوک فقط‌خواندنی است و هم‌زمان کمک می‌کند بفهمی فایل‌ها هنوز در پوشهٔ موقت دانلود Steam هستند یا خیر.
+سرور بازی را Start نکن. چیزی را حذف نکن. این بلوک فقط‌خواندنی است:
 
 ~~~bash
 BASE="/srv/cs2-shared"
 
-echo "=== Recent journal ==="
+echo "=== Recent daemon logs ==="
 sudo journalctl -u cs2node -n 120 --no-pager -o short-iso
 
 echo
@@ -290,370 +278,174 @@ ps -eo pid,etime,stat,%cpu,%mem,args |
 echo
 echo "=== Directory sizes ==="
 sudo du -sh /root/steamcmd /root/Steam "$BASE" 2>/dev/null || true
-
-echo
-echo "=== Size by central subdirectory ==="
 sudo du -xhd2 "$BASE" 2>/dev/null | sort -h | tail -n 40
 
 echo
-echo "=== Steam depot staging directories ==="
-if sudo test -d "$BASE/steamapps"; then
-  sudo find "$BASE/steamapps" -maxdepth 4 -type d -print | head -n 100
-else
-  echo "No steamapps directory yet."
-fi
+echo "=== Steam staging directories ==="
+sudo find "$BASE/steamapps" -maxdepth 4 -type d -print 2>/dev/null | head -n 100
 
 echo
-echo "=== File count by extension under central Base ==="
-sudo find "$BASE" -xdev -type f -printf '%f\n' 2>/dev/null |
-  awk '{
-    name=$0
-    if (name ~ /\./) {
-      sub(/^.*\./, "", name)
-      ext=tolower(name)
-    } else {
-      ext="[no extension]"
-    }
-    count[ext]++
-  }
-  END {
-    for (ext in count) printf "%-24s %d\n", ext, count[ext]
-  }' | sort -k2,2nr | head -n 25
-
-echo
-echo "=== Largest files under central Base ==="
-sudo find "$BASE" -xdev -type f -printf '%s\t%p\n' 2>/dev/null |
-  sort -nr | head -n 25 | numfmt --field=1 --to=iec
-
-echo
-echo "=== Steam log files ==="
-sudo find /root/Steam/logs -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort
-
+echo "=== Steam log tails ==="
 for log in /root/Steam/logs/content_log.txt /root/Steam/logs/stderr.txt /root/Steam/logs/connection_log.txt; do
   if sudo test -f "$log"; then
-    echo
-    echo "=== Tail: $log ==="
+    echo "=== $log ==="
     sudo tail -n 40 "$log"
   fi
 done
 ~~~
 
-**تفسیر:** اگر پردازش SteamCMD هنوز زنده است، اول خروجی اندازهٔ زیرپوشه‌ها را بررسی کن. در حین Update ممکن است داده‌ها داخل steamapps/downloading/730 باشند و هنوز به game/ نهایی منتقل نشده باشند؛ در این وضعیت VPK count صفر به‌تنهایی شکست قطعی نیست. پردازش فعال را Stop/Restart نکن و WinSCP upload هم‌زمان انجام نده. اگر SteamCMD دیگر زنده نیست اما Build ID صفر/Manifest نهایی غایب است، علت خروج را از Journal و لاگ‌های Steam پیدا کن. خطای cannot execute: required file not found با Exit Code 127 نشان می‌دهد Runtime مربوط به i386 را طبق بخش 2 بررسی کن.
+تفسیر:
 
+- اگر SteamCMD فعال است و `steamapps/downloading/730` حجم می‌گیرد، منتظر بمان؛ فایل‌ها هنوز لزوماً به `game/` نهایی منتقل نشده‌اند.
+- اگر پردازش فعال نیست و Manifest نهایی/Build ID معتبر وجود ندارد، علت را از Journal و لاگ‌های Steam بررسی کن.
+- هم‌زمان با نوشتن SteamCMD، WinSCP upload انجام نده و سرویس را Restart/Stop نکن.
+- اگر لازم شد انتقال فایل را جایگزین دانلود کنی، ابتدا سرویس را متوقف کن، نبودن همهٔ پردازش‌های SteamCMD را تأیید کن و سپس طبق بخش 10 عمل کن. فایل‌های در حال دانلود را حذف نکن.
 
 ## 8. اتصال Instance اول به Shared Base
 
-فقط بعد از قبولی بخش 7، از پنل سرور اول را Start کن. در Console باید پیام موفق مشابه این دیده شود:
+فقط پس از قبولی بخش 7، از Panel سرور اول را Start کن. در Console دنبال پیام موفق زیر یا معادل دقیقش بگرد:
 
 ~~~text
 KitsuneLab | OK | Daemon-managed game files, SteamCMD skipped
 ~~~
 
-سپس بررسی کن:
+سپس تأیید کن:
 
-- Map بدون خطا بارگذاری شده باشد.
-- Console سرور آنلاین بماند و چرخهٔ Crash/Restart تکراری رخ ندهد.
-- sudo cs2node status سرور و ارتباط Egg را نشان دهد.
-- مصرف Disk سرور نسبت به نصب standalone کاهش یافته باشد.
-- پس از Stop/Start، سرور همچنان فایل‌ها را از Shared Base بگیرد.
+- Map با موفقیت Load می‌شود.
+- سرور Crash/Restart loop ندارد.
+- `sudo cs2node status` سرور را شناسایی می‌کند.
+- Stop/Start دوباره هم به Shared Base متصل می‌شود.
+- تنظیمات writable مانند cfg و addons مختص همان Instance می‌مانند.
 
-اگر پیام KL-DMN-03 یا KL-DMN-04 دیدی، قبولی محسوب نمی‌شود. sudo cs2node doctor، sudo cs2node status و Journal را بررسی کن.
+اگر پیام daemon failure یا نبودن VPK دیدی، قبولی محسوب نمی‌شود؛ `sudo cs2node doctor`، `sudo cs2node status` و Journal را بررسی کن.
 
 ## 9. ساخت Instance دوم و اثبات Multi Instance
 
-بعد از قبولی سرور اول:
+بعد از قبولی کامل Instance اول:
 
-1. از Admin → Servers → Create Server یک سرور دوم با همان Egg کامل KitsuneLab CS2 Go @ K4ryuu و Image ghcr.io/k4ryuu/cs2-egg-go:stable بساز.
-2. برای سرور دوم یک Allocation آزاد و مستقل انتخاب کن.
-3. سرور دوم را Start کن.
-4. همان پیام Daemon-managed game files, SteamCMD skipped را در Console ببین.
-5. sudo cs2node status را اجرا و شناسایی هر دو سرور را تأیید کن.
-6. فایل‌های cfg، تنظیمات Plugin و داده‌های قابل‌نوشتن سرورها را مستقل نگه دار؛ هر دو Instance را به یک Volume نوشتنی وصل نکن.
+1. از Panel یک Server جدید روی همان Node بساز.
+2. Allocation متفاوت و آزاد اختصاص بده.
+3. همان Egg کامل و Image پایدار را انتخاب کن.
+4. سرور دوم را Start کن و در Console پیام daemon-managed/SteamCMD skipped را بررسی کن.
+5. `sudo cs2node status` و `df -hT /` را قبل و بعد مقایسه کن.
+6. هر دو Instance را جداگانه Stop/Start کن و استقلال cfg، map، addons و تنظیماتشان را تأیید کن.
 
-سقف Disk هر سرور را به حدود 5 GB فقط پس از اندازه‌گیری واقعی مصرف و قبولی Multi Instance کاهش بده. تا قبل از این آزمون، برای سرور اول 40 GB را حفظ کن.
+**قبولی Multi Instance:** هر دو سرور بالا می‌آیند، VPKهای پایه را از Base مرکزی می‌گیرند، پورت‌های مستقل دارند و فایل‌های تنظیماتی writable بین آن‌ها مشترک نیست. تا آن زمان محدودیت دیسک سرور دوم را کم نکن و پلاگین‌های اختصاصی اضافه نکن.
 
 ## 10. انتقال کنترل‌شدهٔ VPKهای بازی با WinSCP
 
-این مرحله اختیاری است و فقط وقتی اجرا می‌شود که SteamCMD قابل‌اجرا باشد و Base تا حدی دانلود شده باشد. انتقال فایل از Windows ممکن است ترافیک شبکه را کم کند، اما **تضمین نمی‌کند SteamCMD دانلود را کامل رد کند**؛ SteamCMD باید Manifest/Depotهای Linux را بررسی و فایل‌های لازم را تکمیل کند.
+این روش جایگزین دانلود نیست مگر آن‌که Base به‌درستی reconcile شود. فایل‌های Windows را به‌عنوان Linux runtime استفاده نکن؛ فقط assetهایی را منتقل کن که ساختار و سازگاری آن‌ها تأیید شده است. SteamCMD باید در پایان Base را بررسی کند.
 
-### 10.1 ابتدا دانلود را کاملاً متوقف کن
+### 10.1 ابتدا نوشتن را متوقف کن
 
-سرورهای بازی باید Offline باشند. اول پردازش و وضعیت را ثبت کن؛ سپس سرویس را متوقف کن:
+1. تمام CS2 Instanceهای Node را Offline نگه دار.
+2. daemon را متوقف کن:
 
 ~~~bash
-echo "=== Before stopping ==="
-ps -eo pid,etime,stat,args |
-  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
-
 sudo systemctl stop cs2node
-sleep 2
-
-echo
-echo "=== Service state ==="
 sudo systemctl is-active cs2node || true
-
-echo
-echo "=== Remaining SteamCMD processes ==="
-ps -eo pid,etime,stat,args |
-  grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
+ps -eo pid,etime,args | grep -E '[s]teamcmd\.sh|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
 ~~~
 
-ادامه فقط وقتی مجاز است که سرویس متوقف و پردازش SteamCMD باقی نمانده باشد. اگر دانلود هنوز در حال اجراست، WinSCP را هم‌زمان آغاز نکن.
+3. اگر هر پردازش SteamCMD هنوز زنده است، **آپلود را شروع نکن**؛ ابتدا وضعیت آن را بررسی کن و تا پایان/توقف کنترل‌شده صبر کن.
+4. مطمئن شو هیچ فرایند دیگری در `/srv/cs2-shared` نمی‌نویسد.
 
-### 10.2 فایل‌های Windows را به پوشهٔ موقت بفرست
+### 10.2 فایل‌ها را به Staging منتقل کن
 
-در WinSCP با حساب معمولی SFTP، فایل‌های منبع را ابتدا به پوشه‌ای زیر Home کاربر منتقل کن؛ مثلاً:
+در WinSCP با راهنمای مستقل WinSCP به Home حساب عادی وصل شو. فایل‌های انتخاب‌شده را ابتدا به مسیری مثل:
 
 ~~~text
-/home/<linux-user>/cs2-base-staging/game/
+/home/USERNAME/cs2-staging/
 ~~~
 
-عبارت <linux-user> را با نام کاربر واقعی Debian جایگزین کن. در staging مسیر داخل game/ باید ساختار اصلی بازی را حفظ کند؛ برای مثال csgo/maps/ باید به همان مسیر نسبی منتقل شود.
+منتقل کن؛ `USERNAME` را با حساب واقعی جایگزین کن. فضای staging باید کافی باشد. مسیر بازی ویندوز را مستقیماً به مسیر لینوکس نچسبان؛ پوشه‌های top-level ممکن است ساختار متفاوت داشته باشند.
 
-از staging فقط فایل‌های .vpk را در مرحلهٔ بعد ادغام می‌کنیم. این موارد را از منبع Windows جایگزین نکن:
+### 10.3 بررسی و ادغام
 
-- steamapps/appmanifest_730.acf
-- .steam/ و Steam/
-- خود SteamCMD
-- EXE، DLL، فایل‌های runtime و باینری‌های مخصوص Windows
+قبل از انتقال از Windows، مشخص کن هر فایل دقیقاً در کدام مسیر نسبی مقصد قرار می‌گیرد. فایل‌های اجرایی Linux، کتابخانه‌ها، Manifest و تنظیمات per-instance را از نسخهٔ Windows overwrite نکن. فایل‌های VPK را فقط با حفظ مسیر نسبی تأییدشده وارد کن؛ هیچ فرمان `rsync --delete` یا پاک‌سازی کلی اجرا نکن.
 
-### 10.3 ادغام کنترل‌شدهٔ VPKها
-
-ابتدا مطمئن شو `rsync` نصب است، سپس مسیر staging و مقصد را در بلوک فقط‌خواندنی بررسی کن. فایل‌های Windows را ابتدا به پوشهٔ staging منتقل کن؛ هیچ‌گاه مستقیماً به `/srv/cs2-shared` آپلود نکن.
+بعد از انتقال، daemon را اجرا کن:
 
 ~~~bash
-sudo apt-get update
-sudo apt-get install -y rsync
+sudo systemctl start cs2node
+sudo systemctl status cs2node --no-pager
+sudo journalctl -u cs2node -n 100 --no-pager
+sudo cs2node doctor
+sudo cs2node status
 ~~~
 
-پس از تأیید Source و Target، این فرمان فقط VPKها را در مسیر نسبی یکسان اضافه می‌کند؛ VPKای که از قبل در مقصد وجود دارد overwrite نمی‌شود:
-
-~~~bash
-set -eu
-
-BASE="/srv/cs2-shared"
-STAGE="$HOME/cs2-base-staging/game"
-
-if ! sudo test -d "$BASE/game"; then
-  echo "STOP: central game directory does not exist. Do not copy yet."
-  exit 1
-fi
-
-if [ ! -d "$STAGE" ]; then
-  echo "STOP: staging game directory not found: $STAGE"
-  exit 1
-fi
-
-echo "=== VPK files in staging ==="
-find "$STAGE" -type f -name '*.vpk' | wc -l
-
-echo
-echo "=== VPK files already central ==="
-sudo find "$BASE/game" -type f -name '*.vpk' | wc -l
-
-echo
-echo "Review these numbers before copying."
-~~~
-
-اگر تعداد و مسیرهای منبع با چیزی که قصد انتقالش را داری مطابقت داشت، تنها بعد از توقف قطعی SteamCMD این دستور را اجرا کن:
-
-~~~bash
-sudo rsync -rltv --ignore-existing \
-  --include='*/' \
-  --include='*.vpk' \
-  --exclude='*' \
-  "$STAGE/" \
-  "$BASE/game/"
-~~~
-
-این فرمان مسیرهای نسبی زیر game/ را حفظ می‌کند و فقط فایل‌های VPK را کپی می‌کند. اگر منبع شامل VPKهای ناقص/ناسازگار باشد یا SteamCMD به Manifest/Depotهای دیگر نیاز داشته باشد، دانلود همچنان انجام می‌شود یا فایل‌ها اصلاح می‌شوند. appmanifest_730.acf را از Windows جایگزین نکن.
-
-پس از انتقال، باید SteamCMD فایل‌ها را بررسی کند. برای اینکه فایل‌های seedشده با Build مرکزی تطبیق داده شوند، در حالی که سرویس متوقف است، Wizard را دوباره اجرا کن و در بخش `vpksync` گزینهٔ `validate` را موقتاً `y` قرار بده. مسیر `cs2_dir` و باقی تنظیمات را حفظ کن؛ به‌خصوص ماژول‌ها را آگاهانه انتخاب کن، چون Wizard در اجرای مجدد نیز تنظیمات را می‌نویسد.
-
-~~~bash
-sudo /usr/local/bin/cs2node install
-~~~
-
-پس از پایان Wizard، لاگ را دنبال کن:
-
-~~~bash
-sudo journalctl -u cs2node -f
-~~~
-
-پس از تکمیل Update/validation، دوباره معیارهای بخش 7.1 را بررسی کن. اگر Base سالم شد، Wizard را یک بار دیگر اجرا کن و `validate` را به `n` برگردان تا اعتبارسنجی کامل در هر Update زمان/ترافیک اضافی مصرف نکند. تا وقتی Manifest، Build ID، VPK count و `cs2node doctor` معتبر نیستند، سرور را Start نکن.
+سپس معیارهای بخش 7 را دوباره اجرا کن. اگر Build ID واقعی و Base معتبر حاصل نشد، سرور را Start نکن.
 
 ## 11. Workshop Cache — مسیر درست و روش واردکردن
 
-Workshop Cache ماژول K4ryuu با Shared Base بازی فرق دارد:
+Workshop Cache ماژول مستقلی است؛ فایل‌های Workshop را با Base اصلی بازی مخلوط نکن.
 
-- Shared CS2 Base: /srv/cs2-shared/
-- Workshop Store روی Node: /srv/cs2-workshop/
-- ساختار داخلی Store: /srv/cs2-workshop/730/<item-id>/<manifest>/
-- فایل meta.json در هر نسخه برای شناسایی کامل فایل‌ها و Manifest لازم است.
+### 11.1 منبع را شناسایی کن
 
-**فایل‌های Workshop ویندوز را مستقیم و خام داخل /srv/cs2-workshop کپی نکن.** ماژول این پوشه را صرفاً فهرستی از VPKها فرض نمی‌کند؛ metadata و نسخهٔ آیتم را لازم دارد.
+ابتدا مسیر واقعی Workshop ویندوز را مشخص کن و فایل ACF مربوط به App Workshop را پیدا کن. از نام پوشه یا حجم فایل به‌تنهایی ID/version نساز.
 
-### 11.1 منبع Workshop ویندوز را شناسایی کن
-
-در نصب استاندارد Steam Workshop، ساختاری مشابه این وجود دارد:
-
-~~~text
-steamapps/workshop/
-  appworkshop_730.acf
-  content/730/<item-id>/<files...>
-~~~
-
-ممکن است فایل‌ها با ساختار دیگری روی دیسک باشند. اگر فقط پوشه‌ای مانند game/csgo_community_addons داری، آن را بدون بررسی با Workshop Cache ماژول یکی فرض نکن؛ ابتدا ریشه و محتویات واقعی منبع را شناسایی کن.
-
-### 11.2 واردکردن از مسیر مورد انتظار Egg/Node
-
-ماژول، محتوای Workshop هر سرور را پیش از شروع فرآیند بازی از مسیر Volume زیر می‌خواند:
-
-~~~text
-game/bin/linuxsteamrt64/steamapps/workshop/
-  appworkshop_730.acf
-  content/730/<item-id>/<files...>
-~~~
-
-فقط زمانی از این روش استفاده کن که منبع ویندوز واقعاً این ساختار را دارد و فایل ACF متعلق به همان مجموعهٔ Workshop است. اگر فقط VPKها یا پوشه‌ای مانند game/csgo_community_addons موجود است، این مرحله را اجرا نکن تا ساختار منبع بررسی شود.
-
-نمونهٔ انتقال برای Source با ساختار معتبر:
-
-1. سرور آزمایشی را Stop کن.
-2. با WinSCP کل پوشهٔ Workshop را به staging زیر Home کاربر منتقل کن؛ به‌طور نمونه، فایل ACF باید در \$HOME/workshop-staging/appworkshop_730.acf و پوشهٔ content باید در \$HOME/workshop-staging/content/730/ قرار گیرد.
-3. در Panel/Node Volume UUID سرور آزمایشی را مشخص کن؛ از UUID سرور فعلی FragCity برای سرور دیگری استفاده نکن.
-4. مسیر زیر را با UUID واقعی همان سرور تنظیم کن. فرمان فقط وقتی اجرا شود که سرور خاموش و فایل ACF و content موجود باشند.
+روی Node این مسیرها را بررسی کن:
 
 ~~~bash
-set -eu
-
-STAGE="$HOME/workshop-staging"
-VOL="/var/lib/pterodactyl/volumes/<SERVER_UUID>"
-
-if [ ! -s "$STAGE/appworkshop_730.acf" ] || [ ! -d "$STAGE/content/730" ]; then
-  echo "STOP: a valid appworkshop_730.acf and content/730 directory are required."
-  exit 1
-fi
-
-if ! sudo test -d "$VOL/game"; then
-  echo "STOP: target volume not found. Check SERVER_UUID."
-  exit 1
-fi
-
-TARGET="$VOL/game/bin/linuxsteamrt64/steamapps/workshop"
-sudo install -d "$TARGET"
-
-echo "Source Workshop item folders:"
-find "$STAGE/content/730" -mindepth 1 -maxdepth 1 -type d | wc -l
-
-echo "Review the source and target before copying:"
-sudo ls -ld "$VOL" "$TARGET"
+sudo find /var/lib/pterodactyl/volumes -type f -name 'appworkshop_730.acf' -print
+sudo find /srv/cs2-workshop -maxdepth 4 -type f -name 'meta.json' -print 2>/dev/null | head -n 50
 ~~~
 
-5. اگر پوشهٔ مقصد خالی است و ACF منبع معتبر است، فایل‌ها را به‌صورت اضافه‌کردن بدون overwrite منتقل کن. اگر مقصد از قبل فایل دارد، متوقف شو و ACF موجود را به‌صورت جداگانه بررسی/پشتیبان‌گیری کن؛ به‌طور خودکار آن را با نسخهٔ Windows جایگزین نکن.
+اگر ACF موجود نیست، هنوز Workshop را وارد Cache مرکزی نکن؛ ابتدا منبع و metadata را مشخص کن.
+
+### 11.2 واردکردن
+
+در این مرحله، از ساختار مورد انتظار ماژول استفاده کن و فایل‌ها را به‌صورت staging منتقل کن. برای هر آیتم باید شناسه و نسخه از metadata معتبر استخراج شود؛ فایل خام را مستقیم داخل `/srv/cs2-workshop` نریز. قبل از نوشتن، daemon و فرایند دانلود Workshop را متوقف و نبودن نویسندهٔ فعال را تأیید کن.
+
+پس از Import، ساختار Cache و فایل‌های metadata را بررسی کن و سپس `sudo cs2node workshop` را اجرا کن. اگر نسخهٔ ماژول با ساختار فایل‌های موجود همخوان نیست، انتقال را متوقف کن و مستندات رسمی همان نسخه را بخوان.
+
+### 11.3 تأیید Cache
 
 ~~~bash
-set -eu
-if sudo find "$TARGET" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
-  echo "STOP: Workshop target is not empty. Review its ACF/content before merging."
-  exit 1
-fi
-
-OWNER="$(sudo stat -c '%u:%g' "$VOL")"
-sudo rsync -rtv --ignore-existing --chown="$OWNER" \
-  "$STAGE/" "$TARGET/"
-~~~
-
-6. Start سرور آزمایشی کن تا Workshop Module آیتم‌ها را در مسیر خود جذب کند.
-7. پس از Boot، sudo cs2node workshop را اجرا کن و وجود آیتم/نسخه را بررسی کن.
-
-این مسیر برای Workshop Cache است، نه برای کپی مستقیم به /srv/cs2-workshop. ماژول metadata خود را هنگام جذب محتوا می‌سازد. اگر ACF معتبر نباشد، شناسه/Manifest قابل‌قبول نباشد یا نسخهٔ جدیدتری در انتظار باشد، ممکن است آیتم را Cache نکند؛ در آن صورت فایل‌های بیشتری کپی نکن و Console/Journals را بررسی کن.
-
-### 11.3 تأیید Cache و آماده‌سازی Instance بعدی
-
-~~~bash
-echo "=== Workshop cache ==="
 sudo cs2node workshop
-
-echo
-echo "=== Workshop store size ==="
-sudo du -sh /srv/cs2-workshop 2>/dev/null || true
-
-echo
-echo "=== Cached item metadata ==="
-sudo find /srv/cs2-workshop/730 -mindepth 3 -maxdepth 3 \
-  -name meta.json -print 2>/dev/null | head -n 50
+sudo cs2node doctor
+sudo cs2node status
 ~~~
 
-به عنوان بخشی از آزمایش، در پنل سرور اول را Stop/Start کن و Console را بررسی کن. سپس سرور دوم را Start کن و مطمئن شو آیتم‌های Cacheشده به آن پیشنهاد می‌شوند. گزینه‌های دانلود مجدد خودکار در Pluginهایی مانند MultiAddonManager و AddonsManager می‌توانند صرفه‌جویی Cache را از بین ببرند؛ تنظیمات آن‌ها را مطابق مستندات رسمی‌شان بررسی کن.
+معیار قبولی: ماژول آیتم‌های Cache شده را بشناسد، metadata معتبر باشد و هیچ Instanceای به مسیر نادرست اشاره نکند.
 
 ## 12. بعد از قبولی Multi Instance: CounterStrikeSharp و پلاگین‌ها
 
-این مرحله را فقط پس از قبولی Shared Base، Instance اول و Instance دوم انجام بده.
-
-1. سرور آزمایشی را Stop کن.
-2. در Startup مقدار INSTALL_CSS=1 را انتخاب کن. Egg طبق طراحی خود Metamod را نیز فعال می‌کند.
-3. INSTALL_SWIFTLY=0 و INSTALL_MODSHARP=0 را برای این تست نگه دار؛ چند Framework ناسازگار را هم‌زمان فعال نکن.
-4. سرور را Start کن و Console را بررسی کن.
-5. پلاگین‌های تأییدشده را یکی‌یکی مستقر کن.
-
-مسیرهای متداول داخل Container:
-
-| مورد | مسیر |
-|---|---|
-| پلاگین‌های CounterStrikeSharp | /home/container/game/csgo/addons/counterstrikesharp/plugins/ |
-| تنظیمات CSS/Pluginها | /home/container/game/csgo/addons/counterstrikesharp/configs/ |
-| فایل‌های cfg بازی/Mode | /home/container/game/csgo/cfg/ |
-
-ساختار توزیع رسمی هر Plugin را حفظ کن؛ Dependencyها و Gamedata را بررسی کن. فایل‌های config و cfg نوشتنی هر Instance خصوصی بمانند و محتوای VIP که از قبل تصمیم گرفته شده حذف شود، به Deployment برنگردد.
+فقط پس از اثبات Base، Instance اول و Instance دوم سراغ framework/plugin برو. نسخه‌های رسمی و سازگار را از منبع اصلی دریافت کن. cfg، addons و configs نوشتنی باید per-instance باقی بمانند؛ shared base را برای نصب پلاگین تغییر نده. هیچ‌کدام از مراحل این آموزش به‌تنهایی مجوز تغییر مخزن KUS یا اجرای اسکریپت‌های آن نیست.
 
 ## 13. عیب‌یابی سریع
 
-| علامت | بررسی بعدی |
+| نشانه | اقدام |
 |---|---|
-| SteamCMD خطای cannot execute: required file not found می‌دهد | بخش 2؛ Runtimeهای i386 را بررسی کن |
-| cs2node فعال است، اما central build خالی است | sudo cs2node doctor، Journal، SteamCMD processها و رشد /srv/cs2-shared را بررسی کن |
-| Manifest وجود ندارد یا VPK count صفر است | Base آماده نیست؛ Instance را Start نکن |
-| سرور محلی SteamCMD را اجرا می‌کند | در Console دنبال پیام Daemon-managed game files, SteamCMD skipped بگرد؛ cs2node doctor/status را بررسی کن |
-| shared dir not mounted | Kernel، وضعیت daemon و زمان Start شدن Container را بررسی کن |
-| Workshop Cache خالی مانده | ساختار ورودی، appworkshop_730.acf، Manifest و sudo cs2node workshop را بررسی کن |
-
-فرمان‌های تشخیصی اصلی:
-
-~~~bash
-sudo cs2node doctor
-sudo cs2node status
-sudo journalctl -u cs2node -n 120 --no-pager
-ps -eo pid,etime,stat,args | grep -E '[s]teamcmd|[l]inux32/steamcmd|[l]inux64/steamcmd' || true
-~~~
+| `cannot execute: required file not found` یا exit 127 | بخش 2؛ معماری i386 و Runtimeها را بررسی کن |
+| `cs2node` فعال است اما central build خالی است | بخش 7.2؛ پردازش، Journal، staging و logهای Steam را بررسی کن |
+| SteamCMD فعال و downloading در حال رشد است | صبر کن؛ Restart یا WinSCP هم‌زمان انجام نده |
+| پیام `Daemon-managed game files, SteamCMD skipped` دیده نمی‌شود | `doctor`، `status` و Journal را بررسی کن؛ سرور را آماده حساب نکن |
+| Webhook Discord وصل نمی‌شود | مشکل را جدا از VPK Sync بررسی کن؛ URL محرمانه را منتشر نکن |
+| می‌خواهی انتقال فایل را انجام دهی | ابتدا همهٔ نویسنده‌ها را متوقف کن؛ سپس بخش 10 یا 11 را دنبال کن |
 
 ## 14. چک‌لیست پایان نصب
 
-- [ ] Runtimeهای i386 قبل از نصب/اولین Update آماده شده‌اند.
-- [ ] cs2node.service فعال و enabled است.
-- [ ] /srv/cs2-shared/steamapps/appmanifest_730.acf وجود دارد و Build ID دارد.
-- [ ] cs2node doctor Base مرکزی را می‌شناسد و VPK count صفر نیست.
-- [ ] Instance اول پیام Daemon-managed game files, SteamCMD skipped نشان می‌دهد.
-- [ ] Instance دوم نیز از Base مرکزی استفاده می‌کند و فایل‌های قابل‌نوشتن آن مستقل هستند.
-- [ ] در صورت استفاده از Workshop Cache، cs2node workshop آیتم‌ها/نسخه‌های معتبر را نشان می‌دهد.
-- [ ] پس از قبولی Multi Instance، Framework/Pluginها در مرحلهٔ جداگانه تست شده‌اند.
+- [ ] Runtimeهای i386 قبل از نصب/اولین Update آماده و SteamCMD قابل اجراست.
+- [ ] Egg کامل K4ryuu در Panel Import شده است.
+- [ ] `cs2node` نصب، enabled و active است.
+- [ ] Manifest مرکزی `appid=730` و Build ID واقعی دارد.
+- [ ] VPKهای Base حاضرند و `cs2node doctor/status` خطای Base نمی‌دهند.
+- [ ] Instance اول پیام daemon-managed/SteamCMD skipped نشان می‌دهد.
+- [ ] Instance دوم نیز موفق است و Allocation جدا دارد.
+- [ ] cfg/addons/configهای writable بین Instanceها مشترک نیستند.
+- [ ] Workshop Cache فقط با metadata معتبر و در مسیر خودش وارد شده است.
+- [ ] تا قبل از قبولی Multi Instance، پلاگین‌های اختصاصی اضافه نشده‌اند.
 
 ## منابع رسمی K4ryuu
 
+- [مخزن CS2-Egg-Go](https://github.com/K4ryuu/CS2-Egg-Go)
 - [Egg installation](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md)
-- [Node daemon installation](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)
-- [VPK Sync](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/vpk-sync.md)
-- [Workshop cache](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/workshop.md)
-- [Node config reference](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)
-- [Troubleshooting](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/troubleshooting.md)
+- [Node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)
+- [VPK Sync module](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/vpk-sync.md)
+- [Workshop module](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/workshop.md)
+- [Node configuration reference](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)
 
-## 15. ادامهٔ نصب بعد از توقف یا خطا
+## 15. ادامهٔ اجرای زنده
 
-این بخش برای هر Node قابل استفاده است؛ وضعیت یک VM یا IP مشخص را ثبت نمی‌کند. وضعیت زندهٔ PoC فعلی، از جمله بررسی 58 GiB داده و پردازش فعال SteamCMD، در [checkpoint عملیاتی جداگانه](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) ثبت می‌شود تا این آموزش عمومی و قابل‌استفاده برای Nodeهای دیگر بماند.
-
-1. اگر روی Debian amd64 پیام `cannot execute: required file not found` و `exit status 127` دیدی، به بخش 2 برگرد و وجود `i386` و بسته‌های `libc6:i386`، `libstdc++6:i386` و `libgcc-s1:i386` را بررسی کن.
-2. اگر `cs2node` فعال است اما `central build` خالی است، وجود دایرکتوری را موفقیت نصب حساب نکن. `sudo cs2node doctor`، `sudo cs2node status`، Journal، پردازش‌های SteamCMD و رشد `/srv/cs2-shared` را بررسی کن.
-3. اگر SteamCMD هنوز در حال اجراست، به آن فرصت بده؛ آن را دوباره اجرا نکن، سرویس را بی‌دلیل Restart نکن و هم‌زمان WinSCP آپلود نکن.
-4. اگر باید فایل منتقل کنی، ابتدا سرورهای بازی را Offline نگه دار، سپس `cs2node` را متوقف و نبودن پردازش SteamCMD را تأیید کن؛ فقط بعد از آن به بخش 10 یا 11 برو.
-5. اگر اتصال Webhook در دسترس نیست، این خطا به‌تنهایی نشانهٔ خرابی VPK Sync نیست. Alerts را مطابق سیاست شبکهٔ خود تنظیم کن؛ اگر URL وب‌هوک افشا شد، آن را در Discord باطل و جایگزین کن.
-6. اگر نصب را از نشست قبلی ادامه می‌دهی، پیش از تغییر پیکربندی از تنظیمات فعلی `/etc/cs2node/config.json` نسخهٔ پشتیبان محدوددسترسی بگیر و همهٔ پاسخ‌های Wizard را آگاهانه انتخاب کن. فایل config کامل یا URL محرمانه را در چت/GitHub قرار نده.
+برای نصب روی Node دیگر از همین آموزش استفاده کن و مقادیر محیطی را جایگزین کن. وضعیت فعلی یک اجرای خاص، IP/hostname آن و خروجی تشخیصی آن را در [Checkpoint عملیاتی دانلود cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) دنبال کن؛ گزارش اجرای زنده جایگزین مراحل آموزشی این فایل نیست.
