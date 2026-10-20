@@ -155,7 +155,7 @@ WinSCP همه گزینه‌های OpenSSH را دقیقاً با همان نام
 
 - اگر Permission denied دیدی، به‌صورت تصادفی مالکیت یا مجوزها را تغییر نده.
 - از **chmod -R 777** برای دورزدن مشکل استفاده نکن.
-- ورود مستقیم SSH با کاربر root را فقط برای راحتی فعال نکن.
+- روش پیش‌فرض را اتصال با حساب عادی نگه دار. اگر واقعاً دسترسی کامل WinSCP به فایل‌های سیستمی لازم است و ریسک آن را می‌پذیری، فقط روش کلیدمحور بخش 12 را اجرا کن؛ ورود Root با رمز SSH را فعال نکن.
 - در صورت نیاز به عملیات مدیریتی، ابتدا مسیر و مالکیت فایل را مشخص کن و از روش مدیریتی مناسب مانند **sudo** استفاده کن.
 
 ## 8.1 انتقال امن فایل‌ها به Node — روش Staging
@@ -168,7 +168,7 @@ WinSCP همه گزینه‌های OpenSSH را دقیقاً با همان نام
 4. اگر مقصد نهایی نیاز به root دارد، ابتدا سرویس/پردازشی را که ممکن است فایل‌ها را بنویسد متوقف کن و نبودن پردازش فعال را بررسی کن. سپس از `sudo rsync` یا فرمان کنترل‌شدهٔ مشابه برای ادغام از Staging استفاده کن؛ فرمان انتقال باید فقط فایل‌های موردنظر را هدف بگیرد.
 5. فایل‌های Windows، کتابخانه‌های runtime، Manifest یا تنظیمات را کورکورانه روی نسخهٔ Linux overwrite نکن. مسیر مقصد را پیش از هر فرمان انتقال بازبینی کن.
 
-**برای نوشتن فایل‌های root، SFTP با دسترسی root فعال نکن.** روش پیش‌فرض این راهنما عمداً SFTP را با حساب معمولی اجرا می‌کند. بخش 10 فقط یک گزینهٔ root SFTP خواندنی ارائه می‌دهد و برای بارگذاری فایل طراحی نشده است.
+بخش 10 فقط برای مشاهده و دانلود است. روش پیش‌فرض همچنان SFTP با حساب معمولی است؛ اگر به‌طور آگاهانه دسترسی کامل Root برای آپلود، بازنویسی و حذف فایل‌ها لازم داری، محدودیت‌ها و مراحل بخش 12 را بخوان.
 
 ~~~bash
 echo "=== Current account and home ==="
@@ -400,7 +400,151 @@ sudo rsync -a --info=progress2 /source/ /destination/
 
 - برای پوشه‌های حیاتی یا حجیم، پیش از اجرا فضای دیسک مقصد و مجوزهای فایل‌ها را بررسی کن.
 
-## 12. مستندات رسمی
+## 12. ورود مستقیم Root در WinSCP با کلید SSH (دسترسی کامل)
+
+این روش **اختیاری و پرقدرت** است: پس از فعال‌شدن، WinSCP به‌عنوان `root` فایل‌ها را می‌خواند، آپلود می‌کند، بازنویسی می‌کند و می‌تواند حذف کند. از آن فقط روی Nodeای استفاده کن که خودت مدیریت می‌کنی. اتصال عادی `sv1` را نگه دار و یک سایت جدا برای Root بساز.
+
+این روش ورود Root با **کلید عمومی SSH** را مجاز می‌کند؛ ورود Root با رمز SSH همچنان ممنوع می‌ماند. برای Root یک کلید جدا بساز تا کلید ورود معمولی `sv1` بی‌دلیل دسترسی کامل مدیریتی نگیرد.
+
+### 12.1 ساخت کلید اختصاصی روی Windows
+
+در PowerShell ویندوز اجرا کن:
+
+~~~powershell
+$RootKey = Join-Path $env:USERPROFILE ".ssh\id_ed25519_winscp_root"
+
+if (Test-Path -LiteralPath $RootKey) {
+    throw "The key already exists. Choose a new filename; do not overwrite an existing private key."
+}
+
+ssh-keygen -t ed25519 -a 64 -f $RootKey -C "winscp-root-admin"
+~~~
+
+برای کلید خصوصی یک passphrase قوی تعیین کن. کلید خصوصی `id_ed25519_winscp_root` را فقط روی کامپیوتر مورداعتماد نگه دار. حالا کلید **عمومی** را نمایش بده:
+
+~~~powershell
+Get-Content "$RootKey.pub"
+~~~
+
+کل خطی که با `ssh-ed25519` شروع می‌شود را کپی کن. فایل `.pub` عمومی است؛ فایل بدون پسوند، کلید خصوصی است و نباید به سرور یا چت کپی شود.
+
+### 12.2 ثبت کلید عمومی روی Debian
+
+در نشست SSH فعلی با حساب مدیریتی معمولی مثل `sv1` اجرا کن:
+
+~~~bash
+sudo install -d -o root -g root -m 700 /root/.ssh
+sudo touch /root/.ssh/authorized_keys
+sudo chown root:root /root/.ssh/authorized_keys
+sudo chmod 600 /root/.ssh/authorized_keys
+sudo nano /root/.ssh/authorized_keys
+~~~
+
+در انتهای فایل `authorized_keys` یک خط جدید بساز و **کلید عمومی** را از PowerShell وارد کن. کلیدهای موجود را پاک یا بازنویسی نکن. ذخیره و خروج از Nano: `Ctrl+O`، سپس `Enter`، سپس `Ctrl+X`.
+
+مجوزها را دوباره بررسی کن:
+
+~~~bash
+sudo chown root:root /root/.ssh /root/.ssh/authorized_keys
+sudo chmod 700 /root/.ssh
+sudo chmod 600 /root/.ssh/authorized_keys
+sudo ssh-keygen -lf /root/.ssh/authorized_keys
+~~~
+
+فرمان آخر باید اثر انگشت کلید را نشان دهد. اگر خطایی داد، پیش از ادامه محتوای فایل را بررسی کن.
+
+### 12.3 تنظیم SSH برای ورود Root فقط با کلید
+
+ابتدا بررسی کن پیکربندی SSH، پوشهٔ drop-in را شامل می‌کند:
+
+~~~bash
+grep -nE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d/\*\.conf' /etc/ssh/sshd_config
+~~~
+
+در Debian معمولاً این Include وجود دارد. اگر خروجی نداشت، **این drop-in را کورکورانه نساز**؛ پیکربندی واقعی SSH را بررسی کن.
+
+اگر فایل مقصد از قبل وجود دارد، پیش از تغییر آن نسخهٔ پشتیبان بگیر:
+
+~~~bash
+CFG=/etc/ssh/sshd_config.d/00-winscp-root-key-only.conf
+if sudo test -e "$CFG"; then
+    sudo cp -a "$CFG" "${CFG}.bak.$(date +%Y%m%d-%H%M%S)"
+fi
+
+sudo tee "$CFG" >/dev/null <<'EOF'
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+EOF
+~~~
+
+گزینهٔ `prohibit-password` احراز هویت Root با رمز SSH را مسدود می‌کند و اجازهٔ روش‌هایی مثل کلید عمومی را می‌دهد. این فایل نباید حاوی `PermitRootLogin yes` یا تنظیمی برای اجازه‌دادن به رمز Root باشد.
+
+پیش از Reload، نحو پیکربندی و مقدار مؤثر را بررسی کن:
+
+~~~bash
+sudo /usr/sbin/sshd -t
+
+sudo /usr/sbin/sshd -T -C user=root,host=localhost,addr=127.0.0.1 \
+  | grep -E '^(permitrootlogin|pubkeyauthentication|authorizedkeysfile)'
+~~~
+
+حداقل خروجی مورد انتظار:
+
+~~~text
+permitrootlogin prohibit-password
+pubkeyauthentication yes
+~~~
+
+**اگر مقدار دیگری دیدی یا `sshd -t` خطا داد، سرویس را Reload نکن.** تعارض احتمالی در تنظیمات SSH را پیدا کن. اگر بررسی‌ها موفق بود:
+
+~~~bash
+sudo systemctl reload ssh
+sudo systemctl status ssh --no-pager
+~~~
+
+پنجرهٔ SSH فعلی را باز نگه دار تا ورود جدید Root با موفقیت آزمایش شود. برای این کار حساب Root را با `passwd` باز نکن و رمز Root را برای SSH فعال نکن. اگر ورود با کلید رد شد، قبل از هر تغییر دیگری گزارش را بررسی کن:
+
+~~~bash
+sudo journalctl -u ssh -n 80 --no-pager
+sudo passwd -S root
+~~~
+
+### 12.4 ساخت سایت جداگانه در WinSCP
+
+در WinSCP یک **New Site** بساز و آن را مثلاً `Linux Node — Root Admin` نام‌گذاری کن:
+
+| گزینه | مقدار |
+|---|---|
+| File protocol | SFTP |
+| Host name | همان IP/FQDN که در سایت فعلی استفاده می‌کنی |
+| Port number | همان پورت SSH؛ معمولاً 22 |
+| User name | `root` |
+| Password | خالی؛ از کلید SSH استفاده کن |
+| Private key file | `%USERPROFILE%\.ssh\id_ed25519_winscp_root` یا فایل PPK تبدیل‌شدهٔ آن |
+
+در **Advanced → SSH → Authentication**، کلید خصوصی اختصاصی Root را انتخاب کن. اگر WinSCP قالب OpenSSH را قبول نکرد، از PuTTYgen نسخهٔ `.ppk` بساز و همان نسخه را انتخاب کن. passphrase کلید را هنگام درخواست وارد کن؛ این با رمز حساب Root فرق دارد.
+
+پیش از تأیید نخستین اتصال، اثر انگشت میزبان SSH را از کنسول یا منبع مورداعتماد دیگری بررسی کن. پس از اتصال، ابتدا فقط فهرست مسیر `/root` را آزمایش کن؛ سپس برای آپلود، مسیر مقصد را دقیق بررسی کن.
+
+### 12.5 نکات مهم و بازگشت به حالت قبلی
+
+- هر فایلی که به‌عنوان Root آپلود یا بازنویسی شود ممکن است مالکیت `root:root` بگیرد. برای فایل‌هایی که سرویس Pterodactyl باید بنویسد، مالکیت و مجوزهای موردنیاز همان سرویس را رعایت کن.
+- از این سایت برای انتقال تصادفی فایل به مسیرهای حساس مثل `/etc`، `/srv/cs2-shared` یا Volumeهای فعال بازی استفاده نکن. پیش از بازنویسی، مسیر و سرویس مصرف‌کننده را بررسی کن.
+- اگر فقط برای یک انتقال لازم داری، پس از پایان کار دسترسی را حذف کن: از `/root/.ssh/authorized_keys` **فقط خط همین کلید اختصاصی** را پاک کن و فایل تنظیمات اضافه‌شده را حذف کن.
+- برای حذف تنظیمات اضافه‌شده و بازگشت به تنظیم قبلی SSH:
+
+  ~~~bash
+  sudo rm /etc/ssh/sshd_config.d/00-winscp-root-key-only.conf
+  sudo /usr/sbin/sshd -t
+  sudo systemctl reload ssh
+  ~~~
+
+  این فرمان فایل تنظیمات همان راهنما را حذف می‌کند؛ اگر نام یا مسیر متفاوتی استفاده کرده‌ای، ابتدا دقیقاً همان فایل اضافه‌شده را مشخص کن. بررسی کن هیچ قانون دیگری ورود Root با رمز را مجاز نکرده باشد.
+- پس از حذف کلید و تنظیمات، در WinSCP از سایت معمولی `sv1` استفاده کن. اگر خطای Permission denied در آن سایت باقی ماند، آن خطا را جداگانه عیب‌یابی کن.
+
+---
+
+## 13. مستندات رسمی
 
 - [دانلود رسمی WinSCP](https://winscp.net/eng/downloads.php)
 - [WinSCP — تنظیمات احراز هویت SSH](https://winscp.net/eng/docs/ui_login_authentication)
