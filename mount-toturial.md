@@ -97,6 +97,32 @@ allowed_mounts:
 
 فایل را ذخیره کن. در Nano از `Ctrl+O`، سپس `Enter` و بعد `Ctrl+X` استفاده کن.
 
+### فرق `allowed_mounts: []` با `allowed_origins: []`
+
+فایل `/etc/pterodactyl/config.yml` با فرمت **YAML** نوشته شده است، نه JSON. در YAML، مقدار `[]` یعنی «لیست خالی».
+
+- `allowed_mounts: []` یعنی هیچ مسیر سفارشی برای Mount مجاز نیست؛ این مورد را با مسیر FragCity جایگزین می‌کنیم.
+- `allowed_origins: []` مربوط به تنظیمات Origin/CORS است و ربطی به Mount ندارد؛ آن را خالی نگه دار، مگر اینکه جداگانه نیاز به تنظیم Origin داشته باشی.
+- مقدار `remote` آدرس پنل است و نباید برای حل این خطای Mount تغییر کند.
+
+نمونهٔ کاملِ مرتبط با این آموزش:
+
+```yaml
+remote: https://panel.fragcity.ir
+remote_query:
+  timeout: 30
+  boot_servers_per_page: 50
+
+allowed_mounts:
+  - /var/lib/pterodactyl/mounts/fragcity-kus-payload
+
+allowed_origins: []
+allow_cors_private_network: false
+ignore_panel_config_updates: false
+```
+
+دقت کن که `allowed_mounts` باید به‌صورت لیست YAML با تورفتگی و خط تیره نوشته شود. از تبدیل کل فایل به JSON یا حذف تنظیمات دیگر خودداری کن؛ فقط مقدار همین کلید را تغییر بده. بعد از ذخیره، مراحل راه‌اندازی مجدد Wings و بررسی Mount در بخش‌های بعدی را انجام بده.
+
 ## 4. مسیر Source و مجوزهای آن را بررسی کن
 
 این دستورها کمک می‌کنند مطمئن شوی مسیرهای تعریف‌شده واقعاً وجود دارند و مجوزهای پوشه‌های والد را بررسی کنی:
