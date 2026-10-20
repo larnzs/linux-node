@@ -468,7 +468,8 @@ grep -nE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d/\*\.conf' /etc/
 ~~~bash
 CFG=/etc/ssh/sshd_config.d/00-winscp-root-key-only.conf
 if sudo test -e "$CFG"; then
-    sudo cp -a "$CFG" "${CFG}.bak.$(date +%Y%m%d-%H%M%S)"
+    echo "Config already exists; inspect it and merge the settings manually. No file was changed."
+    exit 1
 fi
 
 sudo tee "$CFG" >/dev/null <<'EOF'
