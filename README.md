@@ -5,10 +5,11 @@
 ## ترتیب پیشنهادی مطالعه
 
 1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)** — برای نصب تازهٔ زیرساخت، از Debian Base تا Online شدن Node.
-2. **[آموزش K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md)** — پیش‌نیاز i386 روی amd64، واردکردن Egg، دستور نصب cs2node، تنظیم Wizard، Shared Base، Workshop و آزمون Multi Instance.
-3. **[آموزش WinSCP](https://github.com/larnzs/linux-node/blob/main/%D8%A2%D9%85%D9%88%D8%B2%D8%B4%20winscp.md)** — اتصال SFTP با SSH key، دسترسی فایل‌ها و انتقال امن از مسیر staging.
-4. **[عیب‌یابی SSH در ویندوز و ورود موقت با رمز](https://github.com/larnzs/linux-node/blob/main/Windows-SSH-Private-Key-Permissions.md)** — اصلاح Permission کلید خصوصی بعد از نصب مجدد Windows، فعال‌سازی موقت ورود با رمز در Debian و بازگشت به ورود کلیدی.
-5. **[آموزش Full Clone و VMDK در VMware Workstation](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)** — فقط وقتی به Clone جایگزین یا دیسک دادهٔ آزمایشی نیاز داری؛ برای نصب عادی Node الزامی نیست.
+2. **[آموزش ساخت یوزر مدیریتی MariaDB محدود به 127.0.0.1](https://github.com/larnzs/linux-node/blob/main/MariaDB-Local-Admin-User.md)** — ساخت حساب دارای دسترسی سراسری، اعطای مجوزها، آزمایش اتصال TCP محلی و بررسی تفاوت Host حساب با bind-address سرویس.
+3. **[آموزش K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache](https://github.com/larnzs/linux-node/blob/main/K4ryuu-CS2-Egg-Go-cs2node-VPKSync-MultiInstance.md)** — پیش‌نیاز i386 روی amd64، واردکردن Egg، دستور نصب cs2node، تنظیم Wizard، Shared Base، Workshop و آزمون Multi Instance.
+4. **[آموزش WinSCP](https://github.com/larnzs/linux-node/blob/main/%D8%A2%D9%85%D9%88%D8%B2%D8%B4%20winscp.md)** — اتصال SFTP با SSH key، دسترسی فایل‌ها و انتقال امن از مسیر staging.
+5. **[عیب‌یابی SSH در ویندوز و ورود موقت با رمز](https://github.com/larnzs/linux-node/blob/main/Windows-SSH-Private-Key-Permissions.md)** — اصلاح Permission کلید خصوصی بعد از نصب مجدد Windows، فعال‌سازی موقت ورود با رمز در Debian و بازگشت به ورود کلیدی.
+6. **[آموزش Full Clone و VMDK در VMware Workstation](https://github.com/larnzs/linux-node/blob/main/test-vmdk%20instructions.md)** — فقط وقتی به Clone جایگزین یا دیسک دادهٔ آزمایشی نیاز داری؛ برای نصب عادی Node الزامی نیست.
 
 ## قبل از اجرای دستورها
 
