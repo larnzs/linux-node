@@ -41,9 +41,9 @@
 
 ### قرارداد اجرای مرحله‌ای
 
-- هر بلوک را فقط در محل اجرای مشخص‌شده اجرا کن: Windows PowerShell، نشست SSH روی Debian، prompt دیتابیس، یا فایل تنظیمات.
+- هر بلوک را فقط در محل اجرای مشخص‌شده اجرا کن: ترمینال/کنسول Debian، Windows PowerShell (فقط جایی که صریحاً نوشته شده)، prompt دیتابیس، یا فایل تنظیمات.
 - JSON، YAML و NGINX config را در Bash اجرا نکن؛ آن‌ها باید در فایل مربوطه قرار گیرند.
-- اگر SSH ناگهان قطع شد، از نشست تازهٔ PowerShell دوباره وصل شو؛ نصب را از ابتدا تکرار نکن و فایل یا سرویس را بدون بررسی حذف/Restart نکن.
+- اگر نشست مدیریتی قطع شد، از کنسول VMware وارد Debian شو؛ نصب را از ابتدا تکرار نکن و فایل یا سرویس را بدون بررسی حذف/Restart نکن.
 - اگر مرحله‌ای FAIL شد، مرحلهٔ بعد را اجرا نکن؛ ابتدا فرمان‌های فقط‌خواندنی همان بخش و علت خطا را بررسی کن.
 
 ## 1. نصب Debian 13 از صفر — Console-only
@@ -243,25 +243,18 @@ timedatectl show -p Timezone -p NTPSynchronized -p NTP
 
 در /etc/hosts باید یک نگاشت محلی درست برای FQDN و hostname وجود داشته باشد. این نگاشت جای رکورد A در DNS عمومی را نمی‌گیرد. انتظار می‌رود Timezone برابر Asia/Tehran باشد؛ NTP ممکن است برای Synchronization چند لحظه زمان بخواهد.
 
-### 1.13 مرحلهٔ پنجم — فعال‌سازی و بررسی SSH
+### 1.13 مرحلهٔ پنجم — بررسی اختیاری SSH
+
+برای نصب و مدیریت این Runbook می‌توانی مستقیماً از Terminal داخل Debian/VMware استفاده کنی؛ ساخت SSH key یا اتصال روزمره از Windows جزو این آموزش نیست. اگر SSH server هنگام نصب Debian انتخاب شده باشد، وضعیتش را فقط بررسی کن:
 
 ~~~bash
 set -eu
-
 sudo sshd -t
-sudo systemctl enable --now ssh
-sudo systemctl is-active ssh chrony
-
-echo
-echo "=== SSH listening sockets ==="
+sudo systemctl is-active ssh || true
 sudo ss -ltnp | grep -E 'LISTEN.+:22([[:space:]]|$)' || true
-
-echo
-echo "=== Effective SSH policy (read-only) ==="
-sudo sshd -T | grep -Ei '^(port|permitrootlogin|passwordauthentication|pubkeyauthentication) '
 ~~~
 
-فعلاً تنظیمات ورود SSH را تغییر نده و پورت 22 را هنوز روی اینترنت عمومی باز نکن. بعد از اینکه اتصال LAN و کلید SSH را آزمایش کردیم، سخت‌سازی SSH و فایروال را جداگانه انجام می‌دهیم.
+این بررسی هیچ تنظیم SSH را تغییر نمی‌دهد. پورت 22 را از اینترنت عمومی Port Forward نکن. طبق طرح FragCity، دسترسی SSH از WAN بعداً در سیاست MikroTik مسدود می‌شود؛ تا آن زمان برای مدیریت از کنسول VMware استفاده کن یا فقط یک مسیر LAN مورداعتماد را نگه دار.
 
 ### 1.14 مرحلهٔ ششم — بررسی DNS، اینترنت خروجی و همگام‌سازی زمان
 
@@ -287,8 +280,8 @@ curl -fsSI --max-time 15 https://deb.debian.org/ -o /dev/null \
   -w 'HTTPS status: %{http_code}\n'
 
 echo
-echo "=== UTC clock and NTP ==="
-date -u
+echo "=== System clock and NTP (Asia/Tehran) ==="
+date
 timedatectl show -p Timezone -p NTPSynchronized -p NTP
 chronyc tracking
 
@@ -296,7 +289,6 @@ echo
 echo "=== Storage ==="
 df -hT /
 df -ih /
-# Confirm that df -ih / prints the inode summary before continuing.
 lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 ~~~
 
@@ -341,30 +333,28 @@ timedatectl show -p Timezone -p NTPSynchronized -p NTP
 
 هدف این است که MAC کارت شبکهٔ Node همیشه همان IP داخلی رزروشده را دریافت کند. فعلاً روی Debian آدرس استاتیک دستی تعریف نکن؛ رزرو DHCP و IP استاتیک داخل سیستم را هم‌زمان تنظیم نکن.
 
-1. از مرحلهٔ 1.15، MAC کارت شبکه و نام interface را یادداشت کن.
-2. در روتر/DHCP server شبکهٔ خودت subnet و gateway واقعی را بررسی کن. `<LAN_CIDR>` و `<LAN_GATEWAY_IP>` فقط نمونه‌های این ریپو هستند.
-3. در رابط مدیریت DHCP، Lease همان MAC را پیدا کن و برای آن یک Reservation/Static Lease بساز. اگر از MikroTik/Winbox استفاده می‌کنی، مسیر معمول **IP → DHCP Server → Leases** است.
-4. یک IP آزاد و ثابت از subnet خودت انتخاب کن؛ قبل از رزرو مطمئن شو به دستگاه دیگری اختصاص نیافته است.
-5. پس از ذخیرهٔ رزرو، VM را با `sudo reboot` راه‌اندازی مجدد کن. اتصال SSH قطع می‌شود؛ این طبیعی است.
-
-پس از بالا آمدن VM، از Windows PowerShell با نام کاربر و IP واقعی خودت دوباره وصل شو:
-
-~~~powershell
-$LinuxUser = Read-Host "Linux username"
-$NodeIp = Read-Host "Reserved Node LAN IPv4"
-ssh "$LinuxUser@$NodeIp"
-~~~
-
-در نشست SSH نام interface را با مقدار واقعی جایگزین کن و IP/route/MAC را بررسی کن:
+1. در Debian، نام interface و MAC را با بلوک زیر پیدا کن.
+2. در روتر/DHCP server شبکه، subnet و gateway واقعی را بررسی کن. اگر از MikroTik/Winbox استفاده می‌کنی، مسیر معمول **IP → DHCP Server → Leases** است.
+3. Lease همان MAC را پیدا کن و برای آن Reservation/Static Lease بساز.
+4. یک IP آزاد از subnet خودت انتخاب کن؛ مطمئن شو به دستگاه دیگری اختصاص نیافته است.
+5. پس از ذخیرهٔ رزرو، VM را از کنسول VMware با فرمان زیر reboot کن. این کار نشست ترمینال را قطع می‌کند؛ پس از بالا آمدن دوباره از خود کنسول VMware وارد شو.
 
 ~~~bash
-IFACE="ens33"  # Replace with the interface shown by ip -br address
+sudo reboot
+~~~
+
+پس از reboot این بلوک را در Debian اجرا کن:
+
+~~~bash
+set -eu
+IFACE="ens33"   # Replace only if ip -br address shows a different interface
+
 ip -4 -o address show dev "$IFACE"
 ip route
 cat "/sys/class/net/$IFACE/address"
 ~~~
 
-ادامه فقط وقتی انجام شود که IP و MAC با رزرو DHCP مطابقت داشته باشند. اگر IP تغییر کرد، آدرس تازه را از کنسول VM پیدا کن و قبل از ادامه آن را تأیید کن.
+ادامه فقط وقتی انجام شود که IP و MAC با DHCP reservation مطابقت داشته باشند. اگر IP تغییر کرد، آدرس فعلی را از کنسول VM و روتر پیدا کن و قبل از ادامه تأیید کن. برای این Runbook نیازی به راه‌اندازی SSH key یا اجرای فرمان SSH از Windows نیست.
 
 ### 1.17 مرحلهٔ نهم — بررسی IPv4 عمومی، NAT و CGNAT
 
