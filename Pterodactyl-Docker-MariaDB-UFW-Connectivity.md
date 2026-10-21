@@ -28,7 +28,52 @@ sudo mariadb -NBe "SHOW VARIABLES LIKE 'bind_address';"
 sudo ufw status verbose
 ```
 
-تأیید کنید Gateway واقعی میزبان `172.18.0.1` است و MariaDB روی آن آدرس گوش می‌دهد. اگر فقط `127.0.0.1:3306` نمایش داده شود، کانتینر نمی‌تواند با Gateway به سرویس برسد؛ ابتدا bind-address را طبق راهنمای MariaDB تنظیم و سرویس را بررسی کنید.
+تأیید کنید Gateway واقعی میزبان `172.18.0.1` است و MariaDB روی آن آدرس گوش می‌دهد. اگر فقط `127.0.0.1:3306` نمایش داده شود، کانتینر نمی‌تواند از طریق Gateway به سرویس برسد؛ ابتدا `bind-address` را طبق مراحل زیر تنظیم کنید.
+
+### تنظیم bind-address در MariaDB
+
+این مراحل را روی Debian host اجرا کنید، نه داخل کانتینر بازی. در این محیط MariaDB 11.8.6 نصب است و خط ثبت‌شدهٔ تنظیم باید شامل هر دو IP زیر باشد تا اتصال محلی میزبان حفظ شود و Gateway شبکه Docker نیز Listener داشته باشد.
+
+1. از فایل تنظیمات نسخه پشتیبان بگیرید:
+
+```bash
+sudo cp -a /etc/mysql/mariadb.conf.d/50-server.cnf \
+  /root/50-server.cnf.backup
+```
+
+2. فایل را باز کنید:
+
+```bash
+sudo nano /etc/mysql/mariadb.conf.d/50-server.cnf
+```
+
+3. داخل بخش `[mysqld]`، خط موجود `bind-address` را **ویرایش کنید**؛ خط تکراری دیگری نسازید. مقدار باید دقیقاً این باشد:
+
+```ini
+bind-address = 127.0.0.1,172.18.0.1
+```
+
+4. ذخیره کنید و MariaDB را مجدداً راه‌اندازی کنید:
+
+```bash
+sudo systemctl restart mariadb
+sudo systemctl --no-pager --full status mariadb
+```
+
+5. تأیید کنید هر دو Listener بالا آمده‌اند:
+
+```bash
+sudo ss -lntp | grep ':3306'
+sudo mariadb -NBe "SHOW VARIABLES LIKE 'bind_address';"
+```
+
+خروجی `ss` باید دو Listener برای `127.0.0.1:3306` و `172.18.0.1:3306` نشان دهد. اگر سرویس بالا نیامد، قبل از ادامه خطا را بررسی کنید:
+
+```bash
+sudo journalctl -u mariadb -n 50 --no-pager
+```
+
+توجه: `bind-address` فقط تعیین می‌کند MariaDB روی کدام IPها گوش کند؛ این تنظیم به‌تنهایی دسترسی را ایمن یا مجوز ورود SQL را اعطا نمی‌کند. قانون محدود UFW و Host مجاز حساب MariaDB نیز باید جداگانه درست باشند. اگر Gateway یا Subnet شبکه Docker در ماشین دیگری متفاوت است، IP نمونه را پس از بررسی شبکه با مقدار واقعی جایگزین کنید.
 
 ## مرحله 2 — پیدا کردن رابط Gateway
 
