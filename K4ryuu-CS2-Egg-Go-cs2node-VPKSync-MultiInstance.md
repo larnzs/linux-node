@@ -1,4 +1,4 @@
-# آموزش نصب K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop Cache
+# Runbook نصب K4ryuu CS2 Egg-Go، cs2node، VPK Sync و Workshop — با دروازهٔ ظرفیت و Backup
 
 این آموزش برای Debian Node دارای Pterodactyl است. تمام دستورهای این فایل روی **خود Debian host** اجرا می‌شوند، مگر آن‌که صریحاً نوشته شود از Windows، Panel یا داخل Container استفاده کن. برای Node دیگری hostname، IP، دامنه و نام سرور را عوض کن؛ مسیرهای مرکزی پیش‌فرض را فقط وقتی تغییر بده که config نیز به‌روزرسانی شود.
 
@@ -16,45 +16,77 @@
 
 **اگر مرحله‌ای Fail شد، جلو نرو.** ابتدا معیار قبولی و فرمان‌های تشخیصی همان مرحله را اجرا کن.
 
-## 1. پیش‌نیازها و مقادیر محیطی
+## 1. پیش‌نیازها، مقادیر محیطی و دروازهٔ ظرفیت
 
-پیش‌نیازها:
+این آموزش برای Debian 13 amd64 با Pterodactyl Panel، Docker و Wings فعال است. همهٔ فرمان‌ها روی خود Debian host اجرا می‌شوند، مگر آن‌که صریحاً گفته شود داخل Panel، Windows یا Container اجرا شوند.
 
-- Debian 13 amd64، دسترسی sudo و اتصال اینترنت خروجی.
-- Pterodactyl Panel فعال، Docker و Wings سالم، Node در Panel برابر Online.
-- فضای آزاد کافی برای Base کامل و Workshop؛ ظرفیت واقعی را با `df -hT /` بررسی کن.
-- یک UDP Allocation آزاد برای Instance آزمایشی.
-- سرورهای بازی Offline هنگام آماده‌سازی Base.
-- هیچ daemon قدیمی دیگری نباید هم‌زمان همان Base را Update کند.
+### 1.1 دروازهٔ ظرفیت — قبل از دانلود متوقف شو و بررسی کن
 
-قبل از اجرا این جدول را با مقادیر واقعی پر کن:
+در آخرین بررسی این VM، ریشهٔ سیستم 142 GB بود و حدود 130 GB آزاد داشت؛ RAM قابل مشاهده نیز حدود 3.8 GiB بود. این مقدار برای اجرای نصب کامل بازی، Workshop Cache، به‌روزرسانی‌ها و Backup با حاشیهٔ امن کافی نیست. طبق برنامهٔ FragCity، مجموعهٔ بازی و Workshop می‌تواند به حدود 120–130 GB برسد و این عدد شامل رشد آینده و Backupهای محلی نیست.
 
-| مقدار | از کجا تعیین شود | مقدار محیط خودت |
-|---|---|---|
-| Hostname | `hostnamectl --static` روی Node | `<NODE_HOSTNAME>` |
-| IP/FQDN | شبکهٔ خودت یا DNS | `<NODE_IP_OR_FQDN>` |
-| Panel URL | دامنهٔ واقعی Panel | `https://<PANEL_FQDN>` |
-| نام سرور اول | نام یکتا در Panel | `<CS2_TEST_SERVER_NAME>` |
-| Allocation | Panel → Node → Allocations | `<CS2_UDP_ALLOCATION>` |
-| مسیر Base | تنظیم `vpksync.cs2_dir` | `/srv/cs2-shared` |
-| مسیر Workshop | تنظیم ماژول Workshop | `/srv/cs2-workshop` |
-
-دستور بررسی هویت و فضای دیسک:
+**قبل از شروع دانلود مرکزی:**
+1. VM را در VMware به‌طور ایمن خاموش کن.
+2. ظرفیت Virtual Disk فعلی را به حدود **300 GB** افزایش بده. اگر به‌جای افزایش دیسک، VMDK دادهٔ جداگانه انتخاب شد، ابتدا طرح mount را طراحی کن؛ نام دیسک را حدس نزن و بدون بررسی lsblk/blkid هیچ Format انجام نده.
+3. برای آزمون یک Instance می‌توانی از RAM بیشتر استفاده کنی، اما برای هدف دو Instance، پیشنهاد شروع **8 GiB RAM** در VMware است. با RAM فعلی حدود 4 GiB، دانلود ممکن است اجرا شود ولی اجرای مطمئن دو سرور را فرض نکن.
+4. پس از بوت، ظرفیت را دوباره بررسی کن. برای این برنامه، حداقل حدود **200 GB فضای آزاد واقعی** روی filesystemی که Shared Base را نگه می‌دارد هدف بگیر؛ اگر Workshop بیشتری نگه می‌داری، فضای بیشتری لازم است.
 
 ~~~bash
-hostnamectl --static
-hostname -f
-ip -br address
+echo "=== RAM and swap ==="
+free -h
+swapon --show
+
+echo
+echo "=== Filesystems ==="
 df -hT /
+df -ih /
+findmnt -T /srv
+findmnt -T /var/lib/pterodactyl/volumes 2>/dev/null || true
+
+echo
+echo "=== Architecture and kernel ==="
+uname -r
 uname -m
 dpkg --print-architecture
 ~~~
 
-معیار قبولی: معماری `amd64`، IP درست، فضای کافی و Node Online. اگر معماری متفاوت است، دستورات مخصوص amd64 را کورکورانه اجرا نکن.
+اگر هنوز فقط حدود 130 GB آزاد داری، **به بخش نصب cs2node و دانلود Base نرو**. ابتدا فضای ذخیره‌سازی را افزایش بده و دوباره این آزمون را اجرا کن. VPK Sync فضای تکراری هر Instance را کم می‌کند، اما فضای فایل‌های Shared Base و Workshop را حذف نمی‌کند.
+
+### 1.2 پیش‌نیازهای فنی
+
+- Debian 13 amd64، اینترنت خروجی و مجوز مدیریت root/sudo.
+- Panel از HTTPS در دسترس باشد؛ Node در Panel برابر Online باشد؛ Docker و Wings فعال باشند.
+- یک UDP Allocation واقعی و آزاد برای اولین سرور آزمایشی.
+- سرورهای بازی در زمان آماده‌سازی Base خاموش بمانند.
+- هیچ ابزار دیگری هم‌زمان روی /srv/cs2-shared بازی را Update نکند.
+- برای Backup ماژول cs2node و Workshop Cache فضای آزاد جداگانه در همان برنامهٔ ظرفیت منظور شده باشد.
+
+| مقدار | مرجع | مقدار این محیط |
+|---|---|---|
+| Hostname | hostnamectl --static | server1 |
+| Node FQDN | DNS عمومی | server1.fragcity.ir |
+| Panel URL | Panel واقعی | https://panel.fragcity.ir |
+| Base | تنظیم vpksync.cs2_dir | /srv/cs2-shared |
+| Workshop | تنظیم modules.workshop.dir | /srv/cs2-workshop |
+| Backup | تنظیم modules.backup.dir | /srv/cs2-backups |
+| UDP Allocation | Panel → Node → Allocations | انتخاب یک Allocation آزاد واقعی |
+
+~~~bash
+hostnamectl --static
+hostname -f
+ip -4 -brief address
+df -hT /
+free -h
+~~~
+
+### 1.3 پورت‌ها و Firewall
+
+این آموزش هیچ قانون UFW یا MikroTik را تغییر نمی‌دهد. قبل از شروع سرور، یک Allocation واقعی برای UDP بازی از Panel انتخاب کن و بعداً مسیر شبکه را جداگانه بررسی کن. SSH، MariaDB و Redis را از WAN منتشر نکن؛ برای مدیریت Debian از کنسول VMware استفاده کن.
+
+نکتهٔ مهم: اگر در سیاست نهایی MikroTik همهٔ ترافیک ورودی WAN را بدون استثنا ببندی، کاربران اینترنت نمی‌توانند به Panel یا سرورهای عمومی CS2 وصل شوند. در سیاست نهایی فقط پورت‌های سرویس‌های موردنیاز را مجاز کن. UDP بازی و هر پورت SourceTV باید بر اساس Allocation واقعی تعیین شوند، نه با حدس.
 
 ## 2. پیش‌نیاز الزامی Debian amd64: Runtime سی‌ودو بیتی
 
-SteamCMD ممکن است از باینری 32-bit در `linux32/steamcmd` استفاده کند؛ داشتن سیستم‌عامل amd64 به‌تنهایی وجود loader و کتابخانه‌های i386 را تضمین نمی‌کند. این مرحله را **قبل از نصب cs2node و اولین Update مرکزی** انجام بده.
+SteamCMD ممکن است از باینری 32-bit استفاده کند؛ داشتن سیستم‌عامل amd64 به‌تنهایی وجود loader و کتابخانه‌های i386 را تضمین نمی‌کند. این مرحله را قبل از نصب cs2node و اولین Update مرکزی انجام بده.
 
 ~~~bash
 set -eu
@@ -75,15 +107,19 @@ echo "=== Installed i386 runtime packages ==="
 dpkg-query -W libc6:i386 libstdc++6:i386 libgcc-s1:i386
 ~~~
 
-معیار قبولی: فرمان‌ها بدون خطا پایان یابند و `i386` در فهرست معماری‌های foreign دیده شود.
+**معیار قبولی:** فرمان‌ها بدون خطا تمام شوند و i386 در خروجی foreign architectures دیده شود.
 
-اگر SteamCMD از قبل نصب است، این آزمون را اجرا کن:
+اگر فایل SteamCMD موجود بود و هیچ Update/دانلودی توسط cs2node در حال اجرا نبود، آزمون زیر را اجرا کن:
 
 ~~~bash
-sudo /root/steamcmd/steamcmd.sh +quit
+if sudo test -x /root/steamcmd/steamcmd.sh; then
+  sudo /root/steamcmd/steamcmd.sh +quit
+else
+  echo "SteamCMD not initialized yet; cs2node will prepare it on first use."
+fi
 ~~~
 
-معیار قبولی، خروجی موفق مشابه `Loading Steam API...OK` و `Unloading Steam API...OK` است. این فقط قابل اجرا بودن SteamCMD را ثابت می‌کند، نه دانلود موفق CS2 را. اگر مسیر SteamCMD وجود ندارد، این آزمون را فعلاً رد کن؛ cs2node هنگام اولین اجرا SteamCMD را آماده می‌کند. اگر خطای loader یا shared library گرفتی، نصب cs2node را شروع نکن.
+معیار قبولی اجرای SteamCMD، خروجی موفق مشابه Loading Steam API...OK و Unloading Steam API...OK است. این فقط قابل اجرا بودن SteamCMD را تأیید می‌کند، نه دانلود موفق CS2 را. اگر بعد از نصب cs2node خطای loader یا shared library گرفتی، قبل از Restart/تکرار نصب مطمئن شو هیچ SteamCMD فعالی وجود ندارد، سپس آزمون را اجرا کن؛ SteamCMD دستی را هم‌زمان با Update فعال cs2node اجرا نکن.
 
 ## 3. واردکردن Egg کامل رسمی در Pterodactyl
 
@@ -104,7 +140,7 @@ https://raw.githubusercontent.com/K4ryuu/CS2-Egg-Go/main/pterodactyl/kitsunelab-
 
 ## 4. ساخت Instance آزمایشی اول
 
-در **Admin → Servers → Create Server** یک Instance بساز:
+در Panel به **Admin → Servers → Create Server** برو و فقط یک Instance آزمایشی بساز. ابتدا مطمئن شو بخش 1.1 ظرفیت کافی را تأیید کرده و Node در Panel Online است.
 
 | فیلد | مقدار آغازین |
 |---|---|
@@ -112,94 +148,105 @@ https://raw.githubusercontent.com/K4ryuu/CS2-Egg-Go/main/pterodactyl/kitsunelab-
 | Node | Node موردنظر |
 | Default Allocation | Allocation آزاد واقعی |
 | Additional Allocations | خالی برای آزمون اول |
-| Memory | 3072 MiB برای شروع |
-| CPU Limit | مقدار سازگار با ظرفیت Node؛ برای تست می‌توان 200% در نظر گرفت |
+| Memory | 2048 MiB برای آزمون پایه؛ سپس با اندازه‌گیری تنظیم شود |
+| CPU Limit | مطابق ظرفیت Node؛ برای آزمون می‌توان 200% در نظر گرفت |
 | Disk Space | 40960 MiB تا قبل از اثبات VPK Sync |
-| Docker Image | `ghcr.io/k4ryuu/cs2-egg-go:stable` |
+| Docker Image | ghcr.io/k4ryuu/cs2-egg-go:stable |
 | Start after install | خاموش |
+
+با حدود 8 GiB RAM اختصاص‌یافته به VM، برای اولین آزمون 2048 MiB شروع محافظه‌کارانه‌ای است؛ سرورهای دارای پلاگین و Workshop سنگین ممکن است 4 GiB یا بیشتر بخواهند. قبل از ساخت Instance دوم، مصرف RAM و Swap را هنگام تست واقعی اندازه بگیر و برای Debian/Panel/Docker/Wings هم حافظه رزرو کن.
 
 در Startup، Map آزمایشی را تنظیم کن. اگر GSLT لازم است، آن را فقط در فیلد Panel وارد کن و در مستندات ذخیره نکن.
 
-**Create کن، ولی سرور را Start نکن.** تا تأیید Shared Base، آن را Reinstall یا Delete نکن.
+**Create کن، ولی سرور را Start نکن.** تا تأیید Shared Base آن را Reinstall یا Delete نکن. اگر نصب سرور خودکار شروع شد، صبر کن به پایان برسد، سپس مطمئن شو سرور خاموش است.
 
 ## 5. نصب cs2node — فرمان دقیق
 
-این بخش، فرمان نصب اصلی است. آن را روی Debian host اجرا کن، نه داخل Container:
+این دستورها روی Debian host اجرا می‌شوند، نه داخل Container. پیش‌نیازها: ظرفیت بخش 1.1 تأیید شده، i386 runtime بخش 2 نصب است، Egg کامل Import شده و اولین Instance ساخته اما خاموش مانده است.
+
+اگر /usr/local/bin/cs2node از قبل وجود دارد، این بخش را تکرار نکن؛ ابتدا وضعیت موجود را بررسی کن. نصب مجدد cs2node می‌تواند daemon را Restart کند.
 
 ~~~bash
+set -eu
+
+if sudo test -x /usr/local/bin/cs2node; then
+  echo "STOP: cs2node is already installed. Inspect it instead of reinstalling."
+  sudo /usr/local/bin/cs2node version || true
+  sudo systemctl status cs2node --no-pager -l || true
+  exit 1
+fi
+
 curl -fsSL \
   https://github.com/K4ryuu/CS2-Egg-Go/releases/latest/download/cs2node_linux_amd64 \
   -o /tmp/cs2node
 
 chmod +x /tmp/cs2node
 file /tmp/cs2node
+sha256sum /tmp/cs2node
 sudo /tmp/cs2node install
 ~~~
 
 در Installer تعاملی:
+- برای نصب تازه y را انتخاب کن.
+- کانال stable را انتخاب کن.
+- خودکارسازی Update باینری را مطابق سیاست نگهداری FragCity تنظیم کن؛ پروفایل این محیط self-update را روشن نگه می‌دارد.
+- از --yes استفاده نکن؛ Wizard را بخوان و ماژول‌ها را آگاهانه تنظیم کن.
 
-- برای نصب تازه `y` را انتخاب کن.
-- کانال `stable` را انتخاب کن.
-- خودکارسازی Update باینری را مطابق سیاستت انتخاب کن.
-- برای نصب اول از `--yes` استفاده نکن؛ باید Wizard را ببینی و Moduleها را آگاهانه تنظیم کنی.
+معیار قبولی: Installer باینری را در /usr/local/bin/cs2node، تنظیمات را در /etc/cs2node/config.json و سرویس را در cs2node.service نصب کند.
 
-معیار قبولی: Installer اعلام کند باینری در `/usr/local/bin/cs2node`، تنظیمات در `/etc/cs2node/config.json` و سرویس در `cs2node.service` نصب شده است.
-
-اگر باینری دریافت نشد، قبل از اجرا وضعیت اینترنت/DNS و URL رسمی را بررسی کن. اگر Installer در مرحلهٔ SteamCMD خطای `cannot execute: required file not found` یا exit 127 داد، به بخش 2 برگرد.
+اگر باینری دریافت نشد، URL رسمی، DNS و اینترنت خروجی را بررسی کن. اگر SteamCMD خطای cannot execute: required file not found یا exit 127 داد، نصب را تکرار نکن؛ به بخش 2 برگرد و loader/i386 runtime را بررسی کن.
 
 ## 6. پاسخ‌های پیشنهادی Wizard
 
-این جدول‌ها پیشنهاد شروع هستند، نه مقادیر اجباری برای هر محیط. در پایان Summary را مرور کن؛ اگر مقدار ناخواسته‌ای دیدی، نصب را تأیید نکن.
+این پروفایل مطابق تنظیمات انتخاب‌شده برای FragCity است. مقدارها را قبل از تأیید Summary مرور کن؛ برای فضای Workshop و Backup باید ظرفیت کافی داشته باشی.
 
 ### 6.1 Node
 
-| Prompt | پیشنهاد |
+| Prompt | تنظیم FragCity |
 |---|---|
-| Proceed? | `y` |
-| Update channel | `stable` |
-| Self-update automatically | مطابق سیاست نگهداری تو؛ معمولاً `y` |
+| Proceed? | y |
+| Update channel | stable |
+| Self-update automatically | y |
 
 ### 6.2 VPK Sync
 
-| Prompt | پیشنهاد |
+| Prompt / option | تنظیم FragCity |
 |---|---|
-| Enable vpksync? | `y` |
-| SteamCMD directory | `/root/steamcmd` |
-| Central CS2 install directory | `/srv/cs2-shared` |
-| VPK delivery method | `symlink` |
-| Parallel pushes | `8` |
-| Restart after CS2 update | `y` |
-| Restart policy | `empty` |
-| Maximum delay | طبق نیاز نگهداری تو؛ نمونهٔ FragCity: 2 ساعت |
-| In-game warning | طبق نیاز تو؛ نمونهٔ FragCity: 10 دقیقه |
-| Validate | `n` برای Update معمول |
-| Update check interval | طبق سیاستت؛ نمونهٔ FragCity: 30 دقیقه |
+| Enable vpksync | y |
+| SteamCMD directory | /root/steamcmd |
+| Central CS2 install directory | /srv/cs2-shared |
+| VPK delivery method | symlink |
+| Parallel pushes | 8 |
+| Restart after CS2 update | y |
+| Restart policy | empty |
+| Maximum delay | 2 hours |
+| In-game warning | 10 minutes |
+| Validate | n برای Update معمول |
+| Update check interval | 30 minutes |
 
-روش `symlink` به Linux kernel نسخهٔ 5.2 یا بالاتر نیاز دارد. `restart_policy=empty` یعنی پس از Update، daemon تا خالی‌شدن سرور یا رسیدن مهلت نهایی صبر می‌کند.
+روش symlink به Linux kernel نسخهٔ 5.2 یا جدیدتر نیاز دارد. restart_policy=empty یعنی بعد از Update، daemon تا خالی‌شدن سرور یا رسیدن حداکثر مهلت صبر می‌کند.
 
 ### 6.3 سایر Moduleها
 
-برای اثبات اولیه، فقط Moduleهای لازم را روشن کن. پیش‌فرض‌ها ممکن است `y` باشند؛ Enter خالی را بدون بررسی نزن.
+| Module | انتخاب/مقدار FragCity | ملاحظه |
+|---|---|---|
+| guard | n | فعلاً غیرفعال؛ در این نصب انتخاب شده است |
+| alerts | enabled | Webhook را فقط داخل Wizard وارد کن و هرگز در README/چت ذخیره نکن |
+| addoncache | enabled | refresh interval = 30 minutes |
+| workshop | enabled | dir = /srv/cs2-workshop، seed/all = yes، keep_days = 0 |
+| backup | enabled | dir = /srv/cs2-backups، hour = 5 به وقت Asia/Tehran، keep_days = 14، keep_count = 7 |
+| cleanup | enabled | قوانین پیش‌فرض را بعداً مرور کن و مطمئن شو فایل‌های لازم را حذف نمی‌کنند |
+| crashes | اختیاری | برای نگهداری crash bundle مفید است |
+| consolelog | اختیاری | مصرف دیسک را در نظر بگیر |
+| metrics | اختیاری | پیش‌فرض 127.0.0.1:9151 را عمومی نکن |
 
-| Module | انتخاب پیشنهادی برای شروع |
-|---|---|
-| guard | `n`؛ جداگانه ارزیابی شود |
-| alerts | اختیاری؛ فقط اگر webhook داری و دسترسی شبکه‌اش تأیید شده |
-| addoncache | اختیاری؛ برای Cache نسخه‌های frameworkها در سطح Node |
-| workshop | `y` اگر Cache مشترک Workshop می‌خواهی |
-| backup | اختیاری؛ ابتدا ظرفیت و retention را تعیین کن |
-| cleanup | اختیاری؛ قوانین حذف فایل را پیش از فعال‌سازی بخوان |
-| crashes | اختیاری؛ برای نگهداری Crash bundle |
-| consolelog | اختیاری؛ به ظرفیت لاگ توجه کن |
-| metrics | اختیاری؛ آدرس پیش‌فرض `127.0.0.1:9151` فقط روی خود میزبان قابل دسترسی است |
+**هشدار فضای دیسک:** keep_days=0 در Workshop به معنی نگه‌داشتن نسخه‌های بدون استفاده بدون محدودیت زمانی است؛ cache می‌تواند رشد کند. Backup روزانهٔ 7 نسخه نیز فضا مصرف می‌کند. چون این مسیرها در این نصب روی همان filesystem قرار دارند، df -hT را مرتب بررسی کن. اگر Cache/Backup ظرفیت را تهدید می‌کند، retention را آگاهانه تغییر بده؛ هیچ Cleanup کلی یا حذف پوشه‌ای را کورکورانه اجرا نکن.
 
-اگر Workshop روشن است، مسیر `/srv/cs2-workshop` را انتخاب کن. `keep_days=0` یعنی نسخه‌های بدون استفاده بدون محدودیت زمانی حفظ شوند.
-
-قبل از تأیید Summary مطمئن شو `vpksync` روشن، `cs2_dir=/srv/cs2-shared` و روش `symlink` است. URL محرمانهٔ webhook را در GitHub یا لاگ عمومی نگذار.
+قبل از تأیید Summary مطمئن شو vpksync روشن، cs2_dir برابر /srv/cs2-shared و روش symlink است. برای Workshop نیز /srv/cs2-workshop را انتخاب کن.
 
 ## 7. بررسی سرویس و شروع دانلود مرکزی
 
-پس از پایان Wizard، سرویس را بررسی کن:
+پس از پایان Wizard، سرویس را بررسی کن. اگر اولین اجرای daemon دانلود را شروع کرد، درحالی‌که فضای آزاد واقعی هنوز از شرط بخش 1.1 کمتر است، سرور را Start نکن و ابتدا Storage را توسعه بده.
 
 ~~~bash
 echo "=== Enabled and active ==="
@@ -216,15 +263,26 @@ echo "=== Doctor ==="
 sudo cs2node doctor
 ~~~
 
-معیار اولیه: سرویس `enabled` و `active` باشد. ممکن است `doctor` در اولین Update هنوز نبودن Base را گزارش کند؛ تا پایان دانلود این وضعیت به معنی قبولی Base نیست.
+معیار اولیه: سرویس enabled و active باشد. در اولین اجرای daemon ممکن است Base هنوز وجود نداشته باشد؛ این وضعیت به‌تنهایی قبولی Base نیست.
 
-برای دیدن لاگ زنده:
+برای لاگ زنده:
 
 ~~~bash
 sudo journalctl -u cs2node -f
 ~~~
 
-برای خروج از لاگ زنده `Ctrl+C` بزن؛ این کار daemon را متوقف نمی‌کند. در اولین اجرای vpksync، cs2node باید SteamCMD را آماده کند و CS2 را در `/srv/cs2-shared` Update کند. سرویس را بی‌دلیل Restart نکن.
+برای خروج از لاگ زنده Ctrl+C بزن؛ این کار daemon را متوقف نمی‌کند. در اولین اجرای vpksync، cs2node باید SteamCMD را آماده کند و CS2 را در /srv/cs2-shared Update کند. سرویس را بی‌دلیل Restart نکن.
+
+**پیش از انتظار برای دانلود، دوباره ظرفیت را بررسی کن:**
+
+~~~bash
+df -hT /
+df -hT /srv
+df -ih /
+free -h
+~~~
+
+اگر /srv روی همان filesystem ریشه باشد، df -hT /srv و df -hT / فضای یکسانی نشان می‌دهند. با حدود 130 GB فضای آزاد، دانلود مجموعهٔ کامل FragCity را شروع نکن؛ ابتدا ظرفیت را افزایش بده.
 
 ### 7.1 معیار قبولی Base مرکزی
 
@@ -251,6 +309,7 @@ sudo find "$BASE/game" -type f -name '*.vpk' 2>/dev/null | wc -l
 echo
 echo "=== Free disk ==="
 df -hT /
+df -hT /srv
 
 echo
 echo "=== Doctor and status ==="
@@ -258,11 +317,11 @@ sudo cs2node doctor
 sudo cs2node status
 ~~~
 
-Base فقط وقتی آماده است که Manifest معتبر با `appid=730` و Build ID واقعی وجود داشته باشد، فایل‌های بازی/VPK در درخت نهایی حاضر باشند و `doctor/status` نبودن Base را گزارش نکند. وجود پوشهٔ خالی کافی نیست.
+Base فقط وقتی آماده است که Manifest معتبر با appid=730 و Build ID واقعی وجود داشته باشد، فایل‌های بازی/VPK در درخت نهایی حاضر باشند و doctor/status نبودن Base را گزارش نکنند. وجود پوشهٔ خالی کافی نیست.
 
 ### 7.2 اگر Base هنوز خالی است یا دانلود کامل به نظر نمی‌رسد
 
-سرور بازی را Start نکن. چیزی را حذف نکن. این بلوک فقط‌خواندنی است:
+سرور بازی را Start نکن و چیزی را حذف نکن. این بلوک فقط‌خواندنی است:
 
 ~~~bash
 BASE="/srv/cs2-shared"
@@ -295,11 +354,18 @@ done
 ~~~
 
 تفسیر:
-
-- اگر SteamCMD فعال است و `steamapps/downloading/730` حجم می‌گیرد، منتظر بمان؛ فایل‌ها هنوز لزوماً به `game/` نهایی منتقل نشده‌اند.
-- اگر پردازش فعال نیست و Manifest نهایی/Build ID معتبر وجود ندارد، علت را از Journal و لاگ‌های Steam بررسی کن.
+- اگر SteamCMD فعال است و steamapps/downloading/730 رشد می‌کند، منتظر بمان؛ فایل‌ها هنوز لزوماً به game نهایی منتقل نشده‌اند.
+- اگر پردازش فعال نیست و Manifest نهایی/Build ID معتبر وجود ندارد، Journal و لاگ‌های Steam را بررسی کن.
 - هم‌زمان با نوشتن SteamCMD، WinSCP upload انجام نده و سرویس را Restart/Stop نکن.
-- اگر لازم شد انتقال فایل را جایگزین دانلود کنی، ابتدا سرویس را متوقف کن، نبودن همهٔ پردازش‌های SteamCMD را تأیید کن و سپس طبق بخش 10 عمل کن. فایل‌های در حال دانلود را حذف نکن.
+- اگر در نصب amd64 خطای loader رخ داد، فقط وقتی Update فعال نیست و پردازش SteamCMD وجود ندارد، فرمان زیر را اجرا کن:
+
+~~~bash
+sudo /root/steamcmd/steamcmd.sh +quit
+~~~
+
+اگر موفق شد، سپس در صورت نیاز سرویس cs2node را دوباره فعال کن. اگر خطا ادامه داشت، نصب را کورکورانه تکرار نکن.
+
+اگر تصمیم گرفتی انتقال دستی انجام بدهی، ابتدا سرویس را متوقف کن، نبودن همهٔ پردازش‌های SteamCMD را تأیید کن، و سپس طبق بخش 10 عمل کن. فایل‌های در حال دانلود را پاک نکن.
 
 ## 8. اتصال Instance اول به Shared Base
 
@@ -426,15 +492,18 @@ sudo cs2node status
 
 ## 14. چک‌لیست پایان نصب
 
-- [ ] Runtimeهای i386 قبل از نصب/اولین Update آماده و SteamCMD قابل اجراست.
+- [ ] قبل از Download، فضای آزاد حداقل متناسب با برنامهٔ FragCity بررسی شده؛ برای این برنامه حدود 200 GB فضای آزاد با حاشیهٔ امن هدف است.
+- [ ] RAM VM متناسب با تست انتخاب شده؛ برای هدف دو Instance پیشنهاد شروع 8 GiB است.
+- [ ] Runtimeهای i386 قبل از اولین Update آماده و SteamCMD قابل اجراست.
 - [ ] Egg کامل K4ryuu در Panel Import شده است.
-- [ ] `cs2node` نصب، enabled و active است.
-- [ ] Manifest مرکزی `appid=730` و Build ID واقعی دارد.
-- [ ] VPKهای Base حاضرند و `cs2node doctor/status` خطای Base نمی‌دهند.
+- [ ] cs2node نصب، enabled و active است.
+- [ ] Manifest مرکزی appid=730 و Build ID واقعی دارد.
+- [ ] VPKهای Base حاضرند و doctor/status خطای Base نمی‌دهند.
 - [ ] Instance اول پیام daemon-managed/SteamCMD skipped نشان می‌دهد.
 - [ ] Instance دوم نیز موفق است و Allocation جدا دارد.
 - [ ] cfg/addons/configهای writable بین Instanceها مشترک نیستند.
 - [ ] Workshop Cache فقط با metadata معتبر و در مسیر خودش وارد شده است.
+- [ ] Retention مربوط به Workshop و Backup با فضای آزاد واقعی سازگار است.
 - [ ] تا قبل از قبولی Multi Instance، پلاگین‌های اختصاصی اضافه نشده‌اند.
 
 ## منابع رسمی K4ryuu
@@ -448,4 +517,30 @@ sudo cs2node status
 
 ## 15. ادامهٔ اجرای زنده
 
-برای نصب روی Node دیگر از همین آموزش استفاده کن و مقادیر محیطی را جایگزین کن. وضعیت فعلی یک اجرای خاص، IP/hostname آن و خروجی تشخیصی آن را در [Checkpoint عملیاتی دانلود cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md) دنبال کن؛ گزارش اجرای زنده جایگزین مراحل آموزشی این فایل نیست.
+برای ادامهٔ اجرای زنده روی همین Node، قبل از هر مرحله از checkpoint عملیاتی استفاده کن و از دوباره‌اجرای بلوک‌های نصب خودداری کن:
+[Checkpoint عملیاتی دانلود cs2node](https://github.com/larnzs/linux-node/blob/main/cs2node-download-current-checkpoint.md)
+
+منابع رسمی و نسخه‌های جاری:
+- [CS2-Egg-Go](https://github.com/K4ryuu/CS2-Egg-Go)
+- [Egg installation](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/install.md)
+- [Node daemon](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/node.md)
+- [VPK Sync](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/vpk-sync.md)
+- [Workshop](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/modules/workshop.md)
+- [Node config reference](https://github.com/K4ryuu/CS2-Egg-Go/blob/main/docs/reference/node-config.md)
+
+## 16. Backup مستقل VM پس از اثبات Multi Instance
+
+این کار را فقط پس از قبولی همهٔ معیارهای بخش 14 انجام بده. قبل از آن، کل VM هنوز به‌عنوان تصویر نهایی قابل‌بازیابی محسوب نمی‌شود.
+
+1. از Panel، همهٔ CS2 Instanceها را به‌صورت کنترل‌شده Stop کن. مطمئن شو SteamCMD/Update در حال نوشتن نیست و cs2node وضعیت پایدار دارد.
+2. از کنسول Debian، VM را با خاموش‌کردن امن سیستم خاموش کن؛ از Power Off ناگهانی در VMware استفاده نکن.
+3. در VMware Snapshot Manager، هر زنجیرهٔ Snapshot را بررسی کن. فایل‌های Snapshot descriptor را دستی پاک نکن. اگر لازم است Consolidate انجام شود، از ابزار خود VMware استفاده کن و مطمئن شو عملیات تمام شده است.
+4. از کل پوشهٔ VM کپی بگیر یا OVA خروجی بگیر. فقط فایل descriptor کوچک VMDK را کپی نکن؛ VMX و تمام دیسک‌های وابسته، از جمله هر Data VMDK اضافه، باید در Backup موجود باشند.
+5. مقصد باید فضای کافی برای کل دیسک‌ها، Shared Base، Workshop و Backupهای محلی داشته باشد. نسخهٔ کپی‌شده را از نظر اندازه و در صورت امکان SHA-256 بررسی کن.
+6. از Backup یک بوت آزمایشی در شبکهٔ ایزوله انجام بده تا IP/hostname یا سرویس‌ها با VM اصلی تداخل نداشته باشند.
+
+### محدودیت مهم Clone
+
+این VM فقط یک تصویر بازیابی از محیط فعلی است، نه یک Node مستقل آمادهٔ روشن‌شدن هم‌زمان. کپی کامل آن شامل دیتابیس و APP_KEY پنل، گواهی‌های TLS، فایل .env، config.yml و هویت Node/Wings خواهد بود. VM اصلی و Clone را هم‌زمان روی شبکهٔ تولیدی با همان hostname/IP/Node identity روشن نکن. برای تبدیل Clone به Node مستقل، ابتدا hostname/IP/DNS/TLS و Node configuration را جداگانه طراحی و بازتولید کن.
+
+فایل Backup شامل اسرار عملیاتی است؛ آن را در محل خصوصی و امن نگه دار. هرگز فایل‌های .env، APP_KEY، config.yml، Tokenها یا GSLT را در GitHub نگذار.
