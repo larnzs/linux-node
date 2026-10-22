@@ -2,6 +2,10 @@
 
 این مخزن شامل آموزش‌های قابل‌تکرار برای Debian، زیرساخت Pterodactyl، اتصال WinSCP، ساخت Clone آزمایشی VMware و راه‌اندازی CS2 با K4ryuu است. راهنماهای آموزشی باید برای کاربری با hostname، IP و دامنهٔ متفاوت هم قابل استفاده باشند؛ گزارش وضعیت یک اجرای خاص در فایل Checkpoint جدا نگهداری می‌شود.
 
+## راهنمای Git در ویندوز
+
+- **[آموزش Push کردن پروژه از ویندوز به GitHub با Git](https://github.com/larnzs/linux-node/blob/main/Windows-GitHub-Push-Project.md)** — نصب Git و GitHub CLI، ورود امن، بررسی فایل‌های حساس، تنظیم Remote، Commit و Push، به‌همراه عیب‌یابی خطای احراز هویت.
+
 ## ترتیب پیشنهادی مطالعه
 
 1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)** — برای نصب تازهٔ زیرساخت، از Debian Base تا Online شدن Node.
