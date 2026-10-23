@@ -8,7 +8,7 @@
 
 ## شبکه، NAT و فایروال MikroTik
 
-- **[عیب‌یابی Hairpin NAT و Firewall در MikroTik داخل VMware](https://github.com/larnzs/linux-node/blob/main/MikroTik-VMware-Hairpin-NAT-and-Pterodactyl-Port-Forwarding.md)** — شرح لاگ تعیین‌کنندهٔ `in:ether2 out:ether2`، تفاوت DNAT از WAN با Hairpin DNAT از LAN، دلیل Drop شدن پکت‌ها در Rule نهایی، قانون Filter اصلاح‌شده و چک‌لیست تست امن Port Forward برای Pterodactyl.
+- **[عیب‌یابی Hairpin NAT، Firewall و خطای TLS/Steam SDR در MikroTik داخل VMware](https://github.com/larnzs/linux-node/blob/main/MikroTik-VMware-Hairpin-NAT-and-Pterodactyl-Port-Forwarding.md)** — علت Drop شدن Hairpin ترافیک در Firewall و مهم‌تر از آن، DNAT بیش‌ازحد گسترده که HTTPS خروجی به Steam/Google را به Panel برمی‌گرداند؛ شامل لاگ گواهی اشتباه، محدودکردن Ruleهای LAN با `dst-address-list`، اصلاح Filter و چک‌لیست تست امن Pterodactyl.
 
 ## ترتیب پیشنهادی مطالعه
 
