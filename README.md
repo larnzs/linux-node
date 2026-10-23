@@ -10,6 +10,10 @@
 
 - **[عیب‌یابی Hairpin NAT، Firewall و خطای TLS/Steam SDR در MikroTik داخل VMware](https://github.com/larnzs/linux-node/blob/main/MikroTik-VMware-Hairpin-NAT-and-Pterodactyl-Port-Forwarding.md)** — علت Drop شدن Hairpin ترافیک در Firewall و مهم‌تر از آن، DNAT بیش‌ازحد گسترده که HTTPS خروجی به Steam/Google را به Panel برمی‌گرداند؛ شامل لاگ گواهی اشتباه، محدودکردن Ruleهای LAN با `dst-address-list`، اصلاح Filter و چک‌لیست تست امن Pterodactyl.
 
+## عیب‌یابی CS2 و CounterStrikeSharp
+
+- **[رفع خطای inotify و شکست راه‌اندازی .NET در CounterStrikeSharp](https://github.com/larnzs/linux-node/blob/main/CounterStrikeSharp-inotify-Limits-Debian-Pterodactyl.md)** — تشخیص تفاوت سقف inotify instances، watches و فایل‌دسکریپتورهای پردازش؛ افزایش موقت و دائمی `max_user_instances`، بررسی PID و لاگ سرورهای Pterodactyl، آزمون پس از Restart و عیب‌یابی در صورت باقی‌ماندن خطا.
+
 ## ترتیب پیشنهادی مطالعه
 
 1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)** — برای نصب تازهٔ زیرساخت، از Debian Base تا Online شدن Node.
