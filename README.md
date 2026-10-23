@@ -6,6 +6,10 @@
 
 - **[آموزش Push کردن پروژه از ویندوز به GitHub با Git](https://github.com/larnzs/linux-node/blob/main/Windows-GitHub-Push-Project.md)** — نصب Git و GitHub CLI، ورود امن، بررسی فایل‌های حساس، تنظیم Remote، Commit و Push، به‌همراه عیب‌یابی خطای احراز هویت.
 
+## شبکه، NAT و فایروال MikroTik
+
+- **[عیب‌یابی Hairpin NAT و Firewall در MikroTik داخل VMware](https://github.com/larnzs/linux-node/blob/main/MikroTik-VMware-Hairpin-NAT-and-Pterodactyl-Port-Forwarding.md)** — شرح لاگ تعیین‌کنندهٔ `in:ether2 out:ether2`، تفاوت DNAT از WAN با Hairpin DNAT از LAN، دلیل Drop شدن پکت‌ها در Rule نهایی، قانون Filter اصلاح‌شده و چک‌لیست تست امن Port Forward برای Pterodactyl.
+
 ## ترتیب پیشنهادی مطالعه
 
 1. **[نصب Debian 13، PHP، Composer، Docker، Firewall، Pterodactyl و Wings](https://github.com/larnzs/linux-node/blob/main/Debian-PHP-Composer-Docker-Firewall-Pterodactyl-Wings-Installation.md)** — برای نصب تازهٔ زیرساخت، از Debian Base تا Online شدن Node.
