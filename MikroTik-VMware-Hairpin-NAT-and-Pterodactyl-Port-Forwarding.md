@@ -199,7 +199,112 @@ Hairpin NAT در بعضی توپولوژی‌ها علاوه بر DNAT به یک
 
 با این حال، یک Masquerade بدون محدودکردن رابط خروجی/محدودهٔ شبکه می‌تواند گسترده‌تر از لازم باشد. پیش از محدودکردن آن، تمام جریان‌های موردنیاز را بررسی کنید و برای Hairpin و خروجی LAN قوانین مشخص و آزموده‌شده طراحی کنید. در RouterOS، تغییر NAT ممکن است به‌علت Connection Tracking روی اتصال‌های موجود فوراً اثر نگذارد؛ در زمان عیب‌یابی از پاک‌کردن کورکورانهٔ همهٔ Connectionها خودداری کنید.
 
-## 9. مودم، DMZ و PPPoE — زمینهٔ تصمیم معماری
+## 9. حادثهٔ دوم: Hairpin DNAT بیش‌ازحد گسترده، خطای TLS و خرابی Steam SDR
+
+پس از اصلاح Firewall Filter، مشکل دیگری مشاهده شد: هنگام استفاده از اینترنت از مسیری که از MikroTik می‌گذشت، Firefox برای `www.google.com` خطای `MOZILLA_PKIX_ERROR_KEY_PINNING_FAILURE` می‌داد و CS2 روی Debian خطاهای SDR/Auth نشان می‌داد. اتصال مستقیم به Wi-Fi مودم سالم بود.
+
+### 9.1 شواهدی که علت را مشخص کردند
+
+در Debian Node، نام `api.steampowered.com` به IPهای خارجی `2.19.193.x` resolve شد. اما تست زیر:
+
+```bash
+curl -v --connect-timeout 10 \
+  'https://api.steampowered.com/ISteamApps/GetSDRConfig/v1/?appid=730' \
+  -o /tmp/cs2-sdr-config.json
+```
+
+این خطا را نشان داد:
+
+```text
+Server certificate:
+subject: CN=panel.fragcity.ir
+subjectAltName does not match hostname api.steampowered.com
+curl: (60) SSL: no alternative certificate subject name matches target hostname 'api.steampowered.com'
+```
+
+این مدرک نشان داد اتصال TLS به‌جای دریافت گواهی معتبر برای Steam، به HTTPS سرویس FragCity روی Node رسیده است. این مشکل با غیرفعال‌کردن بررسی گواهی یا نصب گواهی ناشناس نباید دور زده شود.
+
+### 9.2 علت: NAT Rule فقط پورت و رابط را بررسی می‌کرد
+
+Ruleهای Hairpin موجود شرایطی شبیه این داشتند:
+
+```routeros
+chain=dstnat
+action=dst-nat
+protocol=tcp
+in-interface=ether2
+dst-port=443
+to-addresses=192.168.2.3
+to-ports=443
+```
+
+قانون پورت 80/443 و قانون UDP بازی هم روی پورت/محدودهٔ پورت Match می‌کردند و مقصد اولیهٔ عمومی را محدود نکرده بودند. چون `ether2` رابط LAN/Host-Only است، ترافیک خروجی کلاینت یا Debian نیز ابتدا از همین رابط **وارد** MikroTik می‌شود. بنابراین Ruleهایی با `in-interface=ether2` و `dst-port=443`، حتی اتصال LAN به سرور خارجی مثل `api.steampowered.com:443` را هم Match می‌کردند و مقصدش را به `192.168.2.3:443` تغییر می‌دادند.
+
+همین رفتار می‌تواند باعث شود:
+- Firefox به‌جای Google گواهی `panel.fragcity.ir` دریافت کند.
+- `curl` به Steam با TLS hostname mismatch شکست بخورد.
+- ارتباط‌های خروجی دیگر که پورتشان در Ruleهای گستردهٔ Hairpin قرار دارد، از جمله برخی UDPها، به Node برگردانده شوند و قابلیت‌هایی مانند Steam SDR از کار بیفتند.
+
+**نکتهٔ اصلی:** `in-interface=ether2` به‌تنهایی قانون را به دسترسی داخلی به سرویس عمومی خودمان محدود نمی‌کند. باید مقصد اصلی پکت هم Match شود.
+
+### 9.3 Fix تأییدشده: Address List برای IP عمومی خودمان
+
+در این محیط، IP عمومی‌ای که برای دسترسی به FragCity استفاده می‌شد از لاگ اتصال استخراج شده بود. پیش از اجرا، آدرس فعلی را از وضعیت مودم/ISP یا تست معتبر IP عمومی تأیید کنید. نمونهٔ زیر از مقدار ثبت‌شده در محیط عیب‌یابی استفاده می‌کند؛ آن را کورکورانه در شبکهٔ دیگر کپی نکنید.
+
+ابتدا از تنظیمات نسخهٔ پشتیبان بگیرید:
+
+```routeros
+/export file=before-nat-scope-fix
+```
+
+سپس Address List مخصوص مقصد عمومی خود بسازید (فقط یک بار):
+
+```routeros
+/ip firewall address-list add list=FRAGCITY_HAIRPIN_PUBLIC address=85.185.40.85 comment="Public IP used for FragCity services"
+```
+
+اگر لیست با همین نام و آدرس از قبل وجود دارد، Entry تکراری ایجاد نکنید؛ آن را با `/ip firewall address-list print detail where list=FRAGCITY_HAIRPIN_PUBLIC` بررسی کنید.
+
+اکنون در هر Rule مخصوص Hairpin، مقصد اصلی را هم به همین Address List محدود کنید. در محیط عیب‌یابی Commentها دقیقاً این‌ها بودند:
+
+```routeros
+/ip firewall nat set [find where comment="29000 > 192.168.2.3"] dst-address-list=FRAGCITY_HAIRPIN_PUBLIC
+/ip firewall nat set [find where comment="80 > 192.168.2.3"] dst-address-list=FRAGCITY_HAIRPIN_PUBLIC
+/ip firewall nat set [find where comment="443 > 192.168.2.3"] dst-address-list=FRAGCITY_HAIRPIN_PUBLIC
+/ip firewall nat set [find where comment="8080 > 192.168.2.3"] dst-address-list=FRAGCITY_HAIRPIN_PUBLIC
+/ip firewall nat set [find where comment="2022 > 192.168.2.3"] dst-address-list=FRAGCITY_HAIRPIN_PUBLIC
+```
+
+در نتیجه، Ruleهای LAN Hairpin فقط زمانی Match می‌شوند که پکت از `ether2` وارد شود **و مقصد اصلی‌اش IP عمومی ثبت‌شده برای FragCity باشد**. اتصال به IPهای واقعی Google، Steam یا دیگر مقصدهای خارجی دیگر صرفاً به‌دلیل داشتن مقصد TCP/443 یا پورت UDP داخل محدودهٔ بازی به Node ترجمه نمی‌شود.
+
+> اگر IP عمومی عوض شود، باید Entry در `FRAGCITY_HAIRPIN_PUBLIC` را با IP فعلی جایگزین کنید. در معماری مودم Router Mode + DMZ، آدرس IP خصوصی سمت WAN روتر با IP عمومی‌ای که کلاینت‌ها به آن وصل می‌شوند یکسان نیست؛ بنابراین آدرس عمومی درست را جداگانه تأیید کنید.
+
+پس از تغییر، Ruleها را بررسی کنید:
+
+```routeros
+/ip firewall nat print detail without-paging
+/ip firewall address-list print detail where list=FRAGCITY_HAIRPIN_PUBLIC
+```
+
+### 9.4 معیار تست موفق
+
+از Debian میزبان اجرا کنید:
+
+```bash
+curl -v --connect-timeout 10 \
+  'https://api.steampowered.com/ISteamApps/GetSDRConfig/v1/?appid=730' \
+  -o /tmp/cs2-sdr-config.json
+```
+
+معیار قبولی:
+- اتصال HTTPS با اعتبارسنجی عادی گواهی کامل شود (بدون `curl: (60)`).
+- گواهی دریافت‌شده برای `api.steampowered.com` معتبر باشد؛ نباید `CN=panel.fragcity.ir` یا نام سرویس FragCity را به‌عنوان پاسخ درخواست Steam ببینیم.
+- وب‌سایت‌ها از مسیر MikroTik باز شوند.
+- پس از Restart سرور CS2 برای اجرای تلاش جدید، خطاهای SDR/Auth مجدداً بررسی شوند. Fix کردن DNAT بیش‌ازحد گسترده علت TLS را برطرف کرد، اما اگر پیام `Bad cert: CA key ... is not known to us` پس از آن باقی بماند، باید به‌عنوان مسئلهٔ جداگانهٔ Steam Networking بررسی شود، نه اینکه خودکار آن را حل‌شده فرض کنیم.
+
+**به‌روزرسانی امنیتی:** گواهی TLS را غیرفعال اعتبارسنجی نکنید، `curl -k` را راه‌حل ندانید و Firewall/NAT را برای دورزدن هشدارهای مرورگر خاموش نکنید. اگر یک مقصد HTTPS گواهی متعلق به سرویس دیگری می‌دهد، ابتدا با بررسی مسیر NAT و Proxy علت را پیدا کنید.
+
+## 10. مودم، DMZ و PPPoE — زمینهٔ تصمیم معماری
 
 برای جداکردن مشکل NAT از PPPoE، مودم موقتاً در Router Mode قرار گرفت و Port Forward تا MikroTik آزمایش شد. معماری بررسی‌شده امکان نگه‌داشتن Wi-Fi مودم را بدون وابسته‌کردن آن به Windows Hotspot می‌دهد:
 
@@ -212,7 +317,7 @@ Hairpin NAT در بعضی توپولوژی‌ها علاوه بر DNAT به یک
 
 اگر بعداً PPPoE مستقیماً روی MikroTik برقرار شد، رابط ورودی اینترنت ممکن است `pppoe-out1` باشد؛ آن را با معماری Router Mode + DMZ که در این Runbook توضیح داده شد اشتباه نگیرید. در هر دو حالت، رابط واقعی ورودی باید از وضعیت رابط و Sniffer تأیید شود. تا وقتی مسیر شبکه روشن نشده، هم‌زمان DHCP Client و PPPoE Client را بدون تصمیم مشخص روی یک رابط به‌عنوان دو Default Route هم‌اولویت نگه ندارید.
 
-## 10. پورت‌های Pterodactyl و ملاحظات امنیتی
+## 11. پورت‌های Pterodactyl و ملاحظات امنیتی
 
 در نمونهٔ مشاهده‌شده، قوانین NAT برای این سرویس‌ها وجود داشتند:
 
@@ -223,11 +328,13 @@ Hairpin NAT در بعضی توپولوژی‌ها علاوه بر DNAT به یک
 
 این فهرست به معنی توصیه به بازکردن بی‌قیدوشرط همهٔ پورت‌ها نیست. پورت‌هایی را از اینترنت در دسترس قرار دهید که سرویس واقعی، کاربرد و کنترل دسترسی آن‌ها مشخص است. SSH، دیتابیس، Redis، Winbox و API مدیریتی MikroTik را صرفاً برای درست‌شدن Port Forward عمومی نکنید.
 
-## 11. چک‌لیست پذیرش نهایی
+## 12. چک‌لیست پذیرش نهایی
 
 - [ ] رابط‌ها و Interface List با `/interface list member print detail` تأیید شده‌اند.
 - [ ] Rule `FORWARD - allow dstnat` برای اتصال‌های DNAT‌شده از WAN حفظ شده است.
 - [ ] Rule `FORWARD - allow hairpin dstnat` پیش از `FORWARD - drop everything else` قرار دارد؛ محدودکردن `dst-address` به Node فقط پس از بازبینی ترافیک مجاز انجام شده است.
+- [ ] Ruleهای LAN Hairpin در زنجیرهٔ `dstnat` با `dst-address-list=FRAGCITY_HAIRPIN_PUBLIC` به مقصد عمومی FragCity محدود شده‌اند.
+- [ ] درخواست HTTPS خروجی به یک مقصد خارجی واقعی مثل Steam، گواهی همان hostname را می‌گیرد و ناخواسته به سرویس Panel هدایت نمی‌شود.
 - [ ] Rule نهایی Drop **فعال** است و Logging دائمی آن خاموش است.
 - [ ] دسترسی داخلی با دامنه/IP عمومی تست شده و Log دیگر `FWD-DROP` برای این پکت‌ها ثبت نمی‌کند.
 - [ ] دسترسی واقعی از اینترنت با یک شبکهٔ خارج از LAN (مثلاً دیتای موبایل) به‌صورت جداگانه تست شده است.
