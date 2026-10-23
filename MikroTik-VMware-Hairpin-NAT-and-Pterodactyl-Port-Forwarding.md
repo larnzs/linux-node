@@ -91,11 +91,9 @@ in-interface-list=WAN
 
 در RouterOS، Filter Rules به ترتیب از بالا به پایین ارزیابی می‌شوند؛ اولین قانونِ منطبق روی پکت تصمیم می‌گیرد و دیگر قوانین همان زنجیره بررسی نمی‌شوند. پس Rule نهایی Drop باید فعال بماند، اما ترافیک مجاز باید پیش از رسیدن به آن Rule اجازهٔ عبور بگیرد.
 
-## 5. راه‌حل تأییدشده: اجازهٔ محدود برای Hairpin DNAT از LAN
+## 5. راه‌حل تأییدشده: اجازهٔ Hairpin DNAT از LAN
 
-در کنار Rule موجود برای DNAT از WAN، یک Rule جدا اضافه شد تا اتصال DNAT‌شده‌ای را قبول کند که از LAN وارد می‌شود.
-
-### فرمان پیشنهادی با محدودکردن مقصد به Node
+در کنار Rule موجود برای DNAT از WAN، یک Rule جدا اضافه شد تا اتصال DNAT‌شده‌ای را قبول کند که از LAN وارد می‌شود. **این همان تغییر Firewall بود که دسترسی را برگرداند**؛ Rule نهایی Drop لازم نبود خاموش بماند.
 
 ابتدا مطمئن شوید Rule مشابهی از قبل وجود ندارد. سپس در RouterOS Terminal اجرا کنید:
 
@@ -106,20 +104,21 @@ in-interface-list=WAN
     connection-state=new \
     connection-nat-state=dstnat \
     in-interface-list=LAN \
-    dst-address=192.168.2.3 \
     comment="FORWARD - allow hairpin dstnat" \
     place-before=[find where comment="FORWARD - drop everything else"]
 ```
 
-اگر RouterOS/Terminal شما اجرای فرمان چندخطی را نپذیرفت، همین فرمان را یک‌خطی وارد کنید:
+اگر Terminal اجرای فرمان چندخطی را نپذیرفت، از نسخهٔ یک‌خطی استفاده کنید:
 
 ```routeros
-/ip firewall filter add chain=forward action=accept connection-state=new connection-nat-state=dstnat in-interface-list=LAN dst-address=192.168.2.3 comment="FORWARD - allow hairpin dstnat" place-before=[find where comment="FORWARD - drop everything else"]
+/ip firewall filter add chain=forward action=accept connection-state=new connection-nat-state=dstnat in-interface-list=LAN comment="FORWARD - allow hairpin dstnat" place-before=[find where comment="FORWARD - drop everything else"]
 ```
 
-**چرا `dst-address=192.168.2.3`؟** در زنجیرهٔ `forward`، مقصدِ پکت پس از اعمال DNAT، آدرس Node است. محدودکردن مقصد باعث می‌شود این Rule فقط ترافیک Hairpin DNAT‌شده‌ای را بپذیرد که به Node موردنظر هدایت شده؛ نه هر DNAT به هر مقصدی.
+این Rule از روی سه شرط تصمیم می‌گیرد: اتصال جدید باشد، Connection Tracking آن را DNAT‌شده تشخیص دهد و پکت از Interface List به نام `LAN` وارد شده باشد. این موضوع با لاگ `in:ether2 out:ether2` مطابقت داشت، چون `ether2` عضو `LAN` بود.
 
-اگر هنوز Rule را بدون محدودیت مقصد ساخته‌اید، می‌توانید آن را با این دستور محدود کنید:
+### محدودسازی اختیاری به مقصد Node
+
+برای کاهش دامنهٔ Rule می‌توان شرط مقصد را نیز به Node فعلی محدود کرد. در `forward`, آدرس مقصد پس از DNAT برابر `192.168.2.3` است. **این محدودسازی یک Hardening اضافی است؛ تغییر تأییدشدهٔ اولیه همان Rule بدون شرط مقصد بود.** پیش از انجام آن، تأیید کنید همهٔ سرویس‌هایی که این Rule باید اجازه دهد به همین IP هدایت می‌شوند؛ سپس:
 
 ```routeros
 /ip firewall filter set [find where comment="FORWARD - allow hairpin dstnat"] dst-address=192.168.2.3
@@ -228,7 +227,7 @@ Hairpin NAT در بعضی توپولوژی‌ها علاوه بر DNAT به یک
 
 - [ ] رابط‌ها و Interface List با `/interface list member print detail` تأیید شده‌اند.
 - [ ] Rule `FORWARD - allow dstnat` برای اتصال‌های DNAT‌شده از WAN حفظ شده است.
-- [ ] Rule `FORWARD - allow hairpin dstnat` پیش از `FORWARD - drop everything else` قرار دارد و به مقصد Node محدود شده است.
+- [ ] Rule `FORWARD - allow hairpin dstnat` پیش از `FORWARD - drop everything else` قرار دارد؛ محدودکردن `dst-address` به Node فقط پس از بازبینی ترافیک مجاز انجام شده است.
 - [ ] Rule نهایی Drop **فعال** است و Logging دائمی آن خاموش است.
 - [ ] دسترسی داخلی با دامنه/IP عمومی تست شده و Log دیگر `FWD-DROP` برای این پکت‌ها ثبت نمی‌کند.
 - [ ] دسترسی واقعی از اینترنت با یک شبکهٔ خارج از LAN (مثلاً دیتای موبایل) به‌صورت جداگانه تست شده است.
