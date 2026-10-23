@@ -1,8 +1,8 @@
 # MikroTik در VMware: عیب‌یابی Hairpin NAT و اصلاح Firewall برای Pterodactyl
 
-> **هدف این راهنما:** توضیح دقیق رخدادی که باعث می‌شد دسترسی به سرویس‌های Pterodactyl با فعال بودن Rule نهایی Drop قطع شود، حتی با اینکه NAT Counterها افزایش پیدا می‌کردند. راه‌حل، اضافه‌کردن یک قانون مجازکننده برای DNAT ورودی از LAN (Hairpin/NAT Loopback) است؛ نه خاموش‌گذاشتن فایروال.
+> **هدف این راهنما:** مستندسازی دو خطای مرتبط با NAT در RouterOS 7.24.4 داخل VMware: (۱) Drop شدن Hairpin DNAT در Firewall Filter؛ و (۲) گسترده‌بودن Ruleهای Hairpin، به‌طوری که HTTPS خروجی به مقصدهای خارجی مثل Steam/Google به‌جای آن‌ها به پنل FragCity هدایت می‌شد. راه‌حل‌ها به‌ترتیب، افزودن Rule مجازکنندهٔ LAN Hairpin و محدودکردن Ruleهای Hairpin به IP عمومی خودمان هستند؛ فایروال نباید برای رفع این خطاها خاموش بماند.
 >
-> این Runbook بر پایهٔ عیب‌یابی RouterOS 7.24.4 در محیط VMware نوشته شده است. IPها و رابط‌های زیر مقادیر محیط مرجع‌اند؛ در شبکهٔ دیگری ابتدا توپولوژی واقعی را بررسی کنید. آدرس‌های عمومی و MACهای حاضر در لاگ اصلی عمداً در این سند بازنشر نشده‌اند.
+> این Runbook بر پایهٔ عیب‌یابی RouterOS 7.24.4 در محیط VMware نوشته شده است. IPهای خصوصی و رابط‌های زیر مقادیر محیط مرجع‌اند؛ در شبکهٔ دیگر ابتدا توپولوژی واقعی را بررسی کنید. IP عمومی واقعی در لاگ اصلی از مستند حذف شده و در دستور نمونه با آدرس مستندی `203.0.113.10` جایگزین شده است. **این آدرس نمونه را اجرا نکنید؛ قبل از اجرا با IPv4 عمومی واقعی خودتان عوض کنید.** MACهای حاضر در لاگ اصلی نیز بازنشر نشده‌اند.
 
 ## 1. توپولوژی بررسی‌شده
 
@@ -260,7 +260,7 @@ to-ports=443
 سپس Address List مخصوص مقصد عمومی خود بسازید (فقط یک بار):
 
 ```routeros
-/ip firewall address-list add list=FRAGCITY_HAIRPIN_PUBLIC address=85.185.40.85 comment="Public IP used for FragCity services"
+/ip firewall address-list add list=FRAGCITY_HAIRPIN_PUBLIC address=203.0.113.10 comment="Public IP used for FragCity services"
 ```
 
 اگر لیست با همین نام و آدرس از قبل وجود دارد، Entry تکراری ایجاد نکنید؛ آن را با `/ip firewall address-list print detail where list=FRAGCITY_HAIRPIN_PUBLIC` بررسی کنید.
